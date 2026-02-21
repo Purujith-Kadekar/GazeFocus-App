@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* GazeFocus CSS variables — maps to tailwind config */
+    --surface: 10 10 15;
+    --surface-1: 17 17 24;
+    --surface-2: 24 24 31;
+    --surface-3: 34 34 44;
+    --surface-4: 44 44 56;
+    --accent: 110 231 183;
+    --accent-dim: 52 211 153;
+    --accent-muted: 26 61 50;
+    --warn: 251 191 36;
+    --danger: 248 113 113;
+    --text-primary: 240 240 245;
+    --text-secondary: 136 136 160;
+    --text-muted: 68 68 90;
+    --border: 42 42 56;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  body {
+    background-color: rgb(10, 10, 15);
+    color: rgb(240, 240, 245);
+    /* Prevent rubber-band scrolling on the app shell */
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  #__next,
+  main {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(44, 44, 56);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(68, 68, 90);
+  }
+
+  /* Range input styling */
+  input[type="range"] {
+    @apply h-1 appearance-none bg-surface-3 rounded-full outline-none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    @apply appearance-none w-3 h-3 rounded-full bg-accent cursor-pointer;
+    -webkit-appearance: none;
+  }
+  input[type="range"]::-moz-range-thumb {
+    @apply w-3 h-3 rounded-full bg-accent cursor-pointer border-0;
+  }
+
+  /* YouTube iframe — remove YouTube chrome as much as possible */
+  iframe[src*="youtube"] {
+    border: none;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Glass morphism card */
+  .glass {
+    @apply bg-surface-1/80 backdrop-blur-md border border-border;
+  }
+}

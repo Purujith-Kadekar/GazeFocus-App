@@ -40,10 +40,12 @@ export const useStore = create<GazeFocusStore>()(
       isAuthenticated: false,
 
       // --- Player ---
+      activeView: "player",
       currentVideo: null,
       currentPlaylistId: null,
       isPlaying: false,
       currentTimeSeconds: 0,
+      playlistRefreshTrigger: 0,
 
       // --- Gaze ---
       gazeStatus: "loading" as GazeStatus,
@@ -71,12 +73,16 @@ export const useStore = create<GazeFocusStore>()(
 
       // ─── Actions ──────────────────────────────────────────────────────────────
 
+      setActiveView: (view) => set({ activeView: view }),
+
       setCurrentVideo: (video) => {
         set({ currentVideo: video, currentTimeSeconds: 0 });
         if (video) {
           set({ milestones: buildMilestones(video.durationSeconds) });
         }
       },
+
+      triggerPlaylistRefresh: () => set((s) => ({ playlistRefreshTrigger: s.playlistRefreshTrigger + 1 })),
 
       setCurrentPlaylistId: (id) => set({ currentPlaylistId: id }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),

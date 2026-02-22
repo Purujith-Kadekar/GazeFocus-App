@@ -29,6 +29,7 @@ export async function GET() {
 
     // Paginate through all playlists
     do {
+      // First, get playlists created by the user
       const params = new URLSearchParams({
         part: "snippet,contentDetails,status",
         mine: "true",
@@ -36,8 +37,6 @@ export async function GET() {
       });
       if (pageToken) params.set("pageToken", pageToken);
 
-      // Do NOT cache this fetch, as it uses user-specific Authorization header.
-      // Caching by URL here causes one user's playlists to be shown to another, or 401s to be cached.
       const res = await fetch(`${YT_BASE}/playlists?${params}`, {
         headers: { Authorization: `Bearer ${session.accessToken}` },
         cache: "no-store",

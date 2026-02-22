@@ -7,6 +7,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { SearchPanel } from "./SearchPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { OnboardingModal } from "./OnboardingModal";
+import { useStore } from "@/stores/useStore";
 import { cn } from "@/lib/utils";
 import { PlayCircle, Search, Settings, LogOut, Eye } from "lucide-react";
 
@@ -14,7 +15,7 @@ type ActiveView = "player" | "search" | "settings";
 
 export function AppShell() {
   const { data: session } = useSession();
-  const [activeView, setActiveView] = useState<ActiveView>("player");
+  const { activeView, setActiveView } = useStore();
 
   const navItems: { id: ActiveView; icon: React.ElementType; label: string }[] = [
     { id: "player", icon: PlayCircle, label: "Player" },

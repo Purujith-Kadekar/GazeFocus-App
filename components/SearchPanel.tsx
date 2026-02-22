@@ -42,22 +42,47 @@ export function SearchPanel() {
     if (!isActive) startLeash();
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim() || isLocked) return;
-    if (!isActive) startLeash();
 
-    setSearching(true);
-    setSearchError(null);
-    try {
-      const { results } = await searchVideos(query.trim());
-      setResults(results);
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : "Search failed");
-    } finally {
-      setSearching(false);
-    }
-  };
+// ... (keep imports and component as is)
+
+// Add this new function
+async function fetchBatchDetails(results: SearchResult[]) {
+  try {
+    const ids = results.map(r => r.id).join(',');
+    const res = await fetch(`/api/youtube/videos?ids=${ids}`);
+    if (!res.ok) throw new Error('Failed to fetch details');
+    const data = await res.json();
+    return data.videos;
+  } catch (e) {
+    console.error('Details fetch error:', e);
+    return [];
+  }
+}
+
+// Update handleSearch
+const handleSearch = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!query.trim()) return;
+  if (isLocked) return;
+  if (!isActive) startLeash();
+  setSearching(true);
+  setSearchError(null);
+  try {
+    const data = await searchVideos(query);
+    const details = await fetchBatchDetails(data.results);  // New batch fetch
+    const updatedResults = data.results.map((r, i) => ({
+      ...r,
+      durationSeconds: details[i]?.durationSeconds || 0,  // Populate duration
+    }));
+    setResults(updatedResults);
+  } catch (e: unknown) {
+    setSearchError(e instanceof Error ? e.message : "Search failed");
+  } finally {
+    setSearching(false);
+  }
+};
+
+// ... (rest of component unchanged)
 
   const handleAddToPlaylist = async (video: SearchResult, playlist: YTPlaylist) => {
     try {

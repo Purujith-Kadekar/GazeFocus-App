@@ -14,6 +14,8 @@ const YT_BASE = "https://www.googleapis.com/youtube/v3";
  *
  * Uses the user's access token (not API key) to access private playlists.
  */
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const session = await auth();
 
@@ -34,9 +36,11 @@ export async function GET() {
       });
       if (pageToken) params.set("pageToken", pageToken);
 
+      // Do NOT cache this fetch, as it uses user-specific Authorization header.
+      // Caching by URL here causes one user's playlists to be shown to another, or 401s to be cached.
       const res = await fetch(`${YT_BASE}/playlists?${params}`, {
         headers: { Authorization: `Bearer ${session.accessToken}` },
-        next: { revalidate: 300 }, // Cache 5 minutes
+        cache: "no-store",
       });
 
       if (!res.ok) {

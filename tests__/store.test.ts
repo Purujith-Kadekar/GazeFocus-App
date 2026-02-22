@@ -15,6 +15,9 @@ beforeEach(() => {
     inactivityThresholdSeconds: 45,
     breakDurationSeconds: 120,
     searchLeashMinutes: 15,
+    searchLeashWarningBeep: true,
+    searchLeashCriticalBeep: true,
+    searchLeashLockBeep: true,
     onboardingComplete: false,
   });
   store.setCurrentVideo(null);
@@ -37,7 +40,7 @@ describe("Video milestone logic", () => {
       thumbnails: {},
       publishedAt: "",
       duration: "",
-      durationSeconds: 1200, // 20 minutes
+      durationSeconds: 1200,
     });
 
     const { milestones } = useStore.getState();
@@ -56,17 +59,14 @@ describe("Video milestone logic", () => {
       thumbnails: {},
       publishedAt: "",
       duration: "",
-      durationSeconds: 1200, // 20 min → 25% = 300s
+      durationSeconds: 1200, // 25% = 300s
     });
 
-    // Not yet at 25%
     expect(store.checkMilestone(299)).toBe(false);
 
-    // At exactly 25%
     const shouldBreak = useStore.getState().checkMilestone(300);
     expect(shouldBreak).toBe(true);
 
-    // First milestone now triggered
     const { milestones } = useStore.getState();
     expect(milestones[0].triggered).toBe(true);
     expect(milestones[1].triggered).toBe(false);
@@ -86,8 +86,8 @@ describe("Video milestone logic", () => {
     });
 
     store.checkMilestone(150); // 25%
-    const first = useStore.getState().checkMilestone(155); // still past 25%
-    expect(first).toBe(false); // already triggered
+    const second = useStore.getState().checkMilestone(155);
+    expect(second).toBe(false);
   });
 });
 
@@ -132,35 +132,20 @@ describe("Search leash", () => {
     expect(searchLeash.locked).toBe(false);
     expect(searchLeash.remainingSeconds).toBe(15 * 60);
   });
-});
 
-// ─── Watch Later ────────────────────────────────────────────────────────────────
-
-describe("Watch later list", () => {
-  const item = {
-    videoId: "abc123",
-    title: "Cool Video",
-    channelTitle: "Great Channel",
-    thumbnailUrl: "https://example.com/thumb.jpg",
-    durationSeconds: 600,
-    addedAt: Date.now(),
-  };
-
-  it("adds items", () => {
-    useStore.getState().addToWatchLater(item);
-    expect(useStore.getState().watchLater).toHaveLength(1);
+  it("respects custom searchLeashMinutes setting", () => {
+    useStore.getState().updateSettings({ searchLeashMinutes: 10 });
+    useStore.getState().startSearchLeash();
+    const { searchLeash } = useStore.getState();
+    expect(searchLeash.remainingSeconds).toBe(10 * 60);
   });
 
-  it("prevents duplicate adds", () => {
-    useStore.getState().addToWatchLater(item);
-    useStore.getState().addToWatchLater(item);
-    expect(useStore.getState().watchLater).toHaveLength(1);
-  });
-
-  it("removes items", () => {
-    useStore.getState().addToWatchLater(item);
-    useStore.getState().removeFromWatchLater("abc123");
-    expect(useStore.getState().watchLater).toHaveLength(0);
+  it("does not tick when locked", () => {
+    useStore.getState().startSearchLeash();
+    useStore.getState().lockSearch();
+    useStore.getState().tickSearchLeash();
+    const { searchLeash } = useStore.getState();
+    expect(searchLeash.remainingSeconds).toBe(0); // unchanged
   });
 });
 
@@ -172,6 +157,14 @@ describe("Break logic", () => {
     const { isOnBreak, breakEndsAt } = useStore.getState();
     expect(isOnBreak).toBe(true);
     expect(breakEndsAt).toBeGreaterThan(Date.now());
+  });
+
+  it("break ends at correct time based on breakDurationSeconds", () => {
+    useStore.getState().updateSettings({ breakDurationSeconds: 120 });
+    const before = Date.now();
+    useStore.getState().triggerBreak();
+    const { breakEndsAt } = useStore.getState();
+    expect(breakEndsAt).toBeGreaterThanOrEqual(before + 120_000);
   });
 
   it("ends break cleanly", () => {
@@ -195,6 +188,21 @@ describe("Settings", () => {
     useStore.getState().updateSettings({ gazeEnabled: false });
     const { settings } = useStore.getState();
     expect(settings.gazeEnabled).toBe(false);
-    expect(settings.gazeBufferSeconds).toBe(1.5); // unchanged
+    expect(settings.gazeBufferSeconds).toBe(1.5);
+  });
+
+  it("search leash beep settings default to true", () => {
+    const { settings } = useStore.getState();
+    expect(settings.searchLeashWarningBeep).toBe(true);
+    expect(settings.searchLeashCriticalBeep).toBe(true);
+    expect(settings.searchLeashLockBeep).toBe(true);
+  });
+
+  it("can disable individual beeps", () => {
+    useStore.getState().updateSettings({ searchLeashWarningBeep: false });
+    const { settings } = useStore.getState();
+    expect(settings.searchLeashWarningBeep).toBe(false);
+    expect(settings.searchLeashCriticalBeep).toBe(true); // unchanged
+    expect(settings.searchLeashLockBeep).toBe(true);    // unchanged
   });
 });

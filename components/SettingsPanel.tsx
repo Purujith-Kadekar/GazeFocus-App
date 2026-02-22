@@ -2,7 +2,7 @@
 
 import { useStore } from "@/stores/useStore";
 import { cn } from "@/lib/utils";
-import { Eye, Timer, Bell, RotateCcw } from "lucide-react";
+import { Eye, Timer, Bell, RotateCcw, Search } from "lucide-react";
 
 export function SettingsPanel() {
   const { settings, updateSettings } = useStore();
@@ -15,6 +15,9 @@ export function SettingsPanel() {
         inactivityThresholdSeconds: 45,
         breakDurationSeconds: 120,
         searchLeashMinutes: 15,
+        searchLeashWarningBeep: true,
+        searchLeashCriticalBeep: true,
+        searchLeashLockBeep: true,
       });
     }
   };
@@ -22,17 +25,14 @@ export function SettingsPanel() {
   return (
     <div className="flex flex-col h-full bg-surface overflow-y-auto">
       <div className="max-w-2xl mx-auto w-full px-6 py-8 space-y-8">
+
         {/* Header */}
         <div>
-          <h1 className="font-display text-2xl tracking-wider text-text-primary">
-            Settings
-          </h1>
-          <p className="text-text-muted text-sm mt-1">
-            Customize GazeFocus behavior. All changes save instantly.
-          </p>
+          <h1 className="font-display text-2xl tracking-wider text-text-primary">Settings</h1>
+          <p className="text-text-muted text-sm mt-1">Customize GazeFocus behavior. All changes save instantly.</p>
         </div>
 
-        {/* ─── Gaze Tracking ────────────────────────────────────────────── */}
+        {/* ─── Gaze Tracking ─────────────────────────────────────────────────── */}
         <SettingsSection icon={Eye} title="Gaze Tracking">
           <SettingsRow
             label="Enable Gaze Tracking"
@@ -50,8 +50,8 @@ export function SettingsPanel() {
             disabled={!settings.gazeEnabled}
           >
             <Slider
-              min={1}
-              max={4}
+              min={0.5}
+              max={5}
               step={0.5}
               value={settings.gazeBufferSeconds}
               onChange={(v) => updateSettings({ gazeBufferSeconds: v })}
@@ -61,11 +61,11 @@ export function SettingsPanel() {
           </SettingsRow>
         </SettingsSection>
 
-        {/* ─── Wellness Breaks ──────────────────────────────────────────── */}
+        {/* ─── Wellness Breaks ───────────────────────────────────────────────── */}
         <SettingsSection icon={Timer} title="Wellness Breaks">
           <SettingsRow
             label="Break Duration"
-            description={`How long each milestone break lasts: ${Math.floor(settings.breakDurationSeconds / 60)} min ${settings.breakDurationSeconds % 60}s`}
+            description={`How long each milestone break lasts: ${Math.floor(settings.breakDurationSeconds / 60)}m ${settings.breakDurationSeconds % 60 > 0 ? `${settings.breakDurationSeconds % 60}s` : ""}`}
           >
             <Slider
               min={60}
@@ -73,7 +73,7 @@ export function SettingsPanel() {
               step={30}
               value={settings.breakDurationSeconds}
               onChange={(v) => updateSettings({ breakDurationSeconds: v })}
-              formatLabel={(v) => `${Math.floor(v / 60)}m${v % 60 > 0 ? `${v % 60}s` : ""}`}
+              formatLabel={(v) => `${Math.floor(v / 60)}m`}
             />
           </SettingsRow>
 
@@ -83,10 +83,7 @@ export function SettingsPanel() {
           >
             <div className="flex gap-1.5">
               {[25, 50, 75, 100].map((p) => (
-                <span
-                  key={p}
-                  className="px-2 py-1 bg-accent/10 border border-accent/20 text-accent text-xs font-display rounded"
-                >
+                <span key={p} className="px-2 py-1 bg-accent/10 border border-accent/20 text-accent text-xs font-display rounded">
                   {p}%
                 </span>
               ))}
@@ -94,14 +91,14 @@ export function SettingsPanel() {
           </SettingsRow>
         </SettingsSection>
 
-        {/* ─── Inactivity ────────────────────────────────────────────────── */}
+        {/* ─── Tab Inactivity ────────────────────────────────────────────────── */}
         <SettingsSection icon={Bell} title="Tab Inactivity Alert">
           <SettingsRow
             label="Inactivity Threshold"
-            description={`Audio beep + pause after: ${settings.inactivityThresholdSeconds}s`}
+            description={`Audio beep + pause after: ${settings.inactivityThresholdSeconds}s of inactivity`}
           >
             <Slider
-              min={30}
+              min={15}
               max={120}
               step={5}
               value={settings.inactivityThresholdSeconds}
@@ -111,24 +108,54 @@ export function SettingsPanel() {
           </SettingsRow>
         </SettingsSection>
 
-        {/* ─── Search Leash ──────────────────────────────────────────────── */}
-        <SettingsSection icon={Timer} title="Search Leash">
+        {/* ─── Search Leash ──────────────────────────────────────────────────── */}
+        <SettingsSection icon={Search} title="Search Leash">
           <SettingsRow
             label="Search Time Limit"
             description={`Lock search after: ${settings.searchLeashMinutes} minutes`}
           >
             <Slider
               min={5}
-              max={30}
+              max={60}
               step={5}
               value={settings.searchLeashMinutes}
               onChange={(v) => updateSettings({ searchLeashMinutes: v })}
               formatLabel={(v) => `${v}m`}
             />
           </SettingsRow>
+
+          <SettingsRow
+            label="5-Minute Warning Beep"
+            description="Play audio beep when 5 minutes of search time remain"
+          >
+            <Toggle
+              checked={settings.searchLeashWarningBeep}
+              onChange={(v) => updateSettings({ searchLeashWarningBeep: v })}
+            />
+          </SettingsRow>
+
+          <SettingsRow
+            label="1-Minute Critical Beep"
+            description="Play louder beep when under 1 minute of search time remains"
+          >
+            <Toggle
+              checked={settings.searchLeashCriticalBeep}
+              onChange={(v) => updateSettings({ searchLeashCriticalBeep: v })}
+            />
+          </SettingsRow>
+
+          <SettingsRow
+            label="Lock Beep"
+            description="Play beep when search session locks (timer hits zero)"
+          >
+            <Toggle
+              checked={settings.searchLeashLockBeep}
+              onChange={(v) => updateSettings({ searchLeashLockBeep: v })}
+            />
+          </SettingsRow>
         </SettingsSection>
 
-        {/* ─── Reset ────────────────────────────────────────────────────── */}
+        {/* ─── Reset ─────────────────────────────────────────────────────────── */}
         <div className="pt-4 border-t border-border">
           <button
             onClick={reset}
@@ -138,6 +165,7 @@ export function SettingsPanel() {
             Reset to Defaults
           </button>
         </div>
+
       </div>
     </div>
   );
@@ -162,9 +190,7 @@ function SettingsSection({
           {title}
         </h3>
       </div>
-      <div className="space-y-4 pl-6 border-l border-border">
-        {children}
-      </div>
+      <div className="space-y-5 pl-6 border-l border-border">{children}</div>
     </div>
   );
 }
@@ -191,13 +217,7 @@ function SettingsRow({
   );
 }
 
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       role="switch"
@@ -219,13 +239,7 @@ function Toggle({
 }
 
 function Slider({
-  min,
-  max,
-  step,
-  value,
-  onChange,
-  disabled,
-  formatLabel,
+  min, max, step, value, onChange, disabled, formatLabel,
 }: {
   min: number;
   max: number;

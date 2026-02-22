@@ -15,17 +15,19 @@ const DEFAULT_SETTINGS: GazeFocusSettings = {
   inactivityThresholdSeconds: 45,
   breakDurationSeconds: 120,
   searchLeashMinutes: 15,
+  searchLeashWarningBeep: true,
+  searchLeashCriticalBeep: true,
+  searchLeashLockBeep: true,
   onboardingComplete: false,
   theme: "dark",
 };
 
-// ─── Milestone Definitions ─────────────────────────────────────────────────────
+// ─── Milestone Builder ─────────────────────────────────────────────────────────
 
 const buildMilestones = (durationSeconds: number): BreakMilestone[] =>
   [25, 50, 75, 100].map((percent) => ({
     percent,
     triggered: false,
-    // milestone fires at this second mark
     targetSeconds: Math.floor((percent / 100) * durationSeconds),
   }));
 
@@ -64,7 +66,6 @@ export const useStore = create<GazeFocusStore>()(
       isTabActive: true,
       tabInactiveAt: null,
 
-
       // --- Settings ---
       settings: DEFAULT_SETTINGS,
 
@@ -72,57 +73,39 @@ export const useStore = create<GazeFocusStore>()(
 
       setCurrentVideo: (video) => {
         set({ currentVideo: video, currentTimeSeconds: 0 });
-        // Re-build milestones for the new video
         if (video) {
           set({ milestones: buildMilestones(video.durationSeconds) });
         }
       },
 
       setCurrentPlaylistId: (id) => set({ currentPlaylistId: id }),
-
       setIsPlaying: (playing) => set({ isPlaying: playing }),
-
       setCurrentTime: (seconds) => set({ currentTimeSeconds: seconds }),
-
       setGazeStatus: (status) => set({ gazeStatus: status }),
-
       setGazeAwayStart: (ts) => set({ gazeAwayStartedAt: ts }),
 
-      // Trigger a 2-minute wellness break
       triggerBreak: () => {
         const { settings } = get();
         const endsAt = Date.now() + settings.breakDurationSeconds * 1000;
         set({ isOnBreak: true, breakEndsAt: endsAt, isPlaying: false });
       },
 
-      endBreak: () =>
-        set({ isOnBreak: false, breakEndsAt: null }),
+      endBreak: () => set({ isOnBreak: false, breakEndsAt: null }),
 
-      // Build milestones when video loads
       updateMilestones: (durationSeconds) =>
         set({ milestones: buildMilestones(durationSeconds) }),
 
-      /**
-       * Check if current playback position has crossed an un-triggered milestone.
-       * Returns true if a break should fire (and marks milestone as triggered).
-       */
       checkMilestone: (currentSeconds) => {
         const { milestones, currentVideo } = get();
         if (!currentVideo) return false;
-
         const duration = currentVideo.durationSeconds;
         if (duration <= 0) return false;
 
-        // Find first untriggered milestone whose target has been reached
         const idx = milestones.findIndex(
-          (m) =>
-            !m.triggered &&
-            currentSeconds >= (m.percent / 100) * duration
+          (m) => !m.triggered && currentSeconds >= (m.percent / 100) * duration
         );
-
         if (idx === -1) return false;
 
-        // Mark it triggered
         const updated = milestones.map((m, i) =>
           i === idx ? { ...m, triggered: true } : m
         );
@@ -145,7 +128,7 @@ export const useStore = create<GazeFocusStore>()(
       },
 
       tickSearchLeash: () => {
-        const { searchLeash } = get();
+        const { searchLeash, settings } = get();
         if (!searchLeash.active || searchLeash.locked) return;
         const newRemaining = Math.max(0, searchLeash.remainingSeconds - 1);
         set({
@@ -175,24 +158,18 @@ export const useStore = create<GazeFocusStore>()(
       },
 
       // --- Inactivity ---
-
       setTabActive: (active) => {
-        set({
-          isTabActive: active,
-          tabInactiveAt: active ? null : Date.now(),
-        });
+        set({ isTabActive: active, tabInactiveAt: active ? null : Date.now() });
       },
 
-
       // --- Settings ---
-
       updateSettings: (partial) =>
         set((s) => ({ settings: { ...s.settings, ...partial } })),
     }),
     {
       name: "gazefocus-store",
       storage: createJSONStorage(() => localStorage),
-      // Only persist these keys — don't persist transient UI state
+      // Only persist settings and current playlist — no local watch later anymore
       partialize: (state) => ({
         settings: state.settings,
         currentPlaylistId: state.currentPlaylistId,

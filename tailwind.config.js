@@ -10,7 +10,7 @@ const config = {
     extend: {
       fontFamily: {
         display: ["'DM Mono'", "monospace"],
-        body: ["'Geist'", "sans-serif"],
+        body: ["'Inter'", "sans-serif"],
       },
       colors: {
         surface: {

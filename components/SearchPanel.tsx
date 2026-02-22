@@ -12,7 +12,6 @@ import {
   Timer,
   Lock,
   Plus,
-  Clock,
   Play,
   AlertTriangle,
   Loader2,
@@ -204,9 +203,7 @@ export function SearchPanel() {
                 key={video.id}
                 video={video}
                 isAdded={addedVideoIds.has(video.id)}
-                isWatchLater={watchLaterIds.has(video.id)}
                 onAddToPlaylist={() => setShowAddModal(video)}
-                onWatchLater={() => handleWatchLater(video)}
                 onWatchNow={() => handleWatchNow(video)}
               />
             ))}
@@ -232,16 +229,12 @@ export function SearchPanel() {
 function SearchResultCard({
   video,
   isAdded,
-  isWatchLater,
   onAddToPlaylist,
-  onWatchLater,
   onWatchNow,
 }: {
   video: SearchResult;
   isAdded: boolean;
-  isWatchLater: boolean;
   onAddToPlaylist: () => void;
-  onWatchLater: () => void;
   onWatchNow: () => void;
 }) {
   const thumb = video.thumbnails.medium?.url ?? video.thumbnails.default?.url;
@@ -291,20 +284,6 @@ function SearchResultCard({
           >
             {isAdded ? <CheckCircle size={11} /> : <Plus size={11} />}
             {isAdded ? "Added" : "Add to playlist"}
-          </button>
-
-          <button
-            onClick={onWatchLater}
-            disabled={isWatchLater}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md transition-colors font-display tracking-wider",
-              isWatchLater
-                ? "bg-warn/10 text-warn cursor-default"
-                : "bg-surface-3 hover:bg-surface-4 text-text-secondary"
-            )}
-          >
-            {isWatchLater ? <CheckCircle size={11} /> : <Clock size={11} />}
-            {isWatchLater ? "Saved" : "Watch later"}
           </button>
         </div>
       </div>

@@ -5,9 +5,6 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          // credentialless allows YouTube iframes while still enabling SharedArrayBuffer
-          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
         ],
       },
     ];

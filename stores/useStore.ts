@@ -46,6 +46,9 @@ export const useStore = create<GazeFocusStore>()(
       activePlaylistVideos: [],
       isPlaying: false,
       currentTimeSeconds: 0,
+      durationSeconds: 0,
+      volume: 100,
+      isMuted: false,
       playlistRefreshTrigger: 0,
       sidebarWidth: 320,
 
@@ -91,6 +94,9 @@ export const useStore = create<GazeFocusStore>()(
       setCurrentPlaylistId: (id) => set({ currentPlaylistId: id }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
       setCurrentTime: (seconds) => set({ currentTimeSeconds: seconds }),
+      setDuration: (seconds) => set({ durationSeconds: seconds }),
+      setVolume: (volume) => set({ volume }),
+      setIsMuted: (muted) => set({ isMuted: muted }),
       setGazeStatus: (status) => set({ gazeStatus: status }),
       setGazeAwayStart: (ts) => set({ gazeAwayStartedAt: ts }),
 
@@ -186,6 +192,8 @@ export const useStore = create<GazeFocusStore>()(
         settings: state.settings,
         currentPlaylistId: state.currentPlaylistId,
         sidebarWidth: state.sidebarWidth,
+        volume: state.volume,
+        isMuted: state.isMuted,
       }),
     }
   )

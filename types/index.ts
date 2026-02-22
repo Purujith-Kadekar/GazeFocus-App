@@ -22,6 +22,7 @@ export interface YTPlaylist {
   itemCount: number;
   channelTitle: string;
   privacy: "public" | "private" | "unlisted";
+  isSpecial?: boolean; // true for Watch Later, Liked Videos
 }
 
 export interface YTVideo {
@@ -35,9 +36,9 @@ export interface YTVideo {
   };
   channelTitle: string;
   publishedAt: string;
-  duration: string;      // ISO 8601 duration e.g. "PT25M30S"
+  duration: string;
   durationSeconds: number;
-  playlistItemId?: string; // for playlist item operations
+  playlistItemId?: string;
 }
 
 export interface SearchResult extends YTVideo {
@@ -47,17 +48,17 @@ export interface SearchResult extends YTVideo {
 // --- Gaze Tracking Types ---
 
 export type GazeStatus =
-  | "active"      // looking at screen
-  | "away"        // looking away
-  | "paused"      // gaze-triggered pause
-  | "disabled"    // user disabled tracking
-  | "no-camera"   // no webcam available
-  | "loading";    // model loading
+  | "active"
+  | "away"
+  | "paused"
+  | "disabled"
+  | "no-camera"
+  | "loading";
 
 // --- Break / Milestone Types ---
 
 export interface BreakMilestone {
-  percent: number;       // 25, 50, 75, 100
+  percent: number;
   triggered: boolean;
   breakStartedAt?: number;
 }
@@ -66,21 +67,23 @@ export interface BreakMilestone {
 
 export interface SearchLeashState {
   active: boolean;
-  startedAt: number | null;   // timestamp
+  startedAt: number | null;
   remainingSeconds: number;
   locked: boolean;
 }
-
-
 
 // --- Settings Types ---
 
 export interface GazeFocusSettings {
   gazeEnabled: boolean;
-  gazeBufferSeconds: number;       // 1-4 seconds before pause
-  inactivityThresholdSeconds: number; // 30-60 seconds
-  breakDurationSeconds: number;    // default 120 (2 min)
-  searchLeashMinutes: number;      // default 15
+  gazeBufferSeconds: number;
+  inactivityThresholdSeconds: number;
+  breakDurationSeconds: number;
+  searchLeashMinutes: number;
+  // Search leash alert settings
+  searchLeashWarningBeep: boolean;       // beep at 5min warning
+  searchLeashCriticalBeep: boolean;      // beep at 1min warning
+  searchLeashLockBeep: boolean;          // beep when locked
   onboardingComplete: boolean;
   theme: "dark" | "system";
 }
@@ -113,7 +116,6 @@ export interface GazeFocusStore {
   isTabActive: boolean;
   tabInactiveAt: number | null;
 
-
   // Settings
   settings: GazeFocusSettings;
 
@@ -133,7 +135,6 @@ export interface GazeFocusStore {
   lockSearch: () => void;
   resetSearchLeash: () => void;
   setTabActive: (active: boolean) => void;
-
   updateSettings: (partial: Partial<GazeFocusSettings>) => void;
 }
 

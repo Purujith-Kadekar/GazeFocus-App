@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { Sidebar } from "./Sidebar";
 import { VideoPlayer } from "./VideoPlayer";
@@ -81,20 +80,20 @@ export function AppShell() {
           </div>
         </nav>
 
-        {/* ─── Middle: Playlist sidebar (always visible in player view) ─── */}
-        {activeView === "player" && <Sidebar />}
+        {/* ─── Middle: Playlist sidebar (always visible) ─── */}
+        <Sidebar />
 
-        {/* ─── Right: Main content area ──────────────────────────────────── */}
-        <main className="flex-1 min-w-0 h-full">
-          {activeView === "player" && (
+        {/* ─── Right: Main content area — all panels stay mounted ──── */}
+        <main className="flex-1 min-w-0 h-full relative">
+          <div className={activeView === "player" ? "h-full" : "hidden"}>
             <VideoPlayer className="h-full" />
-          )}
-          {activeView === "search" && (
+          </div>
+          <div className={activeView === "search" ? "h-full" : "hidden"}>
             <SearchPanel />
-          )}
-          {activeView === "settings" && (
+          </div>
+          <div className={activeView === "settings" ? "h-full" : "hidden"}>
             <SettingsPanel />
-          )}
+          </div>
         </main>
       </div>
     </>

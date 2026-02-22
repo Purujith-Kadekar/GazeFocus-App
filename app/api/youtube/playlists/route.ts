@@ -8,9 +8,8 @@ const YT_BASE = "https://www.googleapis.com/youtube/v3";
  * GET /api/youtube/playlists
  *
  * Fetches all playlists for the authenticated user:
- * 1. User's own created playlists (mine=true)
- * 2. Liked/saved playlists are included in the same endpoint
- *    (YouTube API returns all playlists the user has in their library)
+ * 1. User's channel related playlists (Liked Videos, Uploads)
+ * 2. User's own created playlists (mine=true)
  *
  * Uses the user's access token (not API key) to access private playlists.
  */
@@ -23,13 +22,51 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+
   try {
     const playlists: YTPlaylist[] = [];
+
+    // ── Step 1: Get channel's special playlists (Liked Videos, Uploads) ──
+    try {
+      const channelParams = new URLSearchParams({
+        part: "contentDetails",
+        mine: "true",
+      });
+      const channelRes = await fetch(`${YT_BASE}/channels?${channelParams}`, {
+        headers,
+        cache: "no-store",
+      });
+
+      if (channelRes.ok) {
+        const channelData = await channelRes.json();
+        const relatedPlaylists = channelData.items?.[0]?.contentDetails?.relatedPlaylists;
+
+        if (relatedPlaylists) {
+          // Add Liked Videos playlist
+          if (relatedPlaylists.likes) {
+            playlists.push({
+              id: relatedPlaylists.likes,
+              title: "❤️ Liked Videos",
+              description: "Videos you've liked on YouTube",
+              thumbnails: {},
+              itemCount: 0,
+              channelTitle: "",
+              privacy: "private",
+              isSpecial: true,
+            });
+          }
+        }
+      }
+    } catch {
+      // Non-critical: continue without special playlists
+      console.warn("[API/playlists] Could not fetch channel info");
+    }
+
+    // ── Step 2: Paginate through user-created playlists ──
     let pageToken: string | undefined;
 
-    // Paginate through all playlists
     do {
-      // First, get playlists created by the user
       const params = new URLSearchParams({
         part: "snippet,contentDetails,status",
         mine: "true",
@@ -38,7 +75,7 @@ export async function GET() {
       if (pageToken) params.set("pageToken", pageToken);
 
       const res = await fetch(`${YT_BASE}/playlists?${params}`, {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
+        headers,
         cache: "no-store",
       });
 
@@ -67,12 +104,7 @@ export async function GET() {
     return NextResponse.json({ playlists });
   } catch (err) {
     console.error("[API/playlists] Error details:", err);
-
-    // If the token is expired/invalid, return a clear error
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

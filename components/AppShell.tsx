@@ -18,7 +18,8 @@ export function AppShell() {
   const { activeView, setActiveView, sidebarWidth, setSidebarWidth } = useStore();
   const [isResizing, setIsResizing] = useState(false);
 
-  const startResizing = useCallback(() => {
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     setIsResizing(true);
   }, []);
 
@@ -29,11 +30,13 @@ export function AppShell() {
   const resize = useCallback(
     (e: MouseEvent) => {
       if (isResizing) {
-        // 56px is the width of the left icon nav
-        const newWidth = e.clientX - 56;
-        if (newWidth > 200 && newWidth < 600) {
-          setSidebarWidth(newWidth);
-        }
+        window.requestAnimationFrame(() => {
+          // 56px is the width of the left icon nav
+          const newWidth = e.clientX - 56;
+          if (newWidth > 200 && newWidth < 800) {
+            setSidebarWidth(newWidth);
+          }
+        });
       }
     },
     [isResizing, setSidebarWidth]
@@ -62,6 +65,15 @@ export function AppShell() {
   return (
     <>
       <OnboardingModal />
+
+      {/* Resize Overlay: prevents mouse loss over iframes while dragging */}
+      {isResizing && (
+        <div
+          className="fixed inset-0 z-[9999] cursor-col-resize select-none"
+          onMouseMove={(e) => resize(e.nativeEvent)}
+          onMouseUp={stopResizing}
+        />
+      )}
 
       <div className="flex h-screen w-screen overflow-hidden bg-surface">
         {/* ─── Left: Narrow icon nav ─────────────────────────────────────── */}

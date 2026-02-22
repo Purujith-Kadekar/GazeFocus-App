@@ -101,6 +101,9 @@ export interface GazeFocusStore {
   activePlaylistVideos: YTVideo[]; // For "Next Video" logic
   isPlaying: boolean;
   currentTimeSeconds: number;
+  durationSeconds: number;
+  volume: number;
+  isMuted: boolean;
   playlistRefreshTrigger: number;
   sidebarWidth: number;
 
@@ -131,6 +134,9 @@ export interface GazeFocusStore {
   setCurrentPlaylistId: (id: string | null) => void;
   setIsPlaying: (playing: boolean) => void;
   setCurrentTime: (seconds: number) => void;
+  setDuration: (seconds: number) => void;
+  setVolume: (volume: number) => void;
+  setIsMuted: (muted: boolean) => void;
   setGazeStatus: (status: GazeStatus) => void;
   setGazeAwayStart: (ts: number | null) => void;
   triggerBreak: () => void;

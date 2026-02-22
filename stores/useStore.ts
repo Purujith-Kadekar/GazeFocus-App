@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   GazeFocusStore,
   GazeFocusSettings,
-  WatchLaterItem,
   BreakMilestone,
   GazeStatus,
 } from "@/types";
@@ -65,8 +64,6 @@ export const useStore = create<GazeFocusStore>()(
       isTabActive: true,
       tabInactiveAt: null,
 
-      // --- Watch Later ---
-      watchLater: [],
 
       // --- Settings ---
       settings: DEFAULT_SETTINGS,
@@ -186,19 +183,6 @@ export const useStore = create<GazeFocusStore>()(
         });
       },
 
-      // --- Watch Later ---
-
-      addToWatchLater: (item) => {
-        const { watchLater } = get();
-        // Prevent duplicates
-        if (watchLater.some((w) => w.videoId === item.videoId)) return;
-        set({ watchLater: [item, ...watchLater] });
-      },
-
-      removeFromWatchLater: (videoId) =>
-        set((s) => ({
-          watchLater: s.watchLater.filter((w) => w.videoId !== videoId),
-        })),
 
       // --- Settings ---
 
@@ -210,7 +194,6 @@ export const useStore = create<GazeFocusStore>()(
       storage: createJSONStorage(() => localStorage),
       // Only persist these keys — don't persist transient UI state
       partialize: (state) => ({
-        watchLater: state.watchLater,
         settings: state.settings,
         currentPlaylistId: state.currentPlaylistId,
       }),

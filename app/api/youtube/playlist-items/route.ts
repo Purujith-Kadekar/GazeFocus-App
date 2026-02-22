@@ -11,6 +11,8 @@ const API_KEY = process.env.YOUTUBE_API_KEY!;
  *
  * Fetches videos in a playlist, enriched with duration from videos endpoint.
  */
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) {
@@ -41,6 +43,7 @@ export async function GET(req: NextRequest) {
         headers: session.accessToken
           ? { Authorization: `Bearer ${session.accessToken}` }
           : {},
+        cache: "no-store",
       }
     );
     const itemsData = await itemsRes.json();

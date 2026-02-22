@@ -134,3 +134,28 @@ export async function createPlaylist(
   const data = await res.json();
   return data.playlist;
 }
+
+/**
+ * Fetch info about any playlist by its ID (for importing external playlists)
+ */
+export async function fetchPlaylistInfo(playlistId: string): Promise<YTPlaylist> {
+  const data = await apiFetch<{ playlist: YTPlaylist }>("/api/youtube/playlist-info", { playlistId });
+  return data.playlist;
+}
+
+/**
+ * Extract a playlist ID from a YouTube URL
+ * Supports: youtube.com/playlist?list=X, youtu.be/..., etc.
+ */
+export function extractPlaylistId(input: string): string | null {
+  // Direct playlist ID (starts with PL, OL, UU, LL, etc.)
+  if (/^[A-Za-z0-9_-]{10,}$/.test(input.trim())) {
+    return input.trim();
+  }
+  try {
+    const url = new URL(input);
+    return url.searchParams.get("list");
+  } catch {
+    return null;
+  }
+}

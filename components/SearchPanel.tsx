@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 export function SearchPanel() {
-  const { searchLeash, setCurrentVideo, addToWatchLater } = useStore();
+  const { searchLeash, setCurrentVideo } = useStore();
   const { formattedTime, warningLevel, isLocked, isActive, startLeash, resetLeash } =
     useSearchLeash();
 
@@ -32,12 +32,11 @@ export function SearchPanel() {
   const [playlists, setPlaylists] = useState<YTPlaylist[]>([]);
   const [showAddModal, setShowAddModal] = useState<SearchResult | null>(null);
   const [addedVideoIds, setAddedVideoIds] = useState<Set<string>>(new Set());
-  const [watchLaterIds, setWatchLaterIds] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load playlists for "add to playlist" modal
   useEffect(() => {
-    fetchMyPlaylists().then(setPlaylists).catch(() => {});
+    fetchMyPlaylists().then(setPlaylists).catch(() => { });
   }, []);
 
   // Start leash on first search interaction
@@ -72,19 +71,6 @@ export function SearchPanel() {
     }
   };
 
-  const handleWatchLater = (video: SearchResult) => {
-    const thumbnail = video.thumbnails.medium?.url ?? video.thumbnails.default?.url ?? "";
-    addToWatchLater({
-      videoId: video.id,
-      title: video.title,
-      channelTitle: video.channelTitle,
-      thumbnailUrl: thumbnail,
-      durationSeconds: video.durationSeconds,
-      addedAt: Date.now(),
-    });
-    setWatchLaterIds((prev) => new Set([...prev, video.id]));
-  };
-
   const handleWatchNow = (video: SearchResult) => {
     setCurrentVideo({
       ...video,
@@ -114,8 +100,8 @@ export function SearchPanel() {
                 warningLevel === "critical"
                   ? "bg-danger/10 border-danger/30 text-danger"
                   : warningLevel === "warning"
-                  ? "bg-warn/10 border-warn/30 text-warn"
-                  : "bg-surface-2 border-border text-text-secondary"
+                    ? "bg-warn/10 border-warn/30 text-warn"
+                    : "bg-surface-2 border-border text-text-secondary"
               )}
               aria-label={`Search time remaining: ${formattedTime}`}
               aria-live="polite"

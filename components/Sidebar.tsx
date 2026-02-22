@@ -14,11 +14,10 @@ import {
   PlayCircle,
   Loader2,
   BookmarkCheck,
-  Clock,
 } from "lucide-react";
 
 export function Sidebar() {
-  const { currentVideo, currentPlaylistId, setCurrentVideo, setCurrentPlaylistId, watchLater } =
+  const { currentVideo, currentPlaylistId, setCurrentVideo, setCurrentPlaylistId } =
     useStore();
 
   const [playlists, setPlaylists] = useState<YTPlaylist[]>([]);
@@ -27,7 +26,6 @@ export function Sidebar() {
   const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
   const [playlistVideos, setPlaylistVideos] = useState<Record<string, YTVideo[]>>({});
   const [loadingVideos, setLoadingVideos] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"playlists" | "watchlater">("playlists");
 
   // ─── Load Playlists ──────────────────────────────────────────────────────────
 
@@ -71,54 +69,27 @@ export function Sidebar() {
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-surface-2 rounded-lg">
           <button
-            onClick={() => setActiveTab("playlists")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-display tracking-wider uppercase transition-all",
-              activeTab === "playlists"
-                ? "bg-surface-4 text-text-primary"
-                : "text-text-muted hover:text-text-secondary"
-            )}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-display tracking-wider uppercase transition-all bg-surface-4 text-text-primary"
           >
             <BookmarkCheck size={12} />
             Playlists
-          </button>
-          <button
-            onClick={() => setActiveTab("watchlater")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-display tracking-wider uppercase transition-all",
-              activeTab === "watchlater"
-                ? "bg-surface-4 text-text-primary"
-                : "text-text-muted hover:text-text-secondary"
-            )}
-          >
-            <Clock size={12} />
-            Later
-            {watchLater.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-accent/20 text-accent rounded-full text-xs tabular-nums">
-                {watchLater.length}
-              </span>
-            )}
           </button>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === "playlists" ? (
-          <PlaylistList
-            playlists={playlists}
-            loading={loading}
-            error={error}
-            expandedPlaylistId={expandedPlaylistId}
-            playlistVideos={playlistVideos}
-            loadingVideos={loadingVideos}
-            currentVideo={currentVideo}
-            onTogglePlaylist={handleTogglePlaylist}
-            onSelectVideo={(video) => setCurrentVideo(video)}
-          />
-        ) : (
-          <WatchLaterList />
-        )}
+        <PlaylistList
+          playlists={playlists}
+          loading={loading}
+          error={error}
+          expandedPlaylistId={expandedPlaylistId}
+          playlistVideos={playlistVideos}
+          loadingVideos={loadingVideos}
+          currentVideo={currentVideo}
+          onTogglePlaylist={handleTogglePlaylist}
+          onSelectVideo={(video) => setCurrentVideo(video)}
+        />
       </div>
     </aside>
   );
@@ -159,6 +130,14 @@ function PlaylistList({
     return (
       <div className="px-4 py-6 text-center">
         <p className="text-danger text-xs font-display">{error}</p>
+      </div>
+    );
+  }
+
+  if (playlists.length === 0) {
+    return (
+      <div className="px-4 py-6 text-center">
+        <p className="text-text-muted text-xs font-display">No playlists found</p>
       </div>
     );
   }
@@ -266,80 +245,6 @@ function PlaylistList({
               )}
             </div>
           )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Watch Later List ──────────────────────────────────────────────────────────
-
-function WatchLaterList() {
-  const { watchLater, removeFromWatchLater, setCurrentVideo } = useStore();
-
-  if (watchLater.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <Clock size={28} className="text-text-muted mb-3" />
-        <p className="text-text-secondary text-xs font-display">
-          No videos saved yet
-        </p>
-        <p className="text-text-muted text-xs mt-1">
-          Add videos from search to watch later
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="py-2">
-      {watchLater.map((item) => (
-        <div key={item.videoId} className="group relative flex items-center gap-3 px-4 py-2 hover:bg-surface-2 transition-colors">
-          {/* Thumbnail */}
-          <button
-            onClick={() =>
-              setCurrentVideo({
-                id: item.videoId,
-                title: item.title,
-                channelTitle: item.channelTitle,
-                description: "",
-                thumbnails: { default: { url: item.thumbnailUrl, width: 120, height: 90 } },
-                publishedAt: "",
-                duration: "",
-                durationSeconds: item.durationSeconds,
-              })
-            }
-            className="shrink-0"
-          >
-            <div className="w-14 h-8 rounded overflow-hidden bg-surface-3">
-              <Image
-                src={item.thumbnailUrl}
-                alt=""
-                width={56}
-                height={32}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </button>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <p className="text-text-primary text-xs line-clamp-2 leading-snug">
-              {item.title}
-            </p>
-            <p className="text-text-muted text-xs mt-0.5">
-              {item.channelTitle} • {formatDuration(item.durationSeconds)}
-            </p>
-          </div>
-
-          {/* Remove button */}
-          <button
-            onClick={() => removeFromWatchLater(item.videoId)}
-            className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all text-xs shrink-0"
-            aria-label="Remove from watch later"
-          >
-            ✕
-          </button>
         </div>
       ))}
     </div>

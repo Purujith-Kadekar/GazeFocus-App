@@ -71,16 +71,7 @@ export interface SearchLeashState {
   locked: boolean;
 }
 
-// --- Watch Later Types ---
 
-export interface WatchLaterItem {
-  videoId: string;
-  title: string;
-  channelTitle: string;
-  thumbnailUrl: string;
-  durationSeconds: number;
-  addedAt: number;
-}
 
 // --- Settings Types ---
 
@@ -122,8 +113,6 @@ export interface GazeFocusStore {
   isTabActive: boolean;
   tabInactiveAt: number | null;
 
-  // Watch Later
-  watchLater: WatchLaterItem[];
 
   // Settings
   settings: GazeFocusSettings;
@@ -144,8 +133,7 @@ export interface GazeFocusStore {
   lockSearch: () => void;
   resetSearchLeash: () => void;
   setTabActive: (active: boolean) => void;
-  addToWatchLater: (item: WatchLaterItem) => void;
-  removeFromWatchLater: (videoId: string) => void;
+
   updateSettings: (partial: Partial<GazeFocusSettings>) => void;
 }
 

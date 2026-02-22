@@ -183,30 +183,25 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       {/* YouTube iframe */}
       <div className="relative flex-1 bg-black">
         <YouTube
-          videoId={currentVideo.id}
-          className="w-full h-full"
-          iframeClassName="w-full h-full"
-          opts={{
-            width: "100%",
-            height: "100%",
-            playerVars: {
-              // Privacy-enhanced mode
-              autoplay: 1,
-              // Disable related videos
-              rel: 0,
-              // Hide info bar
-              showinfo: 0,
-              // Disable annotations
-              iv_load_policy: 3,
-              // No modestbranding
-              modestbranding: 1,
-              // Disable autoplay of next
-              fs: 1,
-            },
-          }}
-          onReady={onPlayerReady}
-          onStateChange={onStateChange}
-        />
+ 	 videoId={currentVideo.id}
+	  className="w-full h-full"
+	  iframeClassName="w-full h-full"
+	  opts={{
+	    width: "100%",
+	    height: "100%",
+	    playerVars: {
+	      autoplay: 1,  // Keep if you want auto-play
+	      rel: 0,       // Hide related videos (good for anti-distraction)
+	      modestbranding: 1,  // Optional: Minimal branding
+	      fs: 1,        // Allow fullscreen
+	      enablejsapi: 1,  // REQUIRED: Enables JS API for pause/resume
+	      origin: typeof window !== 'undefined' ? window.location.origin : '',  // REQUIRED: Matches your domain (localhost or 	Vercel)
+	      playsinline: 1,  // Add this: Better for mobile/inline playback
+	    },
+	  }}
+	  onReady={onPlayerReady}
+	  onStateChange={onStateChange}
+	/>
 
         {/* Break overlay */}
         {isOnBreak && (

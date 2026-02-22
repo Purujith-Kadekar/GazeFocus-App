@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Mono, Geist } from "next/font/google";
+import { DM_Mono, Inter } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -10,7 +10,7 @@ const dmMono = DM_Mono({
   variable: "--font-display",
 });
 
-const geist = Geist({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-body",
 });
@@ -30,12 +30,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        {/* Preconnect to MediaPipe CDN for faster model load */}
         <link rel="preconnect" href="https://cdn.jsdelivr.net" />
         <link rel="preconnect" href="https://storage.googleapis.com" />
       </head>
       <body
-        className={`${dmMono.variable} ${geist.variable} font-body bg-surface text-text-primary antialiased`}
+        className={`${dmMono.variable} ${inter.variable} font-body bg-surface text-text-primary antialiased`}
       >
         <SessionProvider>
           {children}
@@ -44,9 +43,9 @@ export default function RootLayout({
             position="top-right"
             toastOptions={{
               style: {
-                background: "hsl(var(--surface-2))",
-                border: "1px solid hsl(var(--border))",
-                color: "hsl(var(--text-primary))",
+                background: "#111118",
+                border: "1px solid #2a2a38",
+                color: "#f0f0f5",
                 fontFamily: "var(--font-display)",
               },
             }}

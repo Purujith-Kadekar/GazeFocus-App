@@ -7,13 +7,13 @@ const nextConfig = {
         source: "/(.*)",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
-          // Add CSP to allow YouTube embeds and scripts (fixes "refused to connect")
+          // Use credentialless instead of require-corp to allow YouTube iframes to load
+          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
           {
             key: "Content-Security-Policy",
-            value: "frame-src 'self' https://www.youtube.com https://*.youtube.com https://*.ytimg.com; script-src 'self' https://www.youtube.com https://*.youtube.com 'unsafe-inline'; connect-src 'self' https://www.youtube.com https://*.youtube.com;",
+            // Allow MediaPipe CDN and Model Storage, plus allow worker/blob for WASM
+            value: "frame-src 'self' https://www.youtube.com https://*.youtube.com https://*.ytimg.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://*.youtube.com https://cdn.jsdelivr.net; connect-src 'self' https://www.youtube.com https://*.youtube.com https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; child-src 'self' blob:;",
           },
-          // Optional: Loosen referrer for cross-origin embeds if needed
           { key: "Referrer-Policy", value: "no-referrer-when-downgrade" },
         ],
       },

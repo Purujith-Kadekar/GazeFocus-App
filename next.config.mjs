@@ -1,6 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Required for MediaPipe WASM (SharedArrayBuffer needs cross-origin isolation)
   async headers() {
     return [
@@ -12,10 +11,6 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
-  },
-  // Allow YouTube iframe embedding
-  async rewrites() {
-    return [];
   },
   images: {
     remotePatterns: [

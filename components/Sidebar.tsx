@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useStore } from "@/stores/useStore";
-import { fetchMyPlaylists, fetchPlaylistVideos, formatDuration } from "@/lib/youtube";
+import { fetchMyPlaylists, fetchPlaylistVideos, createPlaylist, formatDuration } from "@/lib/youtube";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
 import {
@@ -14,6 +14,8 @@ import {
   PlayCircle,
   Loader2,
   RefreshCw,
+  Plus,
+  X,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -25,6 +27,9 @@ export function Sidebar() {
   const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
   const [playlistVideos, setPlaylistVideos] = useState<Record<string, YTVideo[]>>({});
   const [loadingVideos, setLoadingVideos] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const loadPlaylists = async () => {
     setLoading(true);
@@ -77,6 +82,21 @@ export function Sidebar() {
     }
   };
 
+  const handleCreatePlaylist = async () => {
+    if (!newPlaylistName.trim() || creating) return;
+    setCreating(true);
+    try {
+      const newPlaylist = await createPlaylist(newPlaylistName.trim(), "private");
+      setPlaylists((prev) => [newPlaylist, ...prev]);
+      setNewPlaylistName("");
+      setShowCreateForm(false);
+    } catch {
+      alert("Failed to create playlist. Try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-72 shrink-0">
       {/* Header */}
@@ -97,6 +117,44 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* Create Playlist */}
+      <div className="px-4 py-2 border-b border-border">
+        {showCreateForm ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newPlaylistName}
+              onChange={(e) => setNewPlaylistName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreatePlaylist()}
+              placeholder="Playlist name…"
+              className="flex-1 px-2 py-1 bg-surface-2 border border-border rounded text-text-primary text-xs placeholder:text-text-muted focus:outline-none focus:border-accent/50"
+              autoFocus
+            />
+            <button
+              onClick={handleCreatePlaylist}
+              disabled={!newPlaylistName.trim() || creating}
+              className="text-accent hover:text-accent-dim disabled:opacity-40 transition-colors"
+            >
+              {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+            </button>
+            <button
+              onClick={() => { setShowCreateForm(false); setNewPlaylistName(""); }}
+              className="text-text-muted hover:text-text-secondary transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center gap-1.5 text-text-muted hover:text-accent text-xs font-display tracking-wider transition-colors"
+          >
+            <Plus size={12} />
+            Create playlist
+          </button>
+        )}
+      </div>
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
@@ -114,8 +172,11 @@ export function Sidebar() {
             </button>
           </div>
         ) : playlists.length === 0 ? (
-          <div className="px-4 py-6 text-center">
+          <div className="px-4 py-6 text-center space-y-2">
             <p className="text-text-muted text-xs font-display">No playlists found</p>
+            <p className="text-text-muted text-xs leading-relaxed">
+              Create a playlist above to get started! Videos you add will sync to your YouTube account.
+            </p>
           </div>
         ) : (
           <div className="py-2">

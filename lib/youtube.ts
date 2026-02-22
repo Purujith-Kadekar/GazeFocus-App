@@ -114,3 +114,23 @@ export async function addVideoToPlaylist(
     throw new Error(err.error || "Failed to add video to playlist");
   }
 }
+
+/**
+ * Create a new playlist on the user's YouTube channel
+ */
+export async function createPlaylist(
+  title: string,
+  privacy: "public" | "private" | "unlisted" = "private"
+): Promise<YTPlaylist> {
+  const res = await fetch("/api/youtube/create-playlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, privacy }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to create playlist");
+  }
+  const data = await res.json();
+  return data.playlist;
+}

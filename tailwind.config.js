@@ -1,6 +1,5 @@
-import type { Config } from "tailwindcss";
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+const config = {
   darkMode: ["class"],
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,13 +9,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Display font: sharp, technical
         display: ["'DM Mono'", "monospace"],
-        // Body font: clean, readable
         body: ["'Geist'", "sans-serif"],
       },
       colors: {
-        // GazeFocus dark palette
         surface: {
           DEFAULT: "#0a0a0f",
           1: "#111118",
@@ -25,7 +21,7 @@ const config: Config = {
           4: "#2c2c38",
         },
         accent: {
-          DEFAULT: "#6ee7b7", // mint green — focus/calm
+          DEFAULT: "#6ee7b7",
           dim: "#34d399",
           muted: "#1a3d32",
         },
@@ -76,4 +72,5 @@ const config: Config = {
   },
   plugins: [],
 };
-export default config;
+
+module.exports = config;

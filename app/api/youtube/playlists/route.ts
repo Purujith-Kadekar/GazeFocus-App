@@ -67,9 +67,9 @@ export async function GET() {
 
     return NextResponse.json({ playlists });
   } catch (err) {
-    console.error("[API/playlists]", err);
+    console.error("[API/playlists] Error details:", err);
     return NextResponse.json(
-      { error: "Failed to fetch playlists" },
+      { error: "Failed to fetch playlists", details: String(err) },
       { status: 500 }
     );
   }

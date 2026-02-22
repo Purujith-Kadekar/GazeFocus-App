@@ -114,9 +114,9 @@ export async function GET(req: NextRequest) {
       nextPageToken: itemsData.nextPageToken ?? null,
     });
   } catch (err) {
-    console.error("[API/playlist-items]", err);
+    console.error("[API/playlist-items] Error details:", err);
     return NextResponse.json(
-      { error: "Failed to fetch playlist items" },
+      { error: "Failed to fetch playlist items", details: String(err) },
       { status: 500 }
     );
   }

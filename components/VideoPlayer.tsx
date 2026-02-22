@@ -9,7 +9,7 @@ import { GazeIndicator } from "./GazeIndicator";
 import { BreakOverlay } from "./BreakOverlay";
 import { InactivityAlert } from "./InactivityAlert";
 import { formatDuration } from "@/lib/youtube";
-import { Eye, EyeOff, Maximize2, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Maximize2, ArrowLeft, X, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoPlayerProps {
@@ -21,6 +21,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
     currentVideo,
     activeView,
     setActiveView,
+    activePlaylistVideos,
+    setCurrentVideo,
     isPlaying,
     isOnBreak,
     settings,
@@ -149,6 +151,23 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
     }
   }, [endBreak, setIsPlaying]);
 
+  const handleNextVideo = useCallback(() => {
+    if (!currentVideo || activePlaylistVideos.length === 0) return;
+    const currentIndex = activePlaylistVideos.findIndex(v => v.id === currentVideo.id);
+    if (currentIndex !== -1 && currentIndex < activePlaylistVideos.length - 1) {
+      setCurrentVideo(activePlaylistVideos[currentIndex + 1]);
+    } else {
+      // Loop back to start or just stop? Let's loop for now if user wants.
+      // setCurrentVideo(activePlaylistVideos[0]);
+      alert("End of playlist");
+    }
+  }, [currentVideo, activePlaylistVideos, setCurrentVideo]);
+
+  const handleClosePlayer = () => {
+    setCurrentVideo(null);
+    setIsPlaying(false);
+  };
+
   if (!currentVideo) {
     return (
       <div
@@ -182,8 +201,28 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
         aria-hidden="true"
       />
 
+      {/* Top Header Bar */}
+      <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/80 to-transparent z-40 flex items-center justify-between px-4 opacity-0 hover:opacity-100 transition-opacity">
+        <button
+          onClick={() => setActiveView("settings")} // Fallback or search? User asked for back.
+          className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+          title="Back"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-display uppercase tracking-wider">Back</span>
+        </button>
+
+        <button
+          onClick={handleClosePlayer}
+          className="p-1 text-white/70 hover:text-white transition-colors"
+          title="Close video"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
       {/* YouTube iframe */}
-      <div className="relative flex-1 bg-black">
+      <div className="relative flex-1 bg-black group/player">
         <YouTube
           videoId={currentVideo.id}
           className="w-full h-full"
@@ -203,6 +242,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           }}
           onReady={onPlayerReady}
           onStateChange={onStateChange}
+          onEnd={handleNextVideo} // Auto-play next on end
         />
 
         {/* Break overlay */}
@@ -232,23 +272,13 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           !showControls && isPlaying && "opacity-0"
         )}
       >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button
-            onClick={() => setActiveView("playlist")}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-2 hover:bg-surface-3 text-text-muted hover:text-text-primary transition-colors text-xs"
-            title="Back to playlist"
-          >
-            <ArrowLeft size={14} />
-            <span>Playlist</span>
-          </button>
-          <div className="min-w-0">
-            <p className="text-text-primary text-sm font-display truncate">
-              {currentVideo.title}
-            </p>
-            <p className="text-text-secondary text-xs mt-0.5">
-              {currentVideo.channelTitle} • {formatDuration(currentVideo.durationSeconds)}
-            </p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-text-primary text-sm font-display truncate">
+            {currentVideo.title}
+          </p>
+          <p className="text-text-secondary text-xs mt-0.5">
+            {currentVideo.channelTitle} • {formatDuration(currentVideo.durationSeconds)}
+          </p>
         </div>
 
         <div className="flex items-center gap-3 ml-4">
@@ -270,6 +300,15 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
               />
             ))}
           </div>
+
+          <button
+            onClick={handleNextVideo}
+            disabled={activePlaylistVideos.length === 0}
+            className="text-text-secondary hover:text-accent transition-colors disabled:opacity-30"
+            title="Next Video"
+          >
+            <SkipForward size={18} />
+          </button>
 
           <button
             onClick={() => playerRef.current?.getIframe().requestFullscreen()}

@@ -17,16 +17,20 @@ import {
   Plus,
   X,
   Link,
+  Trash2,
 } from "lucide-react";
+import { deletePlaylist, removePlaylistItem } from "@/lib/youtube";
 
 const IMPORTED_KEY = "gazefocus-imported-playlists";
 
-interface SidebarProps {
-  onSelectPlaylist?: (playlist: YTPlaylist) => void;
-}
-
-export function Sidebar({ onSelectPlaylist }: SidebarProps) {
-  const { currentVideo, setCurrentVideo, setActiveView, setCurrentPlaylistId, playlistRefreshTrigger } = useStore();
+export function Sidebar() {
+  const {
+    currentVideo,
+    setCurrentVideo,
+    setCurrentPlaylistId,
+    playlistRefreshTrigger,
+    setActivePlaylistVideos
+  } = useStore();
 
   const [playlists, setPlaylists] = useState<YTPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,41 +99,82 @@ export function Sidebar({ onSelectPlaylist }: SidebarProps) {
     loadPlaylists();
   }, [playlistRefreshTrigger]);
 
-  const loadVideos = async (playlistId: string) => {
+  const loadFullPlaylist = async (playlistId: string) => {
     setLoadingVideos(playlistId);
     try {
-      const { videos } = await fetchPlaylistVideos(playlistId);
-      setPlaylistVideos((prev) => ({ ...prev, [playlistId]: videos }));
-    } catch {
-      // ignore
+      let allVideos: YTVideo[] = [];
+      let pageToken: string | undefined = undefined;
+
+      // Keep fetching until no more pages
+      do {
+        const result: { videos: YTVideo[]; nextPageToken?: string } = await fetchPlaylistVideos(playlistId, pageToken);
+        allVideos = [...allVideos, ...result.videos];
+        pageToken = result.nextPageToken;
+
+        // Safety cap to avoid infinite loops or memory issues for massive playlists (> 500)
+        if (allVideos.length > 500) break;
+      } while (pageToken);
+
+      setPlaylistVideos((prev) => ({ ...prev, [playlistId]: allVideos }));
+      // Update store for Next Video logic
+      setActivePlaylistVideos(allVideos);
+    } catch (e) {
+      console.error("Failed to load full playlist:", e);
     } finally {
       setLoadingVideos(null);
     }
   };
 
   const handleTogglePlaylist = (playlist: YTPlaylist) => {
+    const isExpanding = expandedPlaylistId !== playlist.id;
+    setExpandedPlaylistId(isExpanding ? playlist.id : null);
     setCurrentPlaylistId(playlist.id);
-    if (onSelectPlaylist) {
-      onSelectPlaylist(playlist);
-    } else {
-      setExpandedPlaylistId((prev) => (prev === playlist.id ? null : playlist.id));
-      if (expandedPlaylistId !== playlist.id && !playlistVideos[playlist.id]) {
-        loadVideos(playlist.id);
+
+    if (isExpanding) {
+      if (!playlistVideos[playlist.id]) {
+        loadFullPlaylist(playlist.id);
+      } else {
+        setActivePlaylistVideos(playlistVideos[playlist.id]);
       }
+    }
+  };
+
+  const handleDeletePlaylist = async (id: string, isImported: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this playlist?")) return;
+
+    try {
+      if (isImported) {
+        removeImportedId(id);
+      } else {
+        await deletePlaylist(id);
+      }
+      setPlaylists((prev) => prev.filter((p) => p.id !== id));
+      if (expandedPlaylistId === id) setExpandedPlaylistId(null);
+    } catch {
+      alert("Failed to delete playlist. It might be a system playlist.");
+    }
+  };
+
+  const handleRemoveVideo = async (playlistId: string, playlistItemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Remove this video from the playlist?")) return;
+
+    try {
+      await removePlaylistItem(playlistItemId);
+      setPlaylistVideos((prev) => {
+        const updated = (prev[playlistId] ?? []).filter(v => v.playlistItemId !== playlistItemId);
+        setActivePlaylistVideos(updated);
+        return { ...prev, [playlistId]: updated };
+      });
+    } catch {
+      alert("Failed to remove video.");
     }
   };
 
   const handleRefreshPlaylist = async (playlistId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setLoadingVideos(playlistId);
-    try {
-      const { videos } = await fetchPlaylistVideos(playlistId);
-      setPlaylistVideos((prev) => ({ ...prev, [playlistId]: videos }));
-    } catch {
-      // ignore
-    } finally {
-      setLoadingVideos(null);
-    }
+    loadFullPlaylist(playlistId);
   };
 
   const handleCreatePlaylist = async () => {
@@ -181,7 +226,7 @@ export function Sidebar({ onSelectPlaylist }: SidebarProps) {
   };
 
   return (
-    <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-72 shrink-0">
+    <aside className="flex flex-col h-full bg-surface-1 border-r border-border shrink-0 select-none">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
         <div>
@@ -333,12 +378,26 @@ export function Sidebar({ onSelectPlaylist }: SidebarProps) {
                     <p className="text-text-primary text-xs font-display truncate leading-tight">
                       {playlist.title}
                     </p>
-                    <p className="text-text-muted text-xs mt-0.5">
+                    <p className="text-text-muted text-xs mt-0.5 truncate">
                       {playlist.itemCount} videos
                     </p>
                   </div>
 
-                  <ChevronRight size={14} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  {!playlist.isSpecial && (
+                    <button
+                      onClick={(e) => handleDeletePlaylist(playlist.id, getImportedIds().includes(playlist.id), e)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-danger translation-all rounded-md hover:bg-surface-3 mr-1"
+                      title="Delete playlist"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+
+                  {expandedPlaylistId === playlist.id ? (
+                    <ChevronDown size={14} className="text-text-muted shrink-0" />
+                  ) : (
+                    <ChevronRight size={14} className="text-text-muted shrink-0" />
+                  )}
                 </button>
 
                 {/* Video list */}
@@ -365,40 +424,52 @@ export function Sidebar({ onSelectPlaylist }: SidebarProps) {
                       </p>
                     ) : (
                       (playlistVideos[playlist.id] ?? []).map((video) => (
-                        <button
-                          key={video.id}
-                          onClick={() => setCurrentVideo(video)}
-                          className={cn(
-                            "w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-surface-2 transition-colors",
-                            currentVideo?.id === video.id &&
-                            "bg-accent/5 border-l-2 border-accent"
+                        <div className="relative group/video">
+                          <button
+                            key={video.id}
+                            onClick={() => setCurrentVideo(video)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-surface-2 transition-colors",
+                              currentVideo?.id === video.id &&
+                              "bg-accent/5 border-l-2 border-accent"
+                            )}
+                          >
+                            <div className="relative w-14 h-8 rounded overflow-hidden bg-surface-3 shrink-0">
+                              {video.thumbnails.default?.url && (
+                                <Image
+                                  src={video.thumbnails.default.url}
+                                  alt=""
+                                  width={56}
+                                  height={32}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                              {currentVideo?.id === video.id && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                  <PlayCircle size={14} className="text-accent" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-text-primary text-xs leading-snug line-clamp-2">
+                                {video.title}
+                              </p>
+                              <p className="text-text-muted text-xs mt-0.5">
+                                {formatDuration(video.durationSeconds)}
+                              </p>
+                            </div>
+                          </button>
+
+                          {video.playlistItemId && !playlist.isSpecial && (
+                            <button
+                              onClick={(e) => handleRemoveVideo(playlist.id, video.playlistItemId!, e)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/video:opacity-100 p-1 text-text-muted hover:text-danger rounded hover:bg-surface-3 transition-opacity"
+                              title="Remove from playlist"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           )}
-                        >
-                          <div className="relative w-14 h-8 rounded overflow-hidden bg-surface-3 shrink-0">
-                            {video.thumbnails.default?.url && (
-                              <Image
-                                src={video.thumbnails.default.url}
-                                alt=""
-                                width={56}
-                                height={32}
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                            {currentVideo?.id === video.id && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                                <PlayCircle size={14} className="text-accent" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-text-primary text-xs leading-snug line-clamp-2">
-                              {video.title}
-                            </p>
-                            <p className="text-text-muted text-xs mt-0.5">
-                              {formatDuration(video.durationSeconds)}
-                            </p>
-                          </div>
-                        </button>
+                        </div>
                       ))
                     )}
                   </div>

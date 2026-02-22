@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useStore } from "@/stores/useStore";
-import { fetchMyPlaylists, fetchPlaylistVideos, createPlaylist, formatDuration } from "@/lib/youtube";
+import { fetchMyPlaylists, fetchPlaylistVideos, createPlaylist, fetchPlaylistInfo, extractPlaylistId, formatDuration } from "@/lib/youtube";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
 import {
@@ -16,7 +16,10 @@ import {
   RefreshCw,
   Plus,
   X,
+  Link,
 } from "lucide-react";
+
+const IMPORTED_KEY = "gazefocus-imported-playlists";
 
 export function Sidebar() {
   const { currentVideo, setCurrentVideo, setCurrentPlaylistId, playlistRefreshTrigger } = useStore();
@@ -30,13 +33,53 @@ export function Sidebar() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showImportForm, setShowImportForm] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  // Load saved imported playlist IDs from localStorage
+  const getImportedIds = (): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem(IMPORTED_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const saveImportedId = (id: string) => {
+    const ids = getImportedIds();
+    if (!ids.includes(id)) {
+      ids.push(id);
+      localStorage.setItem(IMPORTED_KEY, JSON.stringify(ids));
+    }
+  };
+
+  const removeImportedId = (id: string) => {
+    const ids = getImportedIds().filter((i) => i !== id);
+    localStorage.setItem(IMPORTED_KEY, JSON.stringify(ids));
+  };
 
   const loadPlaylists = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchMyPlaylists();
-      setPlaylists(data);
+      // Fetch user's own playlists from YouTube
+      const ownPlaylists = await fetchMyPlaylists();
+
+      // Fetch imported external playlists
+      const importedIds = getImportedIds();
+      const importedPlaylists: YTPlaylist[] = [];
+      for (const id of importedIds) {
+        try {
+          const pl = await fetchPlaylistInfo(id);
+          importedPlaylists.push(pl);
+        } catch {
+          // Skip invalid/deleted playlists
+        }
+      }
+
+      setPlaylists([...ownPlaylists, ...importedPlaylists]);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load playlists");
     } finally {
@@ -97,6 +140,39 @@ export function Sidebar() {
     }
   };
 
+  const handleImportPlaylist = async () => {
+    if (!importUrl.trim() || importing) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const playlistId = extractPlaylistId(importUrl.trim());
+      if (!playlistId) {
+        setImportError("Invalid URL. Paste a YouTube playlist URL.");
+        return;
+      }
+      // Check if already exists
+      if (playlists.some((p) => p.id === playlistId)) {
+        setImportError("Playlist already added.");
+        return;
+      }
+      const pl = await fetchPlaylistInfo(playlistId);
+      saveImportedId(playlistId);
+      setPlaylists((prev) => [...prev, pl]);
+      setImportUrl("");
+      setShowImportForm(false);
+    } catch {
+      setImportError("Could not find playlist. Check the URL.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleRemoveImported = (playlistId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeImportedId(playlistId);
+    setPlaylists((prev) => prev.filter((p) => p.id !== playlistId));
+  };
+
   return (
     <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-72 shrink-0">
       {/* Header */}
@@ -151,6 +227,49 @@ export function Sidebar() {
           >
             <Plus size={12} />
             Create playlist
+          </button>
+        )}
+      </div>
+
+      {/* Import Playlist by URL */}
+      <div className="px-4 py-2 border-b border-border">
+        {showImportForm ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={importUrl}
+                onChange={(e) => { setImportUrl(e.target.value); setImportError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handleImportPlaylist()}
+                placeholder="Paste YouTube playlist URL…"
+                className="flex-1 px-2 py-1 bg-surface-2 border border-border rounded text-text-primary text-xs placeholder:text-text-muted focus:outline-none focus:border-accent/50"
+                autoFocus
+              />
+              <button
+                onClick={handleImportPlaylist}
+                disabled={!importUrl.trim() || importing}
+                className="text-accent hover:text-accent-dim disabled:opacity-40 transition-colors"
+              >
+                {importing ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+              </button>
+              <button
+                onClick={() => { setShowImportForm(false); setImportUrl(""); setImportError(null); }}
+                className="text-text-muted hover:text-text-secondary transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {importError && (
+              <p className="text-danger text-xs">{importError}</p>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowImportForm(true)}
+            className="flex items-center gap-1.5 text-text-muted hover:text-accent text-xs font-display tracking-wider transition-colors"
+          >
+            <Link size={12} />
+            Import playlist by URL
           </button>
         )}
       </div>

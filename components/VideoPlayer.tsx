@@ -9,7 +9,7 @@ import { GazeIndicator } from "./GazeIndicator";
 import { BreakOverlay } from "./BreakOverlay";
 import { InactivityAlert } from "./InactivityAlert";
 import { formatDuration } from "@/lib/youtube";
-import { Eye, EyeOff, Maximize2 } from "lucide-react";
+import { Eye, EyeOff, Maximize2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoPlayerProps {
@@ -19,6 +19,8 @@ interface VideoPlayerProps {
 export function VideoPlayer({ className }: VideoPlayerProps) {
   const {
     currentVideo,
+    activeView,
+    setActiveView,
     isPlaying,
     isOnBreak,
     settings,
@@ -230,13 +232,23 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           !showControls && isPlaying && "opacity-0"
         )}
       >
-        <div className="flex-1 min-w-0">
-          <p className="text-text-primary text-sm font-display truncate">
-            {currentVideo.title}
-          </p>
-          <p className="text-text-secondary text-xs mt-0.5">
-            {currentVideo.channelTitle} • {formatDuration(currentVideo.durationSeconds)}
-          </p>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            onClick={() => setActiveView("playlist")}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-2 hover:bg-surface-3 text-text-muted hover:text-text-primary transition-colors text-xs"
+            title="Back to playlist"
+          >
+            <ArrowLeft size={14} />
+            <span>Playlist</span>
+          </button>
+          <div className="min-w-0">
+            <p className="text-text-primary text-sm font-display truncate">
+              {currentVideo.title}
+            </p>
+            <p className="text-text-secondary text-xs mt-0.5">
+              {currentVideo.channelTitle} • {formatDuration(currentVideo.durationSeconds)}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 ml-4">

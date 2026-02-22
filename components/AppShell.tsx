@@ -1,22 +1,31 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
+import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { VideoPlayer } from "./VideoPlayer";
 import { SearchPanel } from "./SearchPanel";
 import { SettingsPanel } from "./SettingsPanel";
+import { PlaylistDetail } from "./PlaylistDetail";
 import { OnboardingModal } from "./OnboardingModal";
 import { useStore } from "@/stores/useStore";
 import { cn } from "@/lib/utils";
 import { PlayCircle, Search, Settings, LogOut, Eye } from "lucide-react";
+import type { YTPlaylist } from "@/types";
 
-type ActiveView = "player" | "search" | "settings";
+type NavView = "player" | "search" | "settings";
 
 export function AppShell() {
   const { data: session } = useSession();
   const { activeView, setActiveView } = useStore();
+  const [selectedPlaylist, setSelectedPlaylist] = useState<YTPlaylist | null>(null);
 
-  const navItems: { id: ActiveView; icon: React.ElementType; label: string }[] = [
+  const handleOpenPlaylist = (playlist: YTPlaylist) => {
+    setSelectedPlaylist(playlist);
+    setActiveView("playlist");
+  };
+
+  const navItems: { id: NavView; icon: React.ElementType; label: string }[] = [
     { id: "player", icon: PlayCircle, label: "Player" },
     { id: "search", icon: Search, label: "Search" },
     { id: "settings", icon: Settings, label: "Settings" },
@@ -48,7 +57,7 @@ export function AppShell() {
                   title={item.label}
                   className={cn(
                     "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
-                    activeView === item.id
+                    (activeView === item.id || (item.id === "player" && activeView === "playlist"))
                       ? "bg-accent/15 text-accent border border-accent/20"
                       : "text-text-muted hover:text-text-secondary hover:bg-surface-2"
                   )}
@@ -81,7 +90,7 @@ export function AppShell() {
         </nav>
 
         {/* ─── Middle: Playlist sidebar (always visible) ─── */}
-        <Sidebar />
+        <Sidebar onSelectPlaylist={handleOpenPlaylist} />
 
         {/* ─── Right: Main content area — all panels stay mounted ──── */}
         <main className="flex-1 min-w-0 h-full relative">
@@ -94,6 +103,11 @@ export function AppShell() {
           <div className={activeView === "settings" ? "h-full" : "hidden"}>
             <SettingsPanel />
           </div>
+          {activeView === "playlist" && selectedPlaylist && (
+            <div className="h-full">
+              <PlaylistDetail playlist={selectedPlaylist} />
+            </div>
+          )}
         </main>
       </div>
     </>

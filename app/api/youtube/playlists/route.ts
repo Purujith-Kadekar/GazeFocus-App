@@ -67,8 +67,11 @@ export async function GET() {
     return NextResponse.json({ playlists });
   } catch (err) {
     console.error("[API/playlists] Error details:", err);
+
+    // If the token is expired/invalid, return a clear error
+    const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch playlists", details: String(err) },
+      { error: message },
       { status: 500 }
     );
   }

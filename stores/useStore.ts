@@ -43,9 +43,11 @@ export const useStore = create<GazeFocusStore>()(
       activeView: "player",
       currentVideo: null,
       currentPlaylistId: null,
+      activePlaylistVideos: [],
       isPlaying: false,
       currentTimeSeconds: 0,
       playlistRefreshTrigger: 0,
+      sidebarWidth: 320,
 
       // --- Gaze ---
       gazeStatus: "loading" as GazeStatus,
@@ -81,6 +83,8 @@ export const useStore = create<GazeFocusStore>()(
           set({ milestones: buildMilestones(video.durationSeconds) });
         }
       },
+
+      setActivePlaylistVideos: (videos) => set({ activePlaylistVideos: videos }),
 
       triggerPlaylistRefresh: () => set((s) => ({ playlistRefreshTrigger: s.playlistRefreshTrigger + 1 })),
 
@@ -169,6 +173,8 @@ export const useStore = create<GazeFocusStore>()(
       },
 
       // --- Settings ---
+      setSidebarWidth: (width) => set({ sidebarWidth: width }),
+
       updateSettings: (partial) =>
         set((s) => ({ settings: { ...s.settings, ...partial } })),
     }),
@@ -179,6 +185,7 @@ export const useStore = create<GazeFocusStore>()(
       partialize: (state) => ({
         settings: state.settings,
         currentPlaylistId: state.currentPlaylistId,
+        sidebarWidth: state.sidebarWidth,
       }),
     }
   )

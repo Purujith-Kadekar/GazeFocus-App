@@ -144,6 +144,32 @@ export async function fetchPlaylistInfo(playlistId: string): Promise<YTPlaylist>
 }
 
 /**
+ * Remove a video from a playlist
+ */
+export async function removePlaylistItem(playlistItemId: string): Promise<void> {
+  const res = await fetch(`/api/youtube/remove-playlist-item?playlistItemId=${playlistItemId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to remove item");
+  }
+}
+
+/**
+ * Delete an entire playlist
+ */
+export async function deletePlaylist(playlistId: string): Promise<void> {
+  const res = await fetch(`/api/youtube/delete-playlist?playlistId=${playlistId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to delete playlist");
+  }
+}
+
+/**
  * Extract a playlist ID from a YouTube URL
  * Supports: youtube.com/playlist?list=X, youtu.be/..., etc.
  */

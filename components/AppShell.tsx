@@ -1,29 +1,57 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { VideoPlayer } from "./VideoPlayer";
 import { SearchPanel } from "./SearchPanel";
 import { SettingsPanel } from "./SettingsPanel";
-import { PlaylistDetail } from "./PlaylistDetail";
 import { OnboardingModal } from "./OnboardingModal";
 import { useStore } from "@/stores/useStore";
 import { cn } from "@/lib/utils";
 import { PlayCircle, Search, Settings, LogOut, Eye } from "lucide-react";
-import type { YTPlaylist } from "@/types";
 
 type NavView = "player" | "search" | "settings";
 
 export function AppShell() {
   const { data: session } = useSession();
-  const { activeView, setActiveView } = useStore();
-  const [selectedPlaylist, setSelectedPlaylist] = useState<YTPlaylist | null>(null);
+  const { activeView, setActiveView, sidebarWidth, setSidebarWidth } = useStore();
+  const [isResizing, setIsResizing] = useState(false);
 
-  const handleOpenPlaylist = (playlist: YTPlaylist) => {
-    setSelectedPlaylist(playlist);
-    setActiveView("playlist");
-  };
+  const startResizing = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (e: MouseEvent) => {
+      if (isResizing) {
+        // 56px is the width of the left icon nav
+        const newWidth = e.clientX - 56;
+        if (newWidth > 200 && newWidth < 600) {
+          setSidebarWidth(newWidth);
+        }
+      }
+    },
+    [isResizing, setSidebarWidth]
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+    } else {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    }
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
 
   const navItems: { id: NavView; icon: React.ElementType; label: string }[] = [
     { id: "player", icon: PlayCircle, label: "Player" },
@@ -57,7 +85,7 @@ export function AppShell() {
                   title={item.label}
                   className={cn(
                     "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
-                    (activeView === item.id || (item.id === "player" && activeView === "playlist"))
+                    activeView === item.id
                       ? "bg-accent/15 text-accent border border-accent/20"
                       : "text-text-muted hover:text-text-secondary hover:bg-surface-2"
                   )}
@@ -90,7 +118,19 @@ export function AppShell() {
         </nav>
 
         {/* ─── Middle: Playlist sidebar (always visible) ─── */}
-        <Sidebar onSelectPlaylist={handleOpenPlaylist} />
+        <div style={{ width: sidebarWidth }} className="relative flex h-full">
+          <Sidebar />
+          {/* Resize Handle */}
+          <div
+            onMouseDown={startResizing}
+            className={cn(
+              "absolute top-0 right-0 w-1 h-full cursor-col-resize z-50 group hover:bg-accent/30 transition-colors",
+              isResizing && "bg-accent/50"
+            )}
+          >
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-12 bg-border group-hover:bg-accent rounded-full transition-colors opacity-40 group-hover:opacity-100" />
+          </div>
+        </div>
 
         {/* ─── Right: Main content area — all panels stay mounted ──── */}
         <main className="flex-1 min-w-0 h-full relative">
@@ -103,11 +143,6 @@ export function AppShell() {
           <div className={activeView === "settings" ? "h-full" : "hidden"}>
             <SettingsPanel />
           </div>
-          {activeView === "playlist" && selectedPlaylist && (
-            <div className="h-full">
-              <PlaylistDetail playlist={selectedPlaylist} />
-            </div>
-          )}
         </main>
       </div>
     </>

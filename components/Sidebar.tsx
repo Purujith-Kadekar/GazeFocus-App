@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 export function Sidebar() {
-  const { currentVideo, setCurrentVideo, setCurrentPlaylistId } = useStore();
+  const { currentVideo, setCurrentVideo, setCurrentPlaylistId, playlistRefreshTrigger } = useStore();
 
   const [playlists, setPlaylists] = useState<YTPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ export function Sidebar() {
 
   useEffect(() => {
     loadPlaylists();
-  }, []);
+  }, [playlistRefreshTrigger]);
 
   const handleTogglePlaylist = async (playlist: YTPlaylist) => {
     if (expandedPlaylistId === playlist.id) {
@@ -198,7 +198,7 @@ export function Sidebar() {
                           className={cn(
                             "w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-surface-2 transition-colors",
                             currentVideo?.id === video.id &&
-                              "bg-accent/5 border-l-2 border-accent"
+                            "bg-accent/5 border-l-2 border-accent"
                           )}
                         >
                           <div className="relative w-14 h-8 rounded overflow-hidden bg-surface-3 shrink-0">

@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 export function SearchPanel() {
-  const { setCurrentVideo } = useStore();
+  const { setCurrentVideo, setActiveView, triggerPlaylistRefresh } = useStore();
   const { formattedTime, warningLevel, isLocked, isActive, startLeash, resetLeash } =
     useSearchLeash();
 
@@ -35,7 +35,7 @@ export function SearchPanel() {
 
   // Load YouTube playlists for "add to playlist" modal
   useEffect(() => {
-    fetchMyPlaylists().then(setPlaylists).catch(() => {});
+    fetchMyPlaylists().then(setPlaylists).catch(() => { });
   }, []);
 
   const handleFocus = () => {
@@ -63,6 +63,7 @@ export function SearchPanel() {
     try {
       await addVideoToPlaylist(video.id, playlist.id);
       setAddedMap((prev) => ({ ...prev, [video.id]: playlist.title }));
+      triggerPlaylistRefresh();
       setShowAddModal(null);
     } catch {
       alert("Failed to add to playlist. Try again.");
@@ -71,6 +72,7 @@ export function SearchPanel() {
 
   const handleWatchNow = (video: SearchResult) => {
     setCurrentVideo({ ...video, playlistItemId: undefined });
+    setActiveView("player");
   };
 
   return (
@@ -95,8 +97,8 @@ export function SearchPanel() {
                 warningLevel === "critical"
                   ? "bg-danger/10 border-danger/30 text-danger animate-pulse"
                   : warningLevel === "warning"
-                  ? "bg-warn/10 border-warn/30 text-warn"
-                  : "bg-surface-2 border-border text-text-secondary"
+                    ? "bg-warn/10 border-warn/30 text-warn"
+                    : "bg-surface-2 border-border text-text-secondary"
               )}
               aria-live="polite"
             >

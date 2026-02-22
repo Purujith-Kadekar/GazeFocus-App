@@ -21,8 +21,12 @@ import {
 
 const IMPORTED_KEY = "gazefocus-imported-playlists";
 
-export function Sidebar() {
-  const { currentVideo, setCurrentVideo, setCurrentPlaylistId, playlistRefreshTrigger } = useStore();
+interface SidebarProps {
+  onSelectPlaylist?: (playlist: YTPlaylist) => void;
+}
+
+export function Sidebar({ onSelectPlaylist }: SidebarProps) {
+  const { currentVideo, setCurrentVideo, setActiveView, setCurrentPlaylistId, playlistRefreshTrigger } = useStore();
 
   const [playlists, setPlaylists] = useState<YTPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,23 +95,26 @@ export function Sidebar() {
     loadPlaylists();
   }, [playlistRefreshTrigger]);
 
-  const handleTogglePlaylist = async (playlist: YTPlaylist) => {
-    if (expandedPlaylistId === playlist.id) {
-      setExpandedPlaylistId(null);
-      return;
+  const loadVideos = async (playlistId: string) => {
+    setLoadingVideos(playlistId);
+    try {
+      const { videos } = await fetchPlaylistVideos(playlistId);
+      setPlaylistVideos((prev) => ({ ...prev, [playlistId]: videos }));
+    } catch {
+      // ignore
+    } finally {
+      setLoadingVideos(null);
     }
-    setExpandedPlaylistId(playlist.id);
-    setCurrentPlaylistId(playlist.id);
+  };
 
-    if (!playlistVideos[playlist.id]) {
-      setLoadingVideos(playlist.id);
-      try {
-        const { videos } = await fetchPlaylistVideos(playlist.id);
-        setPlaylistVideos((prev) => ({ ...prev, [playlist.id]: videos }));
-      } catch {
-        // ignore
-      } finally {
-        setLoadingVideos(null);
+  const handleTogglePlaylist = (playlist: YTPlaylist) => {
+    setCurrentPlaylistId(playlist.id);
+    if (onSelectPlaylist) {
+      onSelectPlaylist(playlist);
+    } else {
+      setExpandedPlaylistId((prev) => (prev === playlist.id ? null : playlist.id));
+      if (expandedPlaylistId !== playlist.id && !playlistVideos[playlist.id]) {
+        loadVideos(playlist.id);
       }
     }
   };
@@ -305,8 +312,7 @@ export function Sidebar() {
                 <button
                   onClick={() => handleTogglePlaylist(playlist)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 transition-colors group",
-                    expandedPlaylistId === playlist.id && "bg-surface-2"
+                    "w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 transition-colors group"
                   )}
                 >
                   {/* Thumbnail */}
@@ -327,25 +333,12 @@ export function Sidebar() {
                     <p className="text-text-primary text-xs font-display truncate leading-tight">
                       {playlist.title}
                     </p>
-                    <p className="text-text-muted text-xs mt-0.5 flex items-center gap-1">
-                      {playlist.itemCount} videos •{" "}
-                      {playlist.privacy === "private" ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          <Lock size={9} /> private
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5">
-                          <Globe size={9} /> public
-                        </span>
-                      )}
+                    <p className="text-text-muted text-xs mt-0.5">
+                      {playlist.itemCount} videos
                     </p>
                   </div>
 
-                  {expandedPlaylistId === playlist.id ? (
-                    <ChevronDown size={14} className="text-text-muted shrink-0" />
-                  ) : (
-                    <ChevronRight size={14} className="text-text-muted shrink-0" />
-                  )}
+                  <ChevronRight size={14} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </button>
 
                 {/* Video list */}

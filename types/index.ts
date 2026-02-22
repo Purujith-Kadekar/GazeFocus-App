@@ -95,7 +95,7 @@ export interface GazeFocusStore {
   isAuthenticated: boolean;
 
   // Current player state
-  activeView: "player" | "search" | "settings";
+  activeView: "player" | "search" | "settings" | "playlist";
   currentVideo: YTVideo | null;
   currentPlaylistId: string | null;
   isPlaying: boolean;
@@ -122,7 +122,7 @@ export interface GazeFocusStore {
   settings: GazeFocusSettings;
 
   // Actions
-  setActiveView: (view: "player" | "search" | "settings") => void;
+  setActiveView: (view: "player" | "search" | "settings" | "playlist") => void;
   setCurrentVideo: (video: YTVideo | null) => void;
   triggerPlaylistRefresh: () => void;
   setCurrentPlaylistId: (id: string | null) => void;

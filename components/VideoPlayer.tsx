@@ -49,6 +49,9 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playbackRate, setPlaybackRateState] = useState(1);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [availableQualities, setAvailableQualities] = useState<string[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<string>("auto");
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
 
   // ─── Gaze Callbacks ────────────────────────────────────────────────────────
 
@@ -104,6 +107,11 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       const duration = event.target.getDuration();
       setDuration(duration);
       event.target.setVolume(isMuted ? 0 : volume);
+
+      // Quality
+      setAvailableQualities(event.target.getAvailableQualityLevels());
+      setCurrentQuality(event.target.getPlaybackQuality());
+
       if (currentVideo) {
         updateMilestones(duration || currentVideo.durationSeconds);
       }
@@ -227,13 +235,22 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
     }
   };
 
+  const handleQualityChange = (quality: string) => {
+    setCurrentQuality(quality);
+    if (playerRef.current) {
+      playerRef.current.setPlaybackQuality(quality);
+    }
+    setShowQualityMenu(false);
+  };
+
   const toggleCaptions = () => {
     if (!playerRef.current) return;
     const next = !captionsEnabled;
     setCaptionsEnabled(next);
-    // YouTube IFrame API doesn't have a simple toggleCaptions but we can try these:
+
     if (next) {
       playerRef.current.loadModule("captions");
+      playerRef.current.setOption("captions", "track", { languageCode: "en" });
     } else {
       playerRef.current.unloadModule("captions");
     }
@@ -436,6 +453,40 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
                   <span className="text-[10px] font-bold tracking-tighter border border-current px-0.5 rounded-sm">CC</span>
                 </button>
 
+                {/* Quality Selector */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowQualityMenu(!showQualityMenu)}
+                    className="flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-[10px] uppercase font-display tracking-widest"
+                    title="Video Quality"
+                  >
+                    <Settings size={14} className={cn("transition-transform", showQualityMenu && "rotate-90")} />
+                    <span>{currentQuality.toUpperCase()}</span>
+                  </button>
+
+                  {showQualityMenu && (
+                    <div className="absolute bottom-full right-0 mb-4 w-32 bg-surface-1 border border-border rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 z-[100]">
+                      <div className="p-2 border-b border-border bg-surface-2 text-[10px] text-text-muted uppercase font-display tracking-widest text-center">
+                        Quality
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {availableQualities.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => handleQualityChange(q)}
+                            className={cn(
+                              "w-full px-4 py-2 text-left text-[11px] hover:bg-surface-3 transition-colors uppercase font-display",
+                              currentQuality === q ? "text-accent bg-accent/5" : "text-text-secondary"
+                            )}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Speed Slider */}
                 <div className="flex items-center gap-3 group/speed">
                   <span className="text-[10px] text-white/50 uppercase font-display tracking-widest group-hover/speed:text-accent transition-colors">Speed</span>
@@ -496,7 +547,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
                 rel: 0,
                 modestbranding: 1,
                 fs: 0,
-                iv_load_policy: 3,
+                cc_load_policy: 1,
+                cc_lang_pref: "en",
                 autohide: 1,
                 enablejsapi: 1,
                 origin: typeof window !== "undefined" ? window.location.origin : "",

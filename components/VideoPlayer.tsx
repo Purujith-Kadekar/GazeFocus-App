@@ -47,6 +47,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   const [inactivityPaused, setInactivityPaused] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
 
   // ─── Gaze Callbacks ────────────────────────────────────────────────────────
 
@@ -171,9 +173,15 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
     if (currentIndex !== -1 && currentIndex < activePlaylistVideos.length - 1) {
       setCurrentVideo(activePlaylistVideos[currentIndex + 1]);
     } else {
-      // Loop back to start or just stop? Let's loop for now if user wants.
-      // setCurrentVideo(activePlaylistVideos[0]);
       alert("End of playlist");
+    }
+  }, [currentVideo, activePlaylistVideos, setCurrentVideo]);
+
+  const handlePrevVideo = useCallback(() => {
+    if (!currentVideo || activePlaylistVideos.length === 0) return;
+    const currentIndex = activePlaylistVideos.findIndex(v => v.id === currentVideo.id);
+    if (currentIndex > 0) {
+      setCurrentVideo(activePlaylistVideos[currentIndex - 1]);
     }
   }, [currentVideo, activePlaylistVideos, setCurrentVideo]);
 
@@ -208,6 +216,26 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
     setIsMuted(newMuted);
     if (playerRef.current) {
       playerRef.current.setVolume(newMuted ? 0 : volume);
+    }
+  };
+
+  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rate = parseFloat(e.target.value);
+    setPlaybackRateState(rate);
+    if (playerRef.current) {
+      playerRef.current.setPlaybackRate(rate);
+    }
+  };
+
+  const toggleCaptions = () => {
+    if (!playerRef.current) return;
+    const next = !captionsEnabled;
+    setCaptionsEnabled(next);
+    // YouTube IFrame API doesn't have a simple toggleCaptions but we can try these:
+    if (next) {
+      playerRef.current.loadModule("captions");
+    } else {
+      playerRef.current.unloadModule("captions");
     }
   };
 
@@ -257,16 +285,16 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
         )}
       >
         {/* Top Header Bar */}
-        <div className="h-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-start justify-between px-6 pt-6">
+        <div className="h-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-start justify-between px-6 pt-6 text-white">
           <button
-            onClick={() => setActiveView("player")} // Just hide controls? or search?
+            onClick={() => setActiveView("player")}
             className="flex items-center gap-2 text-white/50 hover:text-white transition-colors group/back"
             title="Back"
           >
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover/back:bg-white/20 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover/back:bg-white/20 transition-colors text-white">
               <ArrowLeft size={16} />
             </div>
-            <span className="text-xs font-display uppercase tracking-[0.2em]">Library</span>
+            <span className="text-xs font-display uppercase tracking-[0.2em] text-white">Library</span>
           </button>
 
           <div className="flex flex-col items-center max-w-[50%]">
@@ -278,7 +306,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
           <button
             onClick={handleClosePlayer}
-            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/20 transition-all"
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/20 transition-all text-white"
             title="Close video"
           >
             <X size={18} />
@@ -327,47 +355,45 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 text-white">
               {/* Play/Pause */}
               <button
                 onClick={togglePlay}
                 className="text-white hover:text-accent transition-colors"
+                title={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+              </button>
+
+              {/* Prev */}
+              <button
+                onClick={handlePrevVideo}
+                disabled={activePlaylistVideos.length === 0 || activePlaylistVideos.findIndex(v => v.id === currentVideo.id) === 0}
+                className="text-white/70 hover:text-white transition-colors disabled:opacity-20"
+                title="Previous Video"
+              >
+                <div className="rotate-180">
+                  <SkipForward size={20} fill="currentColor" />
+                </div>
               </button>
 
               {/* Next */}
               <button
                 onClick={handleNextVideo}
-                disabled={activePlaylistVideos.length === 0}
-                className="text-white/70 hover:text-white transition-colors disabled:opacity-30"
+                disabled={activePlaylistVideos.length === 0 || activePlaylistVideos.findIndex(v => v.id === currentVideo.id) === activePlaylistVideos.length - 1}
+                className="text-white/70 hover:text-white transition-colors disabled:opacity-20"
                 title="Next Video"
               >
                 <SkipForward size={20} fill="currentColor" />
               </button>
 
-              {/* Volume */}
-              <div className="flex items-center gap-3 group/volume">
-                <button onClick={toggleMute} className="text-white/70 hover:text-white">
-                  {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-1 bg-white/20 appearance-none cursor-pointer rounded-full accent-white"
-                />
-              </div>
-
               {/* Time */}
-              <div className="text-white/70 text-[11px] font-mono tracking-wider">
+              <div className="text-white/70 text-[11px] font-mono tracking-wider ml-2">
                 {formatDuration(Math.floor(currentTimeSeconds))} / {formatDuration(Math.floor(durationSeconds || currentVideo.durationSeconds))}
               </div>
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 text-white">
               {/* Milestone Dots */}
               <div className="flex gap-2">
                 {milestones.map((m) => (
@@ -398,9 +424,53 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
                   {settings.gazeEnabled ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
 
+                {/* Captions */}
+                <button
+                  onClick={toggleCaptions}
+                  className={cn(
+                    "flex items-center justify-center p-1 rounded transition-all",
+                    captionsEnabled ? "text-accent bg-accent/10 border border-accent/20" : "text-white/50 hover:text-white"
+                  )}
+                  title="Captions"
+                >
+                  <span className="text-[10px] font-bold tracking-tighter border border-current px-0.5 rounded-sm">CC</span>
+                </button>
+
+                {/* Speed Slider */}
+                <div className="flex items-center gap-3 group/speed">
+                  <span className="text-[10px] text-white/50 uppercase font-display tracking-widest group-hover/speed:text-accent transition-colors">Speed</span>
+                  <input
+                    type="range"
+                    min={0.25}
+                    max={2}
+                    step={0.25}
+                    value={playbackRate}
+                    onChange={handleRateChange}
+                    className="w-20 h-1 bg-white/20 appearance-none cursor-pointer rounded-full accent-accent"
+                  />
+                  <span className="text-[11px] font-mono text-white/90 w-12">{playbackRate.toFixed(2)}x</span>
+                </div>
+
+                {/* Volume */}
+                <div className="flex items-center gap-3 group/volume">
+                  <button onClick={toggleMute} className="text-white/70 hover:text-white">
+                    {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-1 bg-white/20 appearance-none cursor-pointer rounded-full accent-white"
+                  />
+                </div>
+
+                {/* Maximize */}
                 <button
                   onClick={() => playerRef.current?.getIframe().requestFullscreen()}
                   className="text-white/50 hover:text-white transition-colors"
+                  title="Fullscreen"
                 >
                   <Maximize2 size={18} />
                 </button>

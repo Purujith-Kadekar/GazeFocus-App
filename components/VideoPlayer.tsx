@@ -21,7 +21,6 @@ import {
   VolumeX, 
   Settings, 
   Captions,
-  MoreVertical,
   ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,7 +32,6 @@ interface VideoPlayerProps {
 export function VideoPlayer({ className }: VideoPlayerProps) {
   const {
     currentVideo,
-    activeView,
     setActiveView,
     activePlaylistVideos,
     setCurrentVideo,
@@ -102,11 +100,18 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
   // ─── Gaze Hook ─────────────────────────────────────────────────────────────
 
-  const { gazeStatus } = useGazeDetection({
+  useGazeDetection({
     videoRef: webcamRef,
     onGazeAway: handleGazeAway,
     onGazeReturn: handleGazeReturn,
     enabled: settings.gazeEnabled && !!currentVideo,
+  });
+
+  // ─── Inactivity Hook ───────────────────────────────────────────────────────
+
+  useInactivityAlert({
+    onInactive: handleInactive,
+    onReturn: handleReturn,
   });
 
   // ─── YouTube Player Events ─────────────────────────────────────────────────

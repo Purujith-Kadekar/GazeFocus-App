@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useStore } from "@/stores/useStore";
 import { fetchMyPlaylists, fetchPlaylistVideos, createPlaylist, fetchPlaylistInfo, extractPlaylistId, formatDuration } from "@/lib/youtube";
@@ -9,8 +9,6 @@ import type { YTPlaylist, YTVideo } from "@/types";
 import {
   ChevronRight,
   ChevronDown,
-  Lock,
-  Globe,
   PlayCircle,
   Loader2,
   RefreshCw,
@@ -47,13 +45,14 @@ export function Sidebar() {
   const [importError, setImportError] = useState<string | null>(null);
 
   // Load saved imported playlist IDs from localStorage
-  const getImportedIds = (): string[] => {
+  const getImportedIds = useCallback((): string[] => {
     try {
+      if (typeof window === "undefined") return [];
       return JSON.parse(localStorage.getItem(IMPORTED_KEY) || "[]");
     } catch {
       return [];
     }
-  };
+  }, []);
 
   const saveImportedId = (id: string) => {
     const ids = getImportedIds();
@@ -68,7 +67,7 @@ export function Sidebar() {
     localStorage.setItem(IMPORTED_KEY, JSON.stringify(ids));
   };
 
-  const loadPlaylists = async () => {
+  const loadPlaylists = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -93,13 +92,13 @@ export function Sidebar() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getImportedIds]);
 
   useEffect(() => {
     loadPlaylists();
-  }, [playlistRefreshTrigger]);
+  }, [playlistRefreshTrigger, loadPlaylists]);
 
-  const loadFullPlaylist = async (playlistId: string) => {
+  const loadFullPlaylist = useCallback(async (playlistId: string) => {
     setLoadingVideos(playlistId);
     try {
       let allVideos: YTVideo[] = [];
@@ -123,7 +122,7 @@ export function Sidebar() {
     } finally {
       setLoadingVideos(null);
     }
-  };
+  }, [setActivePlaylistVideos]);
 
   const handleTogglePlaylist = (playlist: YTPlaylist) => {
     const isExpanding = expandedPlaylistId !== playlist.id;
@@ -217,12 +216,6 @@ export function Sidebar() {
     } finally {
       setImporting(false);
     }
-  };
-
-  const handleRemoveImported = (playlistId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    removeImportedId(playlistId);
-    setPlaylists((prev) => prev.filter((p) => p.id !== playlistId));
   };
 
   return (
@@ -424,9 +417,8 @@ export function Sidebar() {
                       </p>
                     ) : (
                       (playlistVideos[playlist.id] ?? []).map((video) => (
-                        <div className="relative group/video">
+                        <div key={video.playlistItemId || video.id} className="relative group/video">
                           <button
-                            key={video.id}
                             onClick={() => setCurrentVideo(video)}
                             className={cn(
                               "w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-surface-2 transition-colors",

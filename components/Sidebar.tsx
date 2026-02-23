@@ -11,6 +11,7 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from "@dnd-kit/core";
+import { signOut, useSession } from "next-auth/react";
 import { useStore } from "@/stores/useStore";
 import { 
   fetchMyPlaylists, 
@@ -29,12 +30,14 @@ import {
   ArrowRight,
   PlayCircle,
   Link as LinkIcon,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
 
 export function Sidebar() {
+  const { data: session } = useSession();
   const {
     currentVideo,
     setCurrentVideo,
@@ -63,7 +66,7 @@ export function Sidebar() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const toggleExpand = (id: string) => {
     setExpandedItems(prev => {
@@ -78,11 +81,15 @@ export function Sidebar() {
     setLoading(true);
     try {
       const ownPlaylists = await fetchMyPlaylists();
-      // FILTER OUT LIKED VIDEOS
-      const filtered = ownPlaylists.filter(pl => 
-        pl.title.toLowerCase() !== "liked videos" && 
-        pl.title.toLowerCase() !== "liked"
-      );
+      
+      // STRICT FILTER: Remove Liked Videos and system playlists
+      const filtered = ownPlaylists.filter(pl => {
+        const title = pl.title.toLowerCase();
+        const isLiked = title.includes("liked") || pl.isSpecial;
+        // YouTube sometimes uses specific IDs for Liked videos (e.g., starting with LL)
+        const isLikedId = pl.id.startsWith("LL"); 
+        return !isLiked && !isLikedId;
+      });
 
       const plMap: Record<string, YTPlaylist> = {};
       filtered.forEach(pl => plMap[pl.id] = pl);
@@ -113,9 +120,11 @@ export function Sidebar() {
       const targetId = over.id as string;
       const targetType = over.data.current?.type;
 
+      // Ensure we only move into folders
       if (targetType === "folder") {
         moveItem(itemId, targetId);
       } else {
+        // Move to root if dropped elsewhere or explicitly on another item
         moveItem(itemId, null);
       }
     }
@@ -226,7 +235,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-full select-none font-sans overflow-hidden shadow-2xl">
+    <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-full select-none font-sans overflow-hidden shadow-2xl animate-in fade-in duration-500">
       {/* App Logo/Header */}
       <div className="p-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -251,8 +260,8 @@ export function Sidebar() {
         <button 
           onClick={() => setActiveView("search")}
           className={cn(
-            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group",
-            activeView === "search" ? "bg-primary text-primary-foreground shadow-md" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
+            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group",
+            activeView === "search" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
           )}
         >
           <div className="flex items-center gap-2.5">
@@ -265,8 +274,8 @@ export function Sidebar() {
         <button 
           onClick={() => setActiveView("settings")}
           className={cn(
-            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group",
-            activeView === "settings" ? "bg-primary text-primary-foreground shadow-md" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
+            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group",
+            activeView === "settings" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
           )}
         >
           <div className="flex items-center gap-2.5">
@@ -300,10 +309,10 @@ export function Sidebar() {
 
         {/* Import Form */}
         {showImportForm && (
-            <div className="mx-3 mb-4 p-3 bg-surface-2 rounded-xl border border-border animate-in slide-in-from-top-2 duration-200">
+            <div className="mx-3 mb-4 p-3 bg-surface-2 rounded-xl border border-border animate-in slide-in-from-top-4 duration-300 ease-out shadow-lg">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Import Playlist</span>
-                    <button onClick={() => setShowImportForm(false)} className="text-muted-foreground hover:text-foreground">
+                    <button onClick={() => setShowImportForm(false)} className="text-muted-foreground hover:text-foreground transition-colors">
                         <X size={12} />
                     </button>
                 </div>
@@ -312,44 +321,44 @@ export function Sidebar() {
                         type="text" 
                         value={importUrl}
                         onChange={(e) => setImportUrl(e.target.value)}
-                        placeholder="Paste URL..."
-                        className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-primary outline-none"
+                        placeholder="YouTube Playlist URL..."
+                        className="flex-1 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                     />
                     <button 
                         onClick={handleImportPlaylist}
                         disabled={importing || !importUrl}
-                        className="bg-primary text-white p-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                        className="bg-primary text-white p-2 rounded-lg hover:bg-primary/90 disabled:opacity-50 shadow-md shadow-primary/10 transition-all"
                     >
                         {importing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                     </button>
                 </div>
-                {importError && <p className="text-[10px] text-destructive mt-2">{importError}</p>}
+                {importError && <p className="text-[10px] text-destructive mt-2 animate-in fade-in">{importError}</p>}
             </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-3 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3 custom-scrollbar scroll-smooth">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 pb-4">
               {renderItems(rootItems)}
             </div>
 
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeDragId ? (
-                <div className="bg-surface-2 px-3 py-2 rounded-md shadow-2xl border border-primary/20 text-xs font-medium text-primary flex items-center gap-2">
+                <div className="bg-surface-3 px-3 py-2 rounded-md shadow-2xl border border-primary/40 text-xs font-medium text-primary flex items-center gap-2 backdrop-blur-md scale-105 transition-transform">
                    {activeDragId.includes('folder') ? <FolderPlus size={14} /> : <PlayCircle size={14} className="text-blue-400" />}
-                   <span>Dragging Item</span>
+                   <span>Dragging {activeDragId.includes('folder') ? 'Folder' : 'Playlist'}</span>
                 </div>
               ) : null}
             </DragOverlay>
           </DndContext>
 
           {rootItems.length === 0 && !loading && (
-            <div className="py-12 px-6 text-center border-2 border-dashed border-border rounded-xl mt-4">
+            <div className="py-12 px-6 text-center border-2 border-dashed border-border rounded-xl mt-4 bg-surface-2/30">
                <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mx-auto mb-3">
                   <Plus size={20} className="text-muted-foreground" />
                </div>
@@ -361,16 +370,33 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="p-4 mt-auto bg-surface-2/50 border-t border-border">
-         <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-surface-3 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-               PK
-            </div>
-            <div className="flex-1 min-w-0">
-               <p className="text-xs font-semibold truncate">Purujith Kadekar</p>
-               <p className="text-[10px] text-muted-foreground truncate">Professional Workspace</p>
-            </div>
+      {/* Footer Info & Logout */}
+      <div className="p-4 mt-auto bg-surface-2/50 border-t border-border group/footer">
+         <div className="flex items-center justify-between">
+           <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full overflow-hidden border border-border bg-surface-3 flex items-center justify-center">
+                 {session?.user?.image ? (
+                   // eslint-disable-next-line @next/next/no-img-element
+                   <img src={session.user.image} alt="" className="w-full h-full object-cover" />
+                 ) : (
+                   <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                     {session?.user?.name?.substring(0, 2) || "PK"}
+                   </span>
+                 )}
+              </div>
+              <div className="flex-1 min-w-0">
+                 <p className="text-xs font-semibold truncate text-foreground">{session?.user?.name || "Purujith Kadekar"}</p>
+                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Pro Workspace</p>
+              </div>
+           </div>
+           
+           <button 
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+              title="Sign Out"
+            >
+             <LogOut size={14} />
+           </button>
          </div>
       </div>
     </aside>

@@ -116,6 +116,17 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
   // ─── YouTube Player Events ─────────────────────────────────────────────────
 
+  const updatePlayerInfo = useCallback((player: YouTubePlayer) => {
+    const levels = player.getAvailableQualityLevels();
+    if (levels && levels.length > 0) {
+      setAvailableQualities(levels);
+    }
+    const current = player.getPlaybackQuality();
+    if (current) {
+      setCurrentQuality(current);
+    }
+  }, []);
+
   const onPlayerReady = useCallback(
     (event: YouTubeEvent) => {
       playerRef.current = event.target;
@@ -123,15 +134,13 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       setDuration(duration);
       event.target.setVolume(isMuted ? 0 : volume);
 
-      // Quality
-      const levels = event.target.getAvailableQualityLevels();
-      setAvailableQualities(levels);
+      updatePlayerInfo(event.target);
 
       if (currentVideo) {
         updateMilestones(duration || currentVideo.durationSeconds);
       }
     },
-    [currentVideo, updateMilestones, setDuration, volume, isMuted]
+    [currentVideo, updateMilestones, setDuration, volume, isMuted, updatePlayerInfo]
   );
 
   const onStateChange = useCallback(
@@ -142,9 +151,11 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       if (state === 1) {
         const dur = event.target.getDuration();
         if (dur) setDuration(dur);
+        // Re-check quality levels as they sometimes populate late
+        updatePlayerInfo(event.target);
       }
     },
-    [setIsPlaying, setDuration]
+    [setIsPlaying, setDuration, updatePlayerInfo]
   );
 
   // ─── Time Tracking ─────────────────────────────────────────────────────────
@@ -252,7 +263,11 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
   const handleQualityChange = (quality: string) => {
     setCurrentQuality(quality);
-    if (playerRef.current) playerRef.current.setPlaybackQuality(quality);
+    if (playerRef.current) {
+      playerRef.current.setPlaybackQuality(quality);
+      // Wait a bit and refresh available levels as selecting one might change available ones
+      setTimeout(() => updatePlayerInfo(playerRef.current!), 500);
+    }
   };
 
   const toggleCaptions = () => {
@@ -319,30 +334,34 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
         aria-hidden="true"
       />
 
-      {/* Main Video Layer */}
-      <div className="absolute inset-0 z-0 flex items-center justify-center bg-black">
-        <YouTube
-          videoId={currentVideo.id}
-          className="w-full h-full"
-          iframeClassName="w-full h-full"
-          opts={{
-            width: "100%",
-            height: "100%",
-            playerVars: {
-              autoplay: 1,
-              controls: 0,
-              rel: 0,
-              modestbranding: 1,
-              fs: 0,
-              cc_load_policy: 1,
-              disablekb: 1,
-              playsinline: 1,
-            },
-          }}
-          onReady={onPlayerReady}
-          onStateChange={onStateChange}
-          onEnd={handleNextVideo}
-        />
+      {/* Main Video Layer - Cropped to hide YouTube UI artifacts and move captions up */}
+      <div className="absolute inset-0 z-0 bg-black overflow-hidden">
+        <div className="absolute -top-[5%] -left-[1%] -right-[1%] -bottom-[8%]">
+          <YouTube
+            videoId={currentVideo.id}
+            className="w-full h-full"
+            iframeClassName="w-full h-full"
+            opts={{
+              width: "100%",
+              height: "100%",
+              playerVars: {
+                autoplay: 1,
+                controls: 0,
+                rel: 0,
+                modestbranding: 1,
+                fs: 0,
+                cc_load_policy: 1,
+                disablekb: 1,
+                playsinline: 1,
+                iv_load_policy: 3, // Hide annotations
+                autohide: 1,
+              },
+            }}
+            onReady={onPlayerReady}
+            onStateChange={onStateChange}
+            onEnd={handleNextVideo}
+          />
+        </div>
       </div>
 
       {/* Click Mask for Play/Pause */}
@@ -504,7 +523,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
                               ))}
                            </div>
                         </div>
-                        {/* Quality (Mock since YouTube API limits direct quality control sometimes) */}
+                        {/* Quality */}
                         <div className="p-2">
                            <div className="text-[10px] text-white/40 uppercase tracking-widest mb-2 font-bold px-2">Quality</div>
                            <div className="max-h-32 overflow-y-auto space-y-0.5 custom-scrollbar">
@@ -512,7 +531,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
                                  <button
                                     key={q}
                                     onClick={() => handleQualityChange(q)}
-                                    className={cn("w-full text-left px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors", currentQuality === q ? "text-primary" : "text-white/70")}
+                                    className={cn("w-full text-left px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors", currentQuality === q ? "text-primary bg-white/5 font-bold" : "text-white/70")}
                                  >
                                     {q.toUpperCase()}
                                  </button>

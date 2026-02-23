@@ -43,6 +43,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   } = useStore();
 
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const webcamRef = useRef<HTMLVideoElement>(null);
   const [inactivityPaused, setInactivityPaused] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -109,8 +110,17 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       event.target.setVolume(isMuted ? 0 : volume);
 
       // Quality
-      setAvailableQualities(event.target.getAvailableQualityLevels());
-      setCurrentQuality(event.target.getPlaybackQuality());
+      const levels = event.target.getAvailableQualityLevels();
+      setAvailableQualities(levels);
+
+      // Try to force high quality
+      if (levels.length > 0) {
+        const highest = levels[0]; // Usually first is highest in YT API
+        event.target.setPlaybackQuality(highest);
+        setCurrentQuality(highest);
+      } else {
+        setCurrentQuality(event.target.getPlaybackQuality());
+      }
 
       if (currentVideo) {
         updateMilestones(duration || currentVideo.durationSeconds);
@@ -281,7 +291,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
   return (
     <div
-      className={cn("relative flex flex-col h-full bg-surface", className)}
+      ref={containerRef}
+      className={cn("relative flex flex-col h-full bg-surface overflow-hidden", className)}
       onMouseMove={resetControlsTimer}
     >
       {/* Hidden webcam for gaze tracking */}
@@ -294,10 +305,10 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
         aria-hidden="true"
       />
 
-      {/* Custom Control Overlays */}
+      {/* Custom Control Overlays - Higher Z-index for Fullscreen */}
       <div
         className={cn(
-          "absolute inset-0 z-30 flex flex-col transition-opacity duration-500",
+          "absolute inset-0 z-50 flex flex-col transition-opacity duration-500",
           !showControls && isPlaying && "opacity-0 cursor-none"
         )}
       >
@@ -363,7 +374,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
               step={1}
               value={currentTimeSeconds}
               onChange={handleSeek}
-              className="absolute inset-0 w-full h-1 bg-white/20 appearance-none cursor-pointer rounded-full accent-accent hover:h-1.5 transition-all"
+              className="absolute inset-0 w-full h-1 bg-white/20 appearance-none cursor-pointer rounded-full accent-accent hover:h-1.5 transition-all outline-none"
             />
             <div
               className="h-1 bg-accent rounded-full pointer-events-none transition-all group-hover/seek:h-1.5"
@@ -372,7 +383,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6 text-white">
+            <div className="flex items-center gap-6 text-white text-sm">
               {/* Play/Pause */}
               <button
                 onClick={togglePlay}
@@ -519,7 +530,13 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
                 {/* Maximize */}
                 <button
-                  onClick={() => playerRef.current?.getIframe().requestFullscreen()}
+                  onClick={() => {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      containerRef.current?.requestFullscreen();
+                    }
+                  }}
                   className="text-white/50 hover:text-white transition-colors"
                   title="Fullscreen"
                 >
@@ -533,7 +550,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
       {/* YouTube iframe - Bottom Layer */}
       <div className="absolute inset-0 bg-black pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 scale-[1.1] transform-gpu">
+        {/* Adjusted centering to hide only the very edges while keeping captions clear */}
+        <div className="absolute -left-[1px] -right-[1px] -top-[1px] -bottom-[40px] flex items-center justify-center">
           <YouTube
             videoId={currentVideo.id}
             className="w-full h-full"

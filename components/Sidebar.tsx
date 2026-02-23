@@ -31,7 +31,8 @@ import {
   PlayCircle,
   Link as LinkIcon,
   X,
-  LogOut
+  LogOut,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
@@ -269,6 +270,19 @@ export function Sidebar() {
             <span className="text-xs font-semibold">Discovery</span>
           </div>
           <ArrowRight size={14} className="opacity-0 group-hover:opacity-40 -translate-x-2 group-hover:translate-x-0 transition-all" />
+        </button>
+
+        <button 
+          onClick={() => setActiveView("dashboard")}
+          className={cn(
+            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group",
+            activeView === "dashboard" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <LayoutDashboard size={16} />
+            <span className="text-xs font-semibold">Dashboard</span>
+          </div>
         </button>
         
         <button 

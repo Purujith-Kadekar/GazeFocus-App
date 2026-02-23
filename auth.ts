@@ -1,5 +1,9 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 /**
  * Refresh an expired Google access token using the refresh token.
@@ -43,6 +47,7 @@ async function refreshAccessToken(token: Record<string, unknown>) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET,
+  adapter: PrismaAdapter(prisma),
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
@@ -61,38 +66,91 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
       },
     }),
+    Credentials({
+      name: "Email and Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials.password) {
+          return null;
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email.toLowerCase() },
+        });
+
+        if (!user?.passwordHash) {
+          return null;
+        }
+
+        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+        if (!isValid) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+        };
+      },
+    }),
   ],
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
   callbacks: {
-    async jwt({ token, account }) {
-      // First login: save the tokens from the OAuth provider
-      if (account) {
+    async jwt({ token, account, user }) {
+      // Persist user id for DB lookups
+      if (user) {
+        token.userId = (user as { id: string }).id;
+      }
+
+      // First Google login: save tokens from OAuth provider
+      if (account && account.provider === "google") {
         return {
           ...token,
+          userId: token.userId ?? account.userId,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
           expiresAt: account.expires_at,
         };
       }
 
-      // Token hasn't expired yet — return it as-is
-      const expiresAt = token.expiresAt as number;
-      if (Date.now() / 1000 < expiresAt - 60) {
-        // 60s buffer before expiry
+      // Non-Google providers (e.g., credentials) don't have YouTube tokens
+      if (!token.accessToken || !token.expiresAt) {
         return token;
       }
 
-      // Token has expired — refresh it
+      const expiresAt = token.expiresAt as number;
+      if (Date.now() / 1000 < expiresAt - 60) {
+        return token;
+      }
+
       console.log("[Auth] Access token expired, refreshing...");
       return refreshAccessToken(token);
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken as string;
+      if (token.accessToken) {
+        session.accessToken = token.accessToken as string;
+      }
+      if (token.userId) {
+        session.userId = token.userId as string;
+        if (session.user) {
+          session.user.id = token.userId as string;
+        } else {
+          session.user = {
+            id: token.userId as string,
+            name: session.user?.name,
+            email: session.user?.email,
+            image: session.user?.image,
+          };
+        }
+      }
       if (token.error) {
-        // Signal the client that re-login is needed
         (session as unknown as Record<string, unknown>).error = token.error;
       }
       return session;

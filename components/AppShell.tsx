@@ -6,6 +6,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { SearchPanel } from "./SearchPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { OnboardingModal } from "./OnboardingModal";
+import { DashboardPanel } from "./DashboardPanel";
 import { useStore } from "@/stores/useStore";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,9 @@ export function AppShell() {
           </div>
           <div className={cn("h-full transition-opacity duration-300", activeView === "settings" ? "opacity-100" : "opacity-0 pointer-events-none absolute inset-0")}>
             <SettingsPanel />
+          </div>
+          <div className={cn("h-full transition-opacity duration-300", activeView === "dashboard" ? "opacity-100" : "opacity-0 pointer-events-none absolute inset-0")}>
+            <DashboardPanel />
           </div>
         </main>
       </div>

@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 
+interface YTVideoItem {
+  id: string;
+  contentDetails: {
+    duration: string;
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const ids = searchParams.get("ids");
@@ -11,7 +18,7 @@ export async function GET(request: Request) {
     const res = await fetch(`${YT_BASE}/videos?part=contentDetails&id=${ids}&key=${process.env.YOUTUBE_API_KEY}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    const videos = data.items.map((item: any) => ({
+    const videos = data.items.map((item: YTVideoItem) => ({
       id: item.id,
       durationSeconds: parseDuration(item.contentDetails.duration),
     }));

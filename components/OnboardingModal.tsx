@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "@/stores/useStore";
 import { cn } from "@/lib/utils";
-import { Eye, Timer, Search, Shield, Camera, ChevronRight, ChevronLeft, Zap } from "lucide-react";
+import { Timer, Search, Shield, Camera, ChevronRight, ChevronLeft, Zap } from "lucide-react";
 
 interface OnboardingStep {
   icon: React.ElementType;

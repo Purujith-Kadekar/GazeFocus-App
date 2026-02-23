@@ -26,7 +26,6 @@ import {
   FolderPlus, 
   RefreshCw, 
   Loader2,
-  ListFilter,
   ArrowRight,
   PlayCircle,
   Link as LinkIcon,
@@ -87,9 +86,6 @@ export function Sidebar() {
 
       const plMap: Record<string, YTPlaylist> = {};
       filtered.forEach(pl => plMap[pl.id] = pl);
-      
-      // We also need to keep track of already imported playlists from libraryFolders/rootItems
-      // This part will be handled by the store but we need data for them
       
       setPlaylistsData(prev => ({ ...prev, ...plMap }));
       setLibraryItems(filtered);

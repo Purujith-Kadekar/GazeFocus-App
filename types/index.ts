@@ -120,7 +120,7 @@ export interface GazeFocusStore {
   rootItems: string[]; // Top-level item IDs (playlists or folders)
   
   // Current player state
-  activeView: "player" | "search" | "settings";
+  activeView: "player" | "search" | "settings" | "dashboard";
   currentVideo: YTVideo | null;
   currentPlaylistId: string | null;
   activePlaylistVideos: YTVideo[]; // For "Next Video" logic
@@ -152,7 +152,7 @@ export interface GazeFocusStore {
   settings: GazeFocusSettings;
 
   // Actions
-  setActiveView: (view: "player" | "search" | "settings") => void;
+  setActiveView: (view: "player" | "search" | "settings" | "dashboard") => void;
   setCurrentVideo: (video: YTVideo | null) => void;
   setActivePlaylistVideos: (videos: YTVideo[]) => void;
   triggerPlaylistRefresh: () => void;
@@ -187,5 +187,12 @@ export interface GazeFocusStore {
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
+    user?: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+    userId?: string;
   }
 }

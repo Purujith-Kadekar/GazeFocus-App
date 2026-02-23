@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
-import Image from "next/image";
 
 interface LibraryItemProps {
   id: string;
@@ -43,22 +42,25 @@ export function LibraryItem({
   children,
   isActive
 }: LibraryItemProps) {
+  // All items except pure videos in a list should be draggable
+  // For simplicity, we allow folders and playlists to be draggable
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: id,
     data: { type, id }
   });
 
+  // Only folders can be drop targets
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: id,
     data: { type, id },
-    disabled: type === "video" // Can't drop into a video
+    disabled: type !== "folder" 
   });
 
   const style: React.CSSProperties = {
     paddingLeft: `${depth * 12 + 8}px`,
     ...(transform ? {
       transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      zIndex: 999,
+      zIndex: 1000,
     } : {})
   };
 
@@ -77,18 +79,18 @@ export function LibraryItem({
         style={style}
         className={cn(
           "group flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-all duration-200",
-          isOver && isFolder && "bg-primary/10 border-primary/30 border-dashed border",
-          isActive ? "bg-primary/10 text-primary" : "hover:bg-surface-2 text-foreground/70 hover:text-foreground",
-          isDragging && "opacity-50 grayscale scale-95",
+          isOver && isFolder && "bg-primary/20 ring-1 ring-primary/50",
+          isActive ? "bg-primary/15 text-primary shadow-sm" : "hover:bg-surface-2 text-foreground/80 hover:text-foreground",
+          isDragging && "opacity-30 scale-95",
           "select-none relative"
         )}
         onClick={onSelect}
       >
-        {/* Drag Handle */}
+        {/* Drag Handle - Visible on hover */}
         <div 
           {...attributes} 
           {...listeners}
-          className="opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity p-0.5 cursor-grab active:cursor-grabbing"
+          className="opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity p-0.5 cursor-grab active:cursor-grabbing shrink-0"
         >
           <GripVertical size={14} />
         </div>
@@ -97,7 +99,7 @@ export function LibraryItem({
         {(isFolder || isPlaylist) && (
           <button 
             onClick={handleToggle}
-            className="p-0.5 hover:bg-surface-3 rounded transition-colors"
+            className="p-1 hover:bg-surface-3 rounded transition-colors shrink-0"
           >
             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
@@ -106,29 +108,34 @@ export function LibraryItem({
         {/* Icon / Thumbnail */}
         <div className="shrink-0">
           {isFolder ? (
-            isExpanded ? <FolderOpen size={16} className="text-primary" /> : <FolderIcon size={16} className="text-primary" />
+            isExpanded ? <FolderOpen size={16} className="text-primary fill-primary/10" /> : <FolderIcon size={16} className="text-primary fill-primary/10" />
           ) : isPlaylist ? (
              <ListVideo size={16} className="text-blue-400" />
           ) : (
-            <div className="w-8 h-5 rounded overflow-hidden bg-surface-3">
+            <div className="w-8 h-5 rounded overflow-hidden bg-surface-3 border border-border/50">
                {videoData?.thumbnails?.default?.url && (
-                  <Image src={videoData.thumbnails.default.url} alt="" width={32} height={20} className="object-cover w-full h-full" />
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={videoData.thumbnails.default.url} alt="" className="object-cover w-full h-full" />
                )}
             </div>
           )}
         </div>
 
         {/* Title */}
-        <span className="flex-1 text-xs font-medium truncate tracking-tight">
+        <span className={cn(
+          "flex-1 text-xs font-medium truncate tracking-tight transition-colors",
+          isActive && "font-bold"
+        )}>
           {title}
         </span>
 
         {/* Actions */}
-        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity pr-1">
            {onDelete && (
              <button 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="p-1 hover:text-destructive transition-colors"
+                className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded hover:bg-destructive/10"
+                title="Remove"
               >
                <Trash2 size={12} />
              </button>
@@ -138,7 +145,7 @@ export function LibraryItem({
 
       {/* Children rendering */}
       {isExpanded && children && (
-        <div className="mt-0.5">
+        <div className="mt-0.5 animate-in slide-in-from-top-1 duration-200">
           {children}
         </div>
       )}

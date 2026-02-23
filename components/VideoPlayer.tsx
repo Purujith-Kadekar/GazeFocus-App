@@ -363,7 +363,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
               {/* Time */}
               <div className="text-white/70 text-[11px] font-mono tracking-wider">
-                {formatDuration(currentTimeSeconds)} / {formatDuration(durationSeconds || currentVideo.durationSeconds)}
+                {formatDuration(Math.floor(currentTimeSeconds))} / {formatDuration(Math.floor(durationSeconds || currentVideo.durationSeconds))}
               </div>
             </div>
 
@@ -439,11 +439,11 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           />
         </div>
 
-        {/* Global Pause Mask - This covers the WHOLE iframe area including the bottom strip */}
+        {/* Global Pause Mask - 100% Opaque to block all YT UI */}
         <div
           className={cn(
             "absolute inset-0 z-[25] transition-all duration-700 pointer-events-auto",
-            !isPlaying && !isOnBreak ? "bg-black/95 backdrop-blur-xl opacity-100" : "opacity-0 pointer-events-none"
+            !isPlaying && !isOnBreak ? "bg-black opacity-100" : "opacity-0 pointer-events-none"
           )}
           onClick={togglePlay}
         />

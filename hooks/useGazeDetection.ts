@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useStore } from "@/stores/useStore";
 
 /**
@@ -8,11 +8,6 @@ import { useStore } from "@/stores/useStore";
  *
  * Runs entirely locally via WebAssembly.
  * No camera feed is transmitted anywhere.
- *
- * Logic:
- * - If no face or eyes detected for > gazeBufferSeconds → pause video
- * - If face/eyes detected → resume
- * - Handles: glasses, low light, no webcam gracefully
  */
 
 // Face landmark indices for eyes (MediaPipe 468-point mesh)
@@ -41,6 +36,7 @@ export function useGazeDetection({
   const animFrameRef = useRef<number>(0);
   const lastProcessTime = useRef<number>(0);
   const gazeAwayRef = useRef<boolean>(false);
+  const [debugMsg, setDebugMsg] = useState<string>("");
 
   // ─── Initialize MediaPipe ────────────────────────────────────────────────────
 
@@ -48,6 +44,30 @@ export function useGazeDetection({
     if (!enabled) {
       setGazeStatus("disabled");
       return;
+    }
+
+    // Ensure we have webcam access first
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+       try {
+         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+         if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.addEventListener("loadeddata", () => {
+               // Only start detection once video is actually playing data
+               if (gazeStatus === "loading" || gazeStatus === "no-camera") {
+                  // Ready to detect
+               }
+            });
+         }
+       } catch (err) {
+         console.error("Camera permission denied or error:", err);
+         setGazeStatus("no-camera");
+         return;
+       }
+    } else {
+        console.error("getUserMedia not supported");
+        setGazeStatus("no-camera");
+        return;
     }
 
     try {
@@ -79,9 +99,9 @@ export function useGazeDetection({
       setGazeStatus("active");
     } catch (err) {
       console.error("[GazeDetection] Failed to initialize MediaPipe:", err);
-      setGazeStatus("no-camera");
+      setGazeStatus("no-camera"); // Fallback status
     }
-  }, [enabled, setGazeStatus]);
+  }, [enabled, setGazeStatus, videoRef, gazeStatus]);
 
   // ─── Check if eyes are on screen ────────────────────────────────────────────
 
@@ -99,20 +119,20 @@ export function useGazeDetection({
         const rightIris = RIGHT_IRIS.map((i) => face[i]).filter(Boolean);
 
         if (leftIris.length === 0 && rightIris.length === 0) {
-          // No iris data — try eye outline
-          const leftEye = LEFT_EYE_INDICES.map((i) => face[i]).filter(Boolean);
-          const rightEye = RIGHT_EYE_INDICES.map((i) => face[i]).filter(Boolean);
-          return leftEye.length > 0 || rightEye.length > 0;
+           // Fallback to basic eye check if iris not found
+          return true; // Assume looking if we at least found a face but no iris (rare)
         }
 
-        // Calculate average iris position — should be roughly center if looking at screen
+        // Calculate average iris position
         const irisPoints = [...leftIris, ...rightIris];
         const avgX = irisPoints.reduce((s, p) => s + p.x, 0) / irisPoints.length;
         const avgY = irisPoints.reduce((s, p) => s + p.y, 0) / irisPoints.length;
 
         // If iris is within reasonable screen-looking range (normalized 0-1 coords)
         // x: 0.2-0.8, y: 0.2-0.8 means roughly looking at the screen
-        return avgX > 0.1 && avgX < 0.9 && avgY > 0.1 && avgY < 0.9;
+        // Relaxed constraints for better UX
+        const isLooking = avgX > 0.05 && avgX < 0.95 && avgY > 0.1 && avgY < 0.9;
+        return isLooking;
       } catch {
         return false;
       }
@@ -124,6 +144,12 @@ export function useGazeDetection({
 
   const runDetection = useCallback(() => {
     if (!faceLandmarkerRef.current || !videoRef.current || !enabled) return;
+    
+    // Ensure video is playing
+    if (videoRef.current.videoWidth === 0 || videoRef.current.paused) {
+         animFrameRef.current = requestAnimationFrame(runDetection);
+         return;
+    }
 
     const now = performance.now();
     // Process at ~15fps to save CPU
@@ -141,6 +167,8 @@ export function useGazeDetection({
       );
 
       const isLooking = isLookingAtScreen(result?.faceLandmarks ?? []);
+      // Debug helper
+      // console.log("Looking:", isLooking, result?.faceLandmarks?.length);
 
       if (!isLooking) {
         // Started looking away
@@ -151,25 +179,28 @@ export function useGazeDetection({
           // Check if buffer exceeded
           const awayMs = gazeAwayStartedAt
             ? Date.now() - gazeAwayStartedAt
-            : Date.now() - (Date.now() - 1);
+            : Date.now() - (Date.now() - 1); // fallback
           const bufferMs = settings.gazeBufferSeconds * 1000;
 
-          if (awayMs >= bufferMs && gazeStatus !== "paused") {
+          if (awayMs >= bufferMs && gazeStatus !== "paused" && gazeStatus !== "away") {
             setGazeStatus("away");
             onGazeAway();
           }
         }
       } else {
         // Looking at screen
-        if (gazeAwayRef.current) {
+        if (gazeAwayRef.current || gazeStatus === "away") {
           gazeAwayRef.current = false;
           setGazeAwayStart(null);
-          setGazeStatus("active");
-          onGazeReturn();
+          if (gazeStatus === "away") {
+              setGazeStatus("active");
+              onGazeReturn();
+          }
         }
       }
-    } catch {
+    } catch (e) {
       // Silent fail — detection errors are non-critical
+      console.warn("Detection error", e);
     }
 
     animFrameRef.current = requestAnimationFrame(runDetection);

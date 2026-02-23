@@ -226,7 +226,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex flex-col h-full bg-surface-1 border-r border-border shrink-0 select-none">
+    <aside className="flex flex-col h-full w-full bg-surface-1 shrink-0 select-none">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
         <div>

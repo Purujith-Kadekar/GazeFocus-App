@@ -285,14 +285,27 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           </button>
         </div>
 
-        {/* Middle: Play/Pause Big Overlay */}
+        {/* Middle: Play/Pause Big Overlay & Pause Mask */}
         <div
-          className="flex-1 flex items-center justify-center cursor-pointer"
+          className={cn(
+            "flex-1 flex items-center justify-center cursor-pointer transition-all duration-300",
+            !isPlaying && !isOnBreak ? "bg-black/80 backdrop-blur-md" : "bg-transparent"
+          )}
           onClick={togglePlay}
         >
           {!isPlaying && !isOnBreak && (
-            <div className="w-20 h-20 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white animate-in fade-in zoom-in duration-300">
-              <Play size={32} fill="currentColor" className="ml-1" />
+            <div className="group flex flex-col items-center gap-6">
+              <div className="w-28 h-28 rounded-full bg-accent/10 backdrop-blur-2xl border border-accent/30 flex items-center justify-center text-white shadow-[0_0_100px_rgba(var(--accent-rgb),0.2)] group-hover:scale-105 group-hover:bg-accent/20 transition-all duration-700 animate-in fade-in zoom-in-90">
+                <Play size={48} fill="currentColor" className="ml-2 text-accent" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-accent font-display text-xs uppercase tracking-[0.5em] opacity-80 group-hover:opacity-100 transition-opacity">
+                  Video Paused
+                </p>
+                <p className="text-text-muted font-display text-[9px] uppercase tracking-[0.3em]">
+                  Click to continue learning
+                </p>
+              </div>
             </div>
           )}
         </div>

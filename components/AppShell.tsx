@@ -130,17 +130,20 @@ export function AppShell() {
         </nav>
 
         {/* ─── Middle: Playlist sidebar (always visible) ─── */}
-        <div style={{ width: sidebarWidth }} className="relative flex h-full">
+        <div
+          style={{ width: sidebarWidth }}
+          className="relative flex h-full border-r border-border/50"
+        >
           <Sidebar />
           {/* Resize Handle */}
           <div
             onMouseDown={startResizing}
             className={cn(
-              "absolute top-0 right-0 w-1 h-full cursor-col-resize z-50 group hover:bg-accent/30 transition-colors",
-              isResizing && "bg-accent/50"
+              "absolute top-0 right-[-2px] w-[5px] h-full cursor-col-resize z-50 group transition-all",
+              isResizing ? "opacity-100" : "opacity-0 hover:opacity-100"
             )}
           >
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-12 bg-border group-hover:bg-accent rounded-full transition-colors opacity-40 group-hover:opacity-100" />
+            <div className="w-full h-full bg-accent/30 backdrop-blur-sm" />
           </div>
         </div>
 

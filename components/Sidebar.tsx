@@ -14,7 +14,9 @@ import {
 import { useStore } from "@/stores/useStore";
 import { 
   fetchMyPlaylists, 
-  fetchPlaylistVideos
+  fetchPlaylistVideos,
+  fetchPlaylistInfo,
+  extractPlaylistId
 } from "@/lib/youtube";
 import { LibraryItem } from "./LibraryItem";
 import { 
@@ -27,7 +29,8 @@ import {
   ListFilter,
   ArrowRight,
   PlayCircle,
-  ListVideo
+  Link as LinkIcon,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
@@ -55,6 +58,12 @@ export function Sidebar() {
   const [playlistVideos, setPlaylistVideos] = useState<Record<string, YTVideo[]>>({});
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
+  // Import State
+  const [showImportForm, setShowImportForm] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const toggleExpand = (id: string) => {
@@ -70,10 +79,20 @@ export function Sidebar() {
     setLoading(true);
     try {
       const ownPlaylists = await fetchMyPlaylists();
+      // FILTER OUT LIKED VIDEOS
+      const filtered = ownPlaylists.filter(pl => 
+        pl.title.toLowerCase() !== "liked videos" && 
+        pl.title.toLowerCase() !== "liked"
+      );
+
       const plMap: Record<string, YTPlaylist> = {};
-      ownPlaylists.forEach(pl => plMap[pl.id] = pl);
+      filtered.forEach(pl => plMap[pl.id] = pl);
+      
+      // We also need to keep track of already imported playlists from libraryFolders/rootItems
+      // This part will be handled by the store but we need data for them
+      
       setPlaylistsData(prev => ({ ...prev, ...plMap }));
-      setLibraryItems(ownPlaylists);
+      setLibraryItems(filtered);
     } catch (e) {
       console.error("Failed to load playlists", e);
     } finally {
@@ -101,7 +120,6 @@ export function Sidebar() {
       if (targetType === "folder") {
         moveItem(itemId, targetId);
       } else {
-        // Drop on root
         moveItem(itemId, null);
       }
     }
@@ -119,8 +137,38 @@ export function Sidebar() {
 
   const handlePlaylistSelect = (playlist: YTPlaylist) => {
     setCurrentPlaylistId(playlist.id);
-    toggleExpand(playlist.id);
+    if (!expandedItems.has(playlist.id)) {
+        toggleExpand(playlist.id);
+    }
     loadVideos(playlist.id);
+  };
+
+  const handleImportPlaylist = async () => {
+    if (!importUrl.trim() || importing) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const playlistId = extractPlaylistId(importUrl.trim());
+      if (!playlistId) {
+        setImportError("Invalid URL. Paste a YouTube playlist URL.");
+        return;
+      }
+      
+      const pl = await fetchPlaylistInfo(playlistId);
+      pl.isImported = true;
+      
+      // Add to store
+      setLibraryItems([pl]);
+      // Add to local data map
+      setPlaylistsData(prev => ({ ...prev, [pl.id]: pl }));
+      
+      setImportUrl("");
+      setShowImportForm(false);
+    } catch {
+      setImportError("Could not find playlist. Check the URL or privacy.");
+    } finally {
+      setImporting(false);
+    }
   };
 
   const renderItems = (itemIds: string[], depth = 0) => {
@@ -182,7 +230,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-full select-none font-sans overflow-hidden">
+    <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-full select-none font-sans overflow-hidden shadow-2xl">
       {/* App Logo/Header */}
       <div className="p-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -245,13 +293,43 @@ export function Sidebar() {
                <FolderPlus size={14} />
              </button>
              <button 
-                className="p-1 hover:bg-surface-2 rounded transition-colors text-muted-foreground hover:text-primary"
-                title="Filter"
+                onClick={() => setShowImportForm(!showImportForm)}
+                className={cn("p-1 hover:bg-surface-2 rounded transition-colors text-muted-foreground hover:text-primary", showImportForm && "text-primary bg-primary/10")}
+                title="Import Playlist URL"
               >
-               <ListFilter size={14} />
+               <LinkIcon size={14} />
              </button>
            </div>
         </div>
+
+        {/* Import Form */}
+        {showImportForm && (
+            <div className="mx-3 mb-4 p-3 bg-surface-2 rounded-xl border border-border animate-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Import Playlist</span>
+                    <button onClick={() => setShowImportForm(false)} className="text-muted-foreground hover:text-foreground">
+                        <X size={12} />
+                    </button>
+                </div>
+                <div className="flex gap-2">
+                    <input 
+                        type="text" 
+                        value={importUrl}
+                        onChange={(e) => setImportUrl(e.target.value)}
+                        placeholder="Paste URL..."
+                        className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-primary outline-none"
+                    />
+                    <button 
+                        onClick={handleImportPlaylist}
+                        disabled={importing || !importUrl}
+                        className="bg-primary text-white p-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                    >
+                        {importing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    </button>
+                </div>
+                {importError && <p className="text-[10px] text-destructive mt-2">{importError}</p>}
+            </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-3 custom-scrollbar">
           <DndContext
@@ -267,8 +345,8 @@ export function Sidebar() {
             <DragOverlay>
               {activeDragId ? (
                 <div className="bg-surface-2 px-3 py-2 rounded-md shadow-2xl border border-primary/20 text-xs font-medium text-primary flex items-center gap-2">
-                   {activeDragId.startsWith('folder') ? <FolderPlus size={14} /> : <ListVideo size={14} />}
-                   <span>Dragging {activeDragId.startsWith('folder') ? 'Folder' : 'Playlist'}</span>
+                   {activeDragId.includes('folder') ? <FolderPlus size={14} /> : <PlayCircle size={14} className="text-blue-400" />}
+                   <span>Dragging Item</span>
                 </div>
               ) : null}
             </DragOverlay>
@@ -295,7 +373,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
                <p className="text-xs font-semibold truncate">Purujith Kadekar</p>
-               <p className="text-[10px] text-muted-foreground truncate">Free Plan</p>
+               <p className="text-[10px] text-muted-foreground truncate">Professional Workspace</p>
             </div>
          </div>
       </div>

@@ -5,6 +5,8 @@ import type {
   GazeFocusSettings,
   BreakMilestone,
   GazeStatus,
+  YTPlaylist,
+  Folder,
 } from "@/types";
 
 // ─── Default Settings ──────────────────────────────────────────────────────────
@@ -38,6 +40,10 @@ export const useStore = create<GazeFocusStore>()(
     (set, get) => ({
       // --- Auth ---
       isAuthenticated: false,
+
+      // --- Library (Hierarchical) ---
+      libraryFolders: {},
+      rootItems: [],
 
       // --- Player ---
       activeView: "player",
@@ -183,17 +189,131 @@ export const useStore = create<GazeFocusStore>()(
 
       updateSettings: (partial) =>
         set((s) => ({ settings: { ...s.settings, ...partial } })),
+
+      // --- Library Actions ---
+
+      createFolder: (title, parentId) => {
+        const id = `folder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const newFolder: Folder = {
+          id,
+          title,
+          parentId,
+          itemIds: [],
+        };
+        
+        set((state) => {
+          const updatedFolders = { ...state.libraryFolders, [id]: newFolder };
+          let updatedRoot = [...state.rootItems];
+          
+          if (parentId && state.libraryFolders[parentId]) {
+            updatedFolders[parentId] = {
+              ...state.libraryFolders[parentId],
+              itemIds: [...state.libraryFolders[parentId].itemIds, id],
+            };
+          } else if (!parentId) {
+            updatedRoot = [...state.rootItems, id];
+          }
+          
+          return { libraryFolders: updatedFolders, rootItems: updatedRoot };
+        });
+      },
+
+      moveItem: (itemId, targetFolderId) => {
+        set((state) => {
+          const updatedFolders = { ...state.libraryFolders };
+          let updatedRoot = [...state.rootItems];
+          
+          // 1. Remove from current location
+          // Find where the item is currently
+          let currentParentId: string | null = null;
+          if (state.rootItems.includes(itemId)) {
+             updatedRoot = updatedRoot.filter(id => id !== itemId);
+          } else {
+             // Look in folders
+             for (const fid in updatedFolders) {
+               if (updatedFolders[fid].itemIds.includes(itemId)) {
+                 currentParentId = fid;
+                 updatedFolders[fid] = {
+                   ...updatedFolders[fid],
+                   itemIds: updatedFolders[fid].itemIds.filter(id => id !== itemId),
+                 };
+                 break;
+               }
+             }
+          }
+          
+          // 2. Add to target location
+          if (targetFolderId && updatedFolders[targetFolderId]) {
+            updatedFolders[targetFolderId] = {
+              ...updatedFolders[targetFolderId],
+              itemIds: [...updatedFolders[targetFolderId].itemIds, itemId],
+            };
+          } else {
+            // Move to root
+            updatedRoot = [...updatedRoot, itemId];
+          }
+          
+          return { libraryFolders: updatedFolders, rootItems: updatedRoot };
+        });
+      },
+
+      deleteFolder: (folderId) => {
+        set((state) => {
+          const updatedFolders = { ...state.libraryFolders };
+          let updatedRoot = state.rootItems.filter(id => id !== folderId);
+          
+          // If it has a parent, remove from parent's itemIds
+          const folder = updatedFolders[folderId];
+          if (folder && folder.parentId && updatedFolders[folder.parentId]) {
+            updatedFolders[folder.parentId] = {
+              ...updatedFolders[folder.parentId],
+              itemIds: updatedFolders[folder.parentId].itemIds.filter(id => id !== folderId),
+            };
+          }
+          
+          // Move all children to parent or root before deleting
+          if (folder && folder.itemIds.length > 0) {
+            if (folder.parentId) {
+               updatedFolders[folder.parentId].itemIds.push(...folder.itemIds);
+            } else {
+               updatedRoot.push(...folder.itemIds);
+            }
+          }
+          
+          delete updatedFolders[folderId];
+          return { libraryFolders: updatedFolders, rootItems: updatedRoot };
+        });
+      },
+
+      setLibraryItems: (playlists: YTPlaylist[]) => {
+        set((state) => {
+          // Sync playlists into the rootItems if they are not already in the library
+          const currentItemIds = new Set<string>();
+          Object.values(state.libraryFolders).forEach(f => f.itemIds.forEach(id => currentItemIds.add(id)));
+          state.rootItems.forEach(id => currentItemIds.add(id));
+          
+          const newRootItems = [...state.rootItems];
+          playlists.forEach(pl => {
+            if (!currentItemIds.has(pl.id)) {
+              newRootItems.push(pl.id);
+            }
+          });
+          
+          return { rootItems: newRootItems };
+        });
+      }
     }),
     {
       name: "gazefocus-store",
       storage: createJSONStorage(() => localStorage),
-      // Only persist settings and current playlist — no local watch later anymore
       partialize: (state) => ({
         settings: state.settings,
         currentPlaylistId: state.currentPlaylistId,
         sidebarWidth: state.sidebarWidth,
         volume: state.volume,
         isMuted: state.isMuted,
+        libraryFolders: state.libraryFolders,
+        rootItems: state.rootItems,
       }),
     }
   )

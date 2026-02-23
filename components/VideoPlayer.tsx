@@ -285,16 +285,13 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           </button>
         </div>
 
-        {/* Middle: Play/Pause Big Overlay & Pause Mask */}
+        {/* Middle: Play/Pause Big Overlay */}
         <div
-          className={cn(
-            "flex-1 flex items-center justify-center cursor-pointer transition-all duration-300",
-            !isPlaying && !isOnBreak ? "bg-black/80 backdrop-blur-md" : "bg-transparent"
-          )}
+          className="flex-1 flex items-center justify-center cursor-pointer"
           onClick={togglePlay}
         >
           {!isPlaying && !isOnBreak && (
-            <div className="group flex flex-col items-center gap-6">
+            <div className="group flex flex-col items-center gap-6 z-50">
               <div className="w-28 h-28 rounded-full bg-accent/10 backdrop-blur-2xl border border-accent/30 flex items-center justify-center text-white shadow-[0_0_100px_rgba(var(--accent-rgb),0.2)] group-hover:scale-105 group-hover:bg-accent/20 transition-all duration-700 animate-in fade-in zoom-in-90">
                 <Play size={48} fill="currentColor" className="ml-2 text-accent" />
               </div>
@@ -414,30 +411,41 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       </div>
 
       {/* YouTube iframe - Bottom Layer */}
-      <div className="absolute inset-0 bg-black pointer-events-none">
-        <YouTube
-          videoId={currentVideo.id}
-          className="w-full h-full"
-          iframeClassName="w-full h-full scale-[1.01]" // Tiny zoom to hide some yt borders
-          opts={{
-            width: "100%",
-            height: "100%",
-            playerVars: {
-              autoplay: 1,
-              controls: 0, // HIDE YOUTUBE CONTROLS
-              rel: 0,
-              modestbranding: 1,
-              fs: 0, // Disable native FS
-              iv_load_policy: 3, // Hide annotations
-              autohide: 1,
-              enablejsapi: 1,
-              origin: typeof window !== "undefined" ? window.location.origin : "",
-              playsinline: 1,
-            },
-          }}
-          onReady={onPlayerReady}
-          onStateChange={onStateChange}
-          onEnd={handleNextVideo}
+      <div className="absolute inset-0 bg-black pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 scale-[1.1] transform-gpu">
+          <YouTube
+            videoId={currentVideo.id}
+            className="w-full h-full"
+            iframeClassName="w-full h-full"
+            opts={{
+              width: "100%",
+              height: "100%",
+              playerVars: {
+                autoplay: 1,
+                controls: 0,
+                rel: 0,
+                modestbranding: 1,
+                fs: 0,
+                iv_load_policy: 3,
+                autohide: 1,
+                enablejsapi: 1,
+                origin: typeof window !== "undefined" ? window.location.origin : "",
+                playsinline: 1,
+              },
+            }}
+            onReady={onPlayerReady}
+            onStateChange={onStateChange}
+            onEnd={handleNextVideo}
+          />
+        </div>
+
+        {/* Global Pause Mask - This covers the WHOLE iframe area including the bottom strip */}
+        <div
+          className={cn(
+            "absolute inset-0 z-[25] transition-all duration-700 pointer-events-auto",
+            !isPlaying && !isOnBreak ? "bg-black/95 backdrop-blur-xl opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          onClick={togglePlay}
         />
 
         {/* Break overlay */}

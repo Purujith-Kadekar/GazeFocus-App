@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { DM_Mono, Inter } from "next/font/google";
+import { DM_Sans, Inter } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const dmMono = DM_Mono({
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
   variable: "--font-display",
+  weight: ["400", "500", "700"],
 });
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-body",
+  variable: "--font-sans",
+  weight: ["300", "400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -34,7 +35,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://storage.googleapis.com" />
       </head>
       <body
-        className={`${dmMono.variable} ${inter.variable} font-body bg-surface text-text-primary antialiased`}
+        className={`${dmSans.variable} ${inter.variable} font-sans bg-background text-foreground antialiased`}
       >
         <SessionProvider>
           {children}

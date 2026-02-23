@@ -1,76 +1,88 @@
 /** @type {import('tailwindcss').Config} */
-const config = {
+module.exports = {
   darkMode: ["class"],
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
   ],
   theme: {
-    extend: {
-      fontFamily: {
-        display: ["'DM Mono'", "monospace"],
-        body: ["'Inter'", "sans-serif"],
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
       },
+    },
+    extend: {
       colors: {
-        surface: {
-          DEFAULT: "#0a0a0f",
-          1: "#111118",
-          2: "#18181f",
-          3: "#22222c",
-          4: "#2c2c38",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))", // Maps to CSS var
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--surface-2))", // Use surface variables
+          foreground: "hsl(var(--foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--surface-1))",
+          foreground: "hsl(var(--muted))",
         },
         accent: {
-          DEFAULT: "#6ee7b7",
-          dim: "#34d399",
-          muted: "#1a3d32",
+          DEFAULT: "hsl(var(--surface-2))",
+          foreground: "hsl(var(--foreground))",
         },
-        warn: {
-          DEFAULT: "#fbbf24",
-          dim: "#d97706",
-          muted: "#3d2e08",
+        popover: {
+          DEFAULT: "hsl(var(--surface))",
+          foreground: "hsl(var(--foreground))",
         },
-        danger: {
-          DEFAULT: "#f87171",
-          dim: "#ef4444",
-          muted: "#3d1010",
+        card: {
+          DEFAULT: "hsl(var(--surface))",
+          foreground: "hsl(var(--foreground))",
         },
-        text: {
-          primary: "#f0f0f5",
-          secondary: "#8888a0",
-          muted: "#44445a",
+        // Legacy support for existing components using specific names
+        surface: "hsl(var(--surface))",
+        "surface-1": "hsl(var(--surface-1))",
+        "surface-2": "hsl(var(--surface-2))",
+        "surface-3": "hsl(var(--surface-3))",
+        "text-primary": "hsl(var(--foreground))",
+        "text-secondary": "hsl(var(--muted))",
+        "text-muted": "hsl(var(--muted-foreground))",
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", "Inter", "sans-serif"],
+        display: ["var(--font-display)", "DM Sans", "sans-serif"],
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
-        border: {
-          DEFAULT: "#2a2a38",
-          active: "#6ee7b7",
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
         },
       },
       animation: {
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "fade-in": "fadeIn 0.3s ease-out",
-        "slide-up": "slideUp 0.4s ease-out",
-        "gaze-ring": "gazeRing 1.5s ease-in-out infinite",
-      },
-      keyframes: {
-        fadeIn: {
-          "0%": { opacity: "0" },
-          "100%": { opacity: "1" },
-        },
-        slideUp: {
-          "0%": { opacity: "0", transform: "translateY(12px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        gazeRing: {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(110, 231, 183, 0.4)" },
-          "50%": { boxShadow: "0 0 0 8px rgba(110, 231, 183, 0)" },
-        },
-      },
-      backdropBlur: {
-        xs: "2px",
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
     },
   },
-  plugins: [],
-};
-
-module.exports = config;
+  plugins: [require("tailwindcss-animate")],
+}

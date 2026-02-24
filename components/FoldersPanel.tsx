@@ -25,10 +25,10 @@ export function FoldersPanel() {
         throw new Error("Failed to load folders");
       }
       const data = await res.json();
-      setFolders((data || []).map((f: any) => ({
+      setFolders((data || []).map((f: { id: string; title: string; description?: string | null; createdAt: string }) => ({
         id: f.id,
         name: f.title, // Map Prisma 'title' to UI 'name'
-        description: f.description,
+        description: f.description ?? undefined,
         createdAt: f.createdAt,
       })));
       setError(null);

@@ -23,7 +23,6 @@ export interface YTPlaylist {
   channelTitle: string;
   privacy: "public" | "private" | "unlisted";
   isSpecial?: boolean; // true for Watch Later, Liked Videos
-  isImported?: boolean;
 }
 
 export interface YTVideo {
@@ -44,26 +43,6 @@ export interface YTVideo {
 
 export interface SearchResult extends YTVideo {
   isSearchResult: true;
-}
-
-// --- Library Hierarchy Types ---
-
-export type LibraryItemType = "folder" | "playlist" | "video";
-
-export interface LibraryItem {
-  id: string;
-  type: LibraryItemType;
-  title: string;
-  parentId: string | null; // null means root
-  data?: YTPlaylist | YTVideo; // Original data if applicable
-  children?: string[]; // IDs of child items (only for folders)
-}
-
-export interface Folder {
-  id: string;
-  title: string;
-  parentId: string | null;
-  itemIds: string[]; // List of IDs (folders, playlists, or videos)
 }
 
 // --- Gaze Tracking Types ---
@@ -115,12 +94,8 @@ export interface GazeFocusStore {
   // Auth
   isAuthenticated: boolean;
 
-  // Library (Hierarchical)
-  libraryFolders: Record<string, Folder>;
-  rootItems: string[]; // Top-level item IDs (playlists or folders)
-  
   // Current player state
-  activeView: "player" | "search" | "settings" | "dashboard";
+  activeView: "player" | "search" | "settings";
   currentVideo: YTVideo | null;
   currentPlaylistId: string | null;
   activePlaylistVideos: YTVideo[]; // For "Next Video" logic
@@ -152,7 +127,7 @@ export interface GazeFocusStore {
   settings: GazeFocusSettings;
 
   // Actions
-  setActiveView: (view: "player" | "search" | "settings" | "dashboard") => void;
+  setActiveView: (view: "player" | "search" | "settings") => void;
   setCurrentVideo: (video: YTVideo | null) => void;
   setActivePlaylistVideos: (videos: YTVideo[]) => void;
   triggerPlaylistRefresh: () => void;
@@ -175,24 +150,11 @@ export interface GazeFocusStore {
   setTabActive: (active: boolean) => void;
   setSidebarWidth: (width: number) => void;
   updateSettings: (partial: Partial<GazeFocusSettings>) => void;
-  
-  // Library Actions
-  createFolder: (title: string, parentId: string | null) => void;
-  moveItem: (itemId: string, targetFolderId: string | null) => void;
-  deleteFolder: (folderId: string) => void;
-  setLibraryItems: (playlists: YTPlaylist[]) => void;
 }
 
 // --- next-auth session extension ---
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
-    user?: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    };
-    userId?: string;
   }
 }

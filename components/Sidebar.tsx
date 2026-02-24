@@ -1,152 +1,194 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { 
-  DndContext, 
-  DragOverlay, 
-  closestCenter, 
-  PointerSensor, 
-  useSensor, 
-  useSensors,
-  DragStartEvent,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import { signOut, useSession } from "next-auth/react";
+import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useStore } from "@/stores/useStore";
-import { 
-  fetchMyPlaylists, 
-  fetchPlaylistVideos,
-  fetchPlaylistInfo,
-  extractPlaylistId
-} from "@/lib/youtube";
-import { LibraryItem } from "./LibraryItem";
-import { 
-  Plus, 
-  Search, 
-  Settings as SettingsIcon, 
-  FolderPlus, 
-  RefreshCw, 
-  Loader2,
-  ArrowRight,
-  PlayCircle,
-  Link as LinkIcon,
-  X,
-  LogOut,
-  LayoutDashboard
-} from "lucide-react";
+import { fetchMyPlaylists, fetchPlaylistVideos, createPlaylist, fetchPlaylistInfo, extractPlaylistId, formatDuration } from "@/lib/youtube";
 import { cn } from "@/lib/utils";
 import type { YTPlaylist, YTVideo } from "@/types";
+import {
+  ChevronRight,
+  ChevronDown,
+  PlayCircle,
+  Loader2,
+  RefreshCw,
+  Plus,
+  X,
+  Link,
+  Trash2,
+} from "lucide-react";
+import { deletePlaylist, removePlaylistItem } from "@/lib/youtube";
+
+const IMPORTED_KEY = "gazefocus-imported-playlists";
 
 export function Sidebar() {
-  const { data: session } = useSession();
   const {
     currentVideo,
     setCurrentVideo,
     setCurrentPlaylistId,
     playlistRefreshTrigger,
-    setActivePlaylistVideos,
-    libraryFolders,
-    rootItems,
-    createFolder,
-    moveItem,
-    deleteFolder,
-    setLibraryItems,
-    setActiveView,
-    activeView
+    setActivePlaylistVideos
   } = useStore();
 
-  const [playlistsData, setPlaylistsData] = useState<Record<string, YTPlaylist>>({});
+  const [playlists, setPlaylists] = useState<YTPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
   const [playlistVideos, setPlaylistVideos] = useState<Record<string, YTVideo[]>>({});
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
-
-  // Import State
+  const [loadingVideos, setLoadingVideos] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [creating, setCreating] = useState(false);
   const [showImportForm, setShowImportForm] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Load saved imported playlist IDs from localStorage
+  const getImportedIds = useCallback((): string[] => {
+    try {
+      if (typeof window === "undefined") return [];
+      return JSON.parse(localStorage.getItem(IMPORTED_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  }, []);
 
-  const toggleExpand = (id: string) => {
-    setExpandedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const saveImportedId = (id: string) => {
+    const ids = getImportedIds();
+    if (!ids.includes(id)) {
+      ids.push(id);
+      localStorage.setItem(IMPORTED_KEY, JSON.stringify(ids));
+    }
+  };
+
+  const removeImportedId = (id: string) => {
+    const ids = getImportedIds().filter((i) => i !== id);
+    localStorage.setItem(IMPORTED_KEY, JSON.stringify(ids));
   };
 
   const loadPlaylists = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
+      // Fetch user's own playlists from YouTube
       const ownPlaylists = await fetchMyPlaylists();
-      
-      // STRICT FILTER: Remove Liked Videos and system playlists
-      const filtered = ownPlaylists.filter(pl => {
-        const title = pl.title.toLowerCase();
-        const isLiked = title.includes("liked") || pl.isSpecial;
-        // YouTube sometimes uses specific IDs for Liked videos (e.g., starting with LL)
-        const isLikedId = pl.id.startsWith("LL"); 
-        return !isLiked && !isLikedId;
-      });
 
-      const plMap: Record<string, YTPlaylist> = {};
-      filtered.forEach(pl => plMap[pl.id] = pl);
-      
-      setPlaylistsData(prev => ({ ...prev, ...plMap }));
-      setLibraryItems(filtered);
-    } catch (e) {
-      console.error("Failed to load playlists", e);
+      // Fetch imported external playlists
+      const importedIds = getImportedIds();
+      const importedPlaylists: YTPlaylist[] = [];
+      for (const id of importedIds) {
+        try {
+          const pl = await fetchPlaylistInfo(id);
+          importedPlaylists.push(pl);
+        } catch {
+          // Skip invalid/deleted playlists
+        }
+      }
+
+      setPlaylists([...ownPlaylists, ...importedPlaylists]);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load playlists");
     } finally {
       setLoading(false);
     }
-  }, [setLibraryItems]);
+  }, [getImportedIds]);
 
   useEffect(() => {
     loadPlaylists();
-  }, [loadPlaylists, playlistRefreshTrigger]);
+  }, [playlistRefreshTrigger, loadPlaylists]);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveDragId(event.active.id as string);
-  };
+  const loadFullPlaylist = useCallback(async (playlistId: string) => {
+    setLoadingVideos(playlistId);
+    try {
+      let allVideos: YTVideo[] = [];
+      let pageToken: string | undefined = undefined;
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveDragId(null);
+      // Keep fetching until no more pages
+      do {
+        const result: { videos: YTVideo[]; nextPageToken?: string } = await fetchPlaylistVideos(playlistId, pageToken);
+        allVideos = [...allVideos, ...result.videos];
+        pageToken = result.nextPageToken;
 
-    if (over && active.id !== over.id) {
-      const itemId = active.id as string;
-      const targetId = over.id as string;
-      const targetType = over.data.current?.type;
+        // Safety cap to avoid infinite loops or memory issues for massive playlists (> 500)
+        if (allVideos.length > 500) break;
+      } while (pageToken);
 
-      // Ensure we only move into folders
-      if (targetType === "folder") {
-        moveItem(itemId, targetId);
+      setPlaylistVideos((prev) => ({ ...prev, [playlistId]: allVideos }));
+      // Update store for Next Video logic
+      setActivePlaylistVideos(allVideos);
+    } catch (e) {
+      console.error("Failed to load full playlist:", e);
+    } finally {
+      setLoadingVideos(null);
+    }
+  }, [setActivePlaylistVideos]);
+
+  const handleTogglePlaylist = (playlist: YTPlaylist) => {
+    const isExpanding = expandedPlaylistId !== playlist.id;
+    setExpandedPlaylistId(isExpanding ? playlist.id : null);
+    setCurrentPlaylistId(playlist.id);
+
+    if (isExpanding) {
+      if (!playlistVideos[playlist.id]) {
+        loadFullPlaylist(playlist.id);
       } else {
-        // Move to root if dropped elsewhere or explicitly on another item
-        moveItem(itemId, null);
+        setActivePlaylistVideos(playlistVideos[playlist.id]);
       }
     }
   };
 
-  const loadVideos = async (playlistId: string) => {
-    if (playlistVideos[playlistId]) return;
+  const handleDeletePlaylist = async (id: string, isImported: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this playlist?")) return;
+
     try {
-      const { videos } = await fetchPlaylistVideos(playlistId);
-      setPlaylistVideos(prev => ({ ...prev, [playlistId]: videos }));
-    } catch (e) {
-      console.error("Failed to load videos", e);
+      if (isImported) {
+        removeImportedId(id);
+      } else {
+        await deletePlaylist(id);
+      }
+      setPlaylists((prev) => prev.filter((p) => p.id !== id));
+      if (expandedPlaylistId === id) setExpandedPlaylistId(null);
+    } catch {
+      alert("Failed to delete playlist. It might be a system playlist.");
     }
   };
 
-  const handlePlaylistSelect = (playlist: YTPlaylist) => {
-    setCurrentPlaylistId(playlist.id);
-    if (!expandedItems.has(playlist.id)) {
-        toggleExpand(playlist.id);
+  const handleRemoveVideo = async (playlistId: string, playlistItemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Remove this video from the playlist?")) return;
+
+    try {
+      await removePlaylistItem(playlistItemId);
+      setPlaylistVideos((prev) => {
+        const updated = (prev[playlistId] ?? []).filter(v => v.playlistItemId !== playlistItemId);
+        setActivePlaylistVideos(updated);
+        return { ...prev, [playlistId]: updated };
+      });
+    } catch {
+      alert("Failed to remove video.");
     }
-    loadVideos(playlist.id);
+  };
+
+  const handleRefreshPlaylist = async (playlistId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    loadFullPlaylist(playlistId);
+  };
+
+  const handleCreatePlaylist = async () => {
+    if (!newPlaylistName.trim() || creating) return;
+    setCreating(true);
+    try {
+      const newPlaylist = await createPlaylist(newPlaylistName.trim(), "private");
+      setPlaylists((prev) => [newPlaylist, ...prev]);
+      setNewPlaylistName("");
+      setShowCreateForm(false);
+    } catch {
+      alert("Failed to create playlist. Try again.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleImportPlaylist = async () => {
@@ -159,259 +201,275 @@ export function Sidebar() {
         setImportError("Invalid URL. Paste a YouTube playlist URL.");
         return;
       }
-      
+      // Check if already exists
+      if (playlists.some((p) => p.id === playlistId)) {
+        setImportError("Playlist already added.");
+        return;
+      }
       const pl = await fetchPlaylistInfo(playlistId);
-      pl.isImported = true;
-      
-      // Add to store
-      setLibraryItems([pl]);
-      // Add to local data map
-      setPlaylistsData(prev => ({ ...prev, [pl.id]: pl }));
-      
+      saveImportedId(playlistId);
+      setPlaylists((prev) => [...prev, pl]);
       setImportUrl("");
       setShowImportForm(false);
     } catch {
-      setImportError("Could not find playlist. Check the URL or privacy.");
+      setImportError("Could not find playlist. Check the URL.");
     } finally {
       setImporting(false);
     }
   };
 
-  const renderItems = (itemIds: string[], depth = 0) => {
-    return itemIds.map(id => {
-      const folder = libraryFolders[id];
-      const playlist = playlistsData[id];
-
-      if (folder) {
-        return (
-          <LibraryItem
-            key={id}
-            id={id}
-            type="folder"
-            title={folder.title}
-            depth={depth}
-            isExpanded={expandedItems.has(id)}
-            onToggle={() => toggleExpand(id)}
-            onDelete={() => deleteFolder(id)}
-          >
-            {renderItems(folder.itemIds, depth + 1)}
-          </LibraryItem>
-        );
-      }
-
-      if (playlist) {
-        return (
-          <LibraryItem
-            key={id}
-            id={id}
-            type="playlist"
-            title={playlist.title}
-            depth={depth}
-            playlistData={playlist}
-            isExpanded={expandedItems.has(id)}
-            onToggle={() => { toggleExpand(id); loadVideos(id); }}
-            onSelect={() => handlePlaylistSelect(playlist)}
-          >
-            {(playlistVideos[id] || []).map(video => (
-              <LibraryItem
-                key={video.id}
-                id={video.id}
-                type="video"
-                title={video.title}
-                depth={depth + 1}
-                videoData={video}
-                isActive={currentVideo?.id === video.id}
-                onSelect={() => {
-                   setCurrentVideo(video);
-                   setActivePlaylistVideos(playlistVideos[id] || []);
-                }}
-              />
-            ))}
-          </LibraryItem>
-        );
-      }
-
-      return null;
-    });
-  };
-
   return (
-    <aside className="flex flex-col h-full bg-surface-1 border-r border-border w-full select-none font-sans overflow-hidden shadow-2xl animate-in fade-in duration-500">
-      {/* App Logo/Header */}
-      <div className="p-5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <PlayCircle size={20} className="text-white fill-current" />
-           </div>
-           <div>
-             <h1 className="text-sm font-bold tracking-tight">GazeFocus</h1>
-             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">Workspace</p>
-           </div>
+    <aside className="flex flex-col h-full w-full bg-surface-1 shrink-0 select-none">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-border flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-xs tracking-widest uppercase text-text-muted">
+            Your YouTube Library
+          </h2>
+          <p className="text-text-muted text-xs mt-0.5">Synced from your account</p>
         </div>
-        <button 
+        <button
           onClick={loadPlaylists}
-          className="p-2 hover:bg-surface-2 rounded-full transition-colors text-muted-foreground hover:text-foreground"
+          disabled={loading}
+          className="text-text-muted hover:text-text-secondary transition-colors"
+          title="Refresh playlists"
         >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
-      {/* Global Navigation */}
-      <div className="px-3 mb-6 space-y-1">
-        <button 
-          onClick={() => setActiveView("search")}
-          className={cn(
-            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group",
-            activeView === "search" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <div className="flex items-center gap-2.5">
-            <Search size={16} />
-            <span className="text-xs font-semibold">Discovery</span>
-          </div>
-          <ArrowRight size={14} className="opacity-0 group-hover:opacity-40 -translate-x-2 group-hover:translate-x-0 transition-all" />
-        </button>
-
-        <button 
-          onClick={() => setActiveView("dashboard")}
-          className={cn(
-            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group",
-            activeView === "dashboard" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <div className="flex items-center gap-2.5">
-            <LayoutDashboard size={16} />
-            <span className="text-xs font-semibold">Dashboard</span>
-          </div>
-        </button>
-        
-        <button 
-          onClick={() => setActiveView("settings")}
-          className={cn(
-            "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group",
-            activeView === "settings" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-surface-2 text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <div className="flex items-center gap-2.5">
-            <SettingsIcon size={16} />
-            <span className="text-xs font-semibold">Preferences</span>
-          </div>
-        </button>
-      </div>
-
-      {/* Library Section */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="px-6 mb-2 flex items-center justify-between">
-           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">My Library</span>
-           <div className="flex items-center gap-1">
-             <button 
-                onClick={() => createFolder("New Folder", null)}
-                className="p-1 hover:bg-surface-2 rounded transition-colors text-muted-foreground hover:text-primary"
-                title="New Folder"
-              >
-               <FolderPlus size={14} />
-             </button>
-             <button 
-                onClick={() => setShowImportForm(!showImportForm)}
-                className={cn("p-1 hover:bg-surface-2 rounded transition-colors text-muted-foreground hover:text-primary", showImportForm && "text-primary bg-primary/10")}
-                title="Import Playlist URL"
-              >
-               <LinkIcon size={14} />
-             </button>
-           </div>
-        </div>
-
-        {/* Import Form */}
-        {showImportForm && (
-            <div className="mx-3 mb-4 p-3 bg-surface-2 rounded-xl border border-border animate-in slide-in-from-top-4 duration-300 ease-out shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Import Playlist</span>
-                    <button onClick={() => setShowImportForm(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                        <X size={12} />
-                    </button>
-                </div>
-                <div className="flex gap-2">
-                    <input 
-                        type="text" 
-                        value={importUrl}
-                        onChange={(e) => setImportUrl(e.target.value)}
-                        placeholder="YouTube Playlist URL..."
-                        className="flex-1 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                    />
-                    <button 
-                        onClick={handleImportPlaylist}
-                        disabled={importing || !importUrl}
-                        className="bg-primary text-white p-2 rounded-lg hover:bg-primary/90 disabled:opacity-50 shadow-md shadow-primary/10 transition-all"
-                    >
-                        {importing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    </button>
-                </div>
-                {importError && <p className="text-[10px] text-destructive mt-2 animate-in fade-in">{importError}</p>}
-            </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto px-3 custom-scrollbar scroll-smooth">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="space-y-0.5 pb-4">
-              {renderItems(rootItems)}
-            </div>
-
-            <DragOverlay dropAnimation={null}>
-              {activeDragId ? (
-                <div className="bg-surface-3 px-3 py-2 rounded-md shadow-2xl border border-primary/40 text-xs font-medium text-primary flex items-center gap-2 backdrop-blur-md scale-105 transition-transform">
-                   {activeDragId.includes('folder') ? <FolderPlus size={14} /> : <PlayCircle size={14} className="text-blue-400" />}
-                   <span>Dragging {activeDragId.includes('folder') ? 'Folder' : 'Playlist'}</span>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-
-          {rootItems.length === 0 && !loading && (
-            <div className="py-12 px-6 text-center border-2 border-dashed border-border rounded-xl mt-4 bg-surface-2/30">
-               <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mx-auto mb-3">
-                  <Plus size={20} className="text-muted-foreground" />
-               </div>
-               <p className="text-xs text-muted-foreground leading-relaxed">
-                 Your library is empty.<br/>Sync playlists or create folders.
-               </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer Info & Logout */}
-      <div className="p-4 mt-auto bg-surface-2/50 border-t border-border group/footer">
-         <div className="flex items-center justify-between">
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full overflow-hidden border border-border bg-surface-3 flex items-center justify-center">
-                 {session?.user?.image ? (
-                   // eslint-disable-next-line @next/next/no-img-element
-                   <img src={session.user.image} alt="" className="w-full h-full object-cover" />
-                 ) : (
-                   <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                     {session?.user?.name?.substring(0, 2) || "PK"}
-                   </span>
-                 )}
-              </div>
-              <div className="flex-1 min-w-0">
-                 <p className="text-xs font-semibold truncate text-foreground">{session?.user?.name || "Purujith Kadekar"}</p>
-                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Pro Workspace</p>
-              </div>
-           </div>
-           
-           <button 
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-              title="Sign Out"
+      {/* Create Playlist */}
+      <div className="px-4 py-2 border-b border-border">
+        {showCreateForm ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newPlaylistName}
+              onChange={(e) => setNewPlaylistName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreatePlaylist()}
+              placeholder="Playlist name…"
+              className="flex-1 px-2 py-1 bg-surface-2 border border-border rounded text-text-primary text-xs placeholder:text-text-muted focus:outline-none focus:border-accent/50"
+              autoFocus
+            />
+            <button
+              onClick={handleCreatePlaylist}
+              disabled={!newPlaylistName.trim() || creating}
+              className="text-accent hover:text-accent-dim disabled:opacity-40 transition-colors"
             >
-             <LogOut size={14} />
-           </button>
-         </div>
+              {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+            </button>
+            <button
+              onClick={() => { setShowCreateForm(false); setNewPlaylistName(""); }}
+              className="text-text-muted hover:text-text-secondary transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center gap-1.5 text-text-muted hover:text-accent text-xs font-display tracking-wider transition-colors"
+          >
+            <Plus size={12} />
+            Create playlist
+          </button>
+        )}
+      </div>
+
+      {/* Import Playlist by URL */}
+      <div className="px-4 py-2 border-b border-border">
+        {showImportForm ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={importUrl}
+                onChange={(e) => { setImportUrl(e.target.value); setImportError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handleImportPlaylist()}
+                placeholder="Paste YouTube playlist URL…"
+                className="flex-1 px-2 py-1 bg-surface-2 border border-border rounded text-text-primary text-xs placeholder:text-text-muted focus:outline-none focus:border-accent/50"
+                autoFocus
+              />
+              <button
+                onClick={handleImportPlaylist}
+                disabled={!importUrl.trim() || importing}
+                className="text-accent hover:text-accent-dim disabled:opacity-40 transition-colors"
+              >
+                {importing ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+              </button>
+              <button
+                onClick={() => { setShowImportForm(false); setImportUrl(""); setImportError(null); }}
+                className="text-text-muted hover:text-text-secondary transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {importError && (
+              <p className="text-danger text-xs">{importError}</p>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowImportForm(true)}
+            className="flex items-center gap-1.5 text-text-muted hover:text-accent text-xs font-display tracking-wider transition-colors"
+          >
+            <Link size={12} />
+            Import playlist by URL
+          </button>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={20} className="animate-spin text-text-muted" />
+          </div>
+        ) : error ? (
+          <div className="px-4 py-6 text-center space-y-3">
+            <p className="text-danger text-xs font-display">{error}</p>
+            <button
+              onClick={loadPlaylists}
+              className="text-xs text-text-secondary hover:text-text-primary underline"
+            >
+              Try again
+            </button>
+          </div>
+        ) : playlists.length === 0 ? (
+          <div className="px-4 py-6 text-center space-y-2">
+            <p className="text-text-muted text-xs font-display">No playlists found</p>
+            <p className="text-text-muted text-xs leading-relaxed">
+              Create a playlist above to get started! Videos you add will sync to your YouTube account.
+            </p>
+          </div>
+        ) : (
+          <div className="py-2">
+            {playlists.map((playlist) => (
+              <div key={playlist.id}>
+                {/* Playlist row */}
+                <button
+                  onClick={() => handleTogglePlaylist(playlist)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 transition-colors group"
+                  )}
+                >
+                  {/* Thumbnail */}
+                  <div className="w-10 h-7 rounded overflow-hidden bg-surface-3 shrink-0">
+                    {playlist.thumbnails.default?.url && (
+                      <Image
+                        src={playlist.thumbnails.default.url}
+                        alt=""
+                        width={40}
+                        height={28}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text-primary text-xs font-display truncate leading-tight">
+                      {playlist.title}
+                    </p>
+                    <p className="text-text-muted text-xs mt-0.5 truncate">
+                      {playlist.itemCount} videos
+                    </p>
+                  </div>
+
+                  {!playlist.isSpecial && (
+                    <button
+                      onClick={(e) => handleDeletePlaylist(playlist.id, getImportedIds().includes(playlist.id), e)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-danger translation-all rounded-md hover:bg-surface-3 mr-1"
+                      title="Delete playlist"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+
+                  {expandedPlaylistId === playlist.id ? (
+                    <ChevronDown size={14} className="text-text-muted shrink-0" />
+                  ) : (
+                    <ChevronRight size={14} className="text-text-muted shrink-0" />
+                  )}
+                </button>
+
+                {/* Video list */}
+                {expandedPlaylistId === playlist.id && (
+                  <div className="bg-surface">
+                    {/* Refresh bar */}
+                    <div className="flex items-center justify-end px-4 py-1 border-b border-border/50">
+                      <button
+                        onClick={(e) => handleRefreshPlaylist(playlist.id, e)}
+                        className="flex items-center gap-1 text-text-muted hover:text-text-secondary text-xs"
+                      >
+                        <RefreshCw size={10} />
+                        Sync
+                      </button>
+                    </div>
+
+                    {loadingVideos === playlist.id ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 size={16} className="animate-spin text-text-muted" />
+                      </div>
+                    ) : (playlistVideos[playlist.id] ?? []).length === 0 ? (
+                      <p className="text-text-muted text-xs text-center py-4">
+                        No videos in this playlist
+                      </p>
+                    ) : (
+                      (playlistVideos[playlist.id] ?? []).map((video) => (
+                        <div key={video.playlistItemId || video.id} className="relative group/video">
+                          <button
+                            onClick={() => setCurrentVideo(video)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-surface-2 transition-colors",
+                              currentVideo?.id === video.id &&
+                              "bg-accent/5 border-l-2 border-accent"
+                            )}
+                          >
+                            <div className="relative w-14 h-8 rounded overflow-hidden bg-surface-3 shrink-0">
+                              {video.thumbnails.default?.url && (
+                                <Image
+                                  src={video.thumbnails.default.url}
+                                  alt=""
+                                  width={56}
+                                  height={32}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                              {currentVideo?.id === video.id && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                  <PlayCircle size={14} className="text-accent" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-text-primary text-xs leading-snug line-clamp-2">
+                                {video.title}
+                              </p>
+                              <p className="text-text-muted text-xs mt-0.5">
+                                {formatDuration(video.durationSeconds)}
+                              </p>
+                            </div>
+                          </button>
+
+                          {video.playlistItemId && !playlist.isSpecial && (
+                            <button
+                              onClick={(e) => handleRemoveVideo(playlist.id, video.playlistItemId!, e)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/video:opacity-100 p-1 text-text-muted hover:text-danger rounded hover:bg-surface-3 transition-opacity"
+                              title="Remove from playlist"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );

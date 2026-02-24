@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-export const dynamic = "force-dynamic";
-
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 
 /**

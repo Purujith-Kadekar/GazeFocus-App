@@ -46,12 +46,12 @@ async function refreshAccessToken(token: Record<string, unknown>) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || "dummy-secret-for-build",
   adapter: PrismaAdapter(prisma),
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      clientId: process.env.AUTH_GOOGLE_ID || "dummy-id",
+      clientSecret: process.env.AUTH_GOOGLE_SECRET || "dummy-secret",
       authorization: {
         params: {
           scope: [

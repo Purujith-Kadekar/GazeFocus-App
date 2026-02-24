@@ -1,14 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { Folder, Plus, X, Loader2, Trash2, FolderOpen } from "lucide-react";
 import type { UserFolder } from "@/types";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export function FoldersPanel() {
   const [folders, setFolders] = useState<UserFolder[]>([]);
@@ -22,24 +16,20 @@ export function FoldersPanel() {
   const loadFolders = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError("Not authenticated");
-        return;
+      const res = await fetch("/api/folders");
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Not authenticated");
+          return;
+        }
+        throw new Error("Failed to load folders");
       }
-
-      const { data, error: err } = await supabase
-        .from("user_folders")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (err) throw err;
-      setFolders((data || []).map(f => ({
+      const data = await res.json();
+      setFolders((data || []).map((f: any) => ({
         id: f.id,
-        name: f.name,
+        name: f.title, // Map Prisma 'title' to UI 'name'
         description: f.description,
-        createdAt: f.created_at,
+        createdAt: f.createdAt,
       })));
       setError(null);
     } catch (e) {
@@ -58,26 +48,24 @@ export function FoldersPanel() {
 
     setCreating(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { data, error: err } = await supabase
-        .from("user_folders")
-        .insert({
-          user_id: user.id,
-          name: newFolderName.trim(),
+      const res = await fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newFolderName.trim(),
           description: newFolderDesc.trim() || null,
-        })
-        .select()
-        .maybeSingle();
+        }),
+      });
 
-      if (err) throw err;
+      if (!res.ok) throw new Error("Failed to create folder");
+      
+      const data = await res.json();
       if (data) {
         setFolders(prev => [{
           id: data.id,
-          name: data.name,
+          name: data.title,
           description: data.description,
-          createdAt: data.created_at,
+          createdAt: data.createdAt,
         }, ...prev]);
       }
       setNewFolderName("");
@@ -95,12 +83,12 @@ export function FoldersPanel() {
     if (!confirm("Delete this folder? Playlists inside won't be deleted.")) return;
 
     try {
-      const { error: err } = await supabase
-        .from("user_folders")
-        .delete()
-        .eq("id", id);
+      const res = await fetch(`/api/folders/${id}`, {
+        method: "DELETE",
+      });
 
-      if (err) throw err;
+      if (!res.ok) throw new Error("Failed to delete folder");
+      
       setFolders(prev => prev.filter(f => f.id !== id));
       setError(null);
     } catch (e) {

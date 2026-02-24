@@ -1,11 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import type { YTVideo } from "@/types";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface UseProgressTrackingProps {
   video: YTVideo | null;
@@ -29,25 +23,18 @@ export function useProgressTracking({
     if (!video || !playlistId || currentTime === 0 || duration === 0) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const res = await fetch("/api/video-progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoId: video.id,
+          playlistId: playlistId,
+          secondsWatched: Math.floor(currentTime),
+          durationSeconds: Math.floor(duration),
+        }),
+      });
 
-      const completionPercent = Math.round((currentTime / duration) * 100);
-
-      await supabase
-        .from("watch_progress")
-        .upsert({
-          user_id: user.id,
-          playlist_id: playlistId,
-          video_id: video.id,
-          youtube_video_id: video.id,
-          watched_seconds: Math.floor(currentTime),
-          total_seconds: Math.floor(duration),
-          completion_percent: completionPercent,
-          last_watched_at: new Date().toISOString(),
-        }, {
-          onConflict: "user_id,video_id",
-        });
+      if (!res.ok) throw new Error("Failed to update progress");
 
       lastSavedRef.current = currentTime;
     } catch (error) {

@@ -5,60 +5,53 @@
 @layer base {
   :root {
     /* Modern, Sleek Dark Theme Variables */
-    --background: 240 10% 3.9%;
-    --surface: 240 10% 6%;
-    --surface-1: 240 10% 8%;
-    --surface-2: 240 10% 12%;
-    --surface-3: 240 10% 16%;
+    /* Backgrounds: Deep, rich blacks and grays */
+    --background: 0 0% 0%; /* Pure Black */
+    --surface: 0 0% 5%;    /* Very dark gray */
+    --surface-1: 0 0% 10%;
+    --surface-2: 0 0% 15%;
+    --surface-3: 0 0% 20%;
     
-    --primary: 217 91% 60%; 
-    --primary-foreground: 210 40% 98%;
+    /* Accents: Crisp, modern primary color (e.g., a vibrant blue or teal) */
+    --primary: 217 91% 60%; /* Bright Blue */
+    --primary-foreground: 0 0% 100%;
     
+    /* Text Colors */
     --foreground: 0 0% 98%;
-    --muted: 240 5% 64.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 0 0% 60%;
+    --muted-foreground: 0 0% 45%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    
-    --radius: 0.75rem;
+    /* Borders */
+    --border: 0 0% 15%;
+    --input: 0 0% 20%;
+
+    /* Semantic */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --ring: 217 91% 60%;
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
-    overflow: hidden;
   }
 }
 
 @layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-surface-3 rounded-full hover:bg-muted-foreground/30 transition-colors;
+  .text-shadow-md {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.7);
   }
   
-  .glass {
-    @apply bg-surface-1/60 backdrop-blur-xl border border-border;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
-}
-
-/* Range input styling - Fixed and made professional */
-input[type="range"] {
-  @apply appearance-none bg-surface-3 rounded-full h-1.5 cursor-pointer outline-none transition-all;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  @apply appearance-none w-4 h-4 rounded-full bg-primary border-2 border-background shadow-lg hover:scale-110 active:scale-95 transition-transform;
-  -webkit-appearance: none;
-}
-
-input[type="range"]::-moz-range-thumb {
-  @apply w-4 h-4 rounded-full bg-primary border-2 border-background shadow-lg hover:scale-110 active:scale-95 transition-transform border-0;
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
 }

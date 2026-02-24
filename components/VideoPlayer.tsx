@@ -7,9 +7,9 @@ import { useGazeDetection } from "@/hooks/useGazeDetection";
 import { useInactivityAlert } from "@/hooks/useInactivityAlert";
 import { BreakOverlay } from "./BreakOverlay";
 import { InactivityAlert } from "./InactivityAlert";
-import { PlayerNotes } from "./PlayerNotes";
-import { GazeIndicator } from "./GazeIndicator";
-import { ChevronLeft } from "lucide-react";
+import { 
+  ChevronLeft
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoPlayerProps {
@@ -40,7 +40,6 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   const webcamRef = useRef<HTMLVideoElement>(null);
   
   const [inactivityPaused, setInactivityPaused] = useState(false);
-  const [savingProgress, setSavingProgress] = useState(false);
 
   // ─── Gaze Callbacks ────────────────────────────────────────────────────────
 
@@ -135,46 +134,6 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
     return () => clearInterval(interval);
   }, [isPlaying, setCurrentTime, checkMilestone, triggerBreak]);
 
-  // ─── Persist progress (throttled) ────────────────────────────────────────────
-  useEffect(() => {
-    if (!currentVideo) return;
-    if (!Number.isFinite(currentVideo.durationSeconds) || currentVideo.durationSeconds <= 0) {
-      return;
-    }
-
-    // Save progress a few seconds after playback starts / resumes
-    const controller = new AbortController();
-    const timeout = setTimeout(async () => {
-      try {
-        setSavingProgress(true);
-        await fetch("/api/progress", {
-          method: "POST",
-          signal: controller.signal,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            videoId: currentVideo.id,
-            playlistId: null,
-            currentSeconds: Math.floor(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (window as any).GZ_CURRENT_TIME ?? 0
-            ),
-            durationSeconds: currentVideo.durationSeconds,
-            completed: false,
-          }),
-        });
-      } catch {
-        // Non-fatal
-      } finally {
-        setSavingProgress(false);
-      }
-    }, 8000);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [currentVideo, isPlaying]);
-
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handleBreakEnd = useCallback(() => {
@@ -217,7 +176,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   return (
     <div
       ref={containerRef}
-      className={cn("relative bg-black h-full overflow-hidden flex flex-row font-sans select-none", className)}
+      className={cn("relative bg-black h-full overflow-hidden flex flex-col font-sans select-none", className)}
     >
       {/* Hidden webcam for gaze tracking */}
       <video
@@ -230,7 +189,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       />
 
       {/* Top Bar for Navigation */}
-      <div className="absolute top-0 left-0 right-80 z-30 h-16 bg-gradient-to-b from-black/80 to-transparent p-4 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-30 h-16 bg-gradient-to-b from-black/80 to-transparent p-4 flex items-center justify-between pointer-events-none">
         <button 
           onClick={() => setActiveView("player")} 
           className="text-white/80 hover:text-white transition-colors flex items-center gap-2 group pointer-events-auto"
@@ -240,20 +199,12 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           </div>
         </button>
 
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <GazeIndicator status={settings.gazeEnabled ? "active" : "disabled"} />
-          {savingProgress && (
-            <span className="text-[10px] text-white/70">
-              Saving…
-            </span>
-          )}
-          <button 
-            onClick={handleClosePlayer}
-            className="text-white/60 hover:text-red-400 transition-colors p-2 font-medium text-xs tracking-wider uppercase"
-          >
-            Close Player
-          </button>
-        </div>
+        <button 
+           onClick={handleClosePlayer}
+           className="text-white/60 hover:text-red-400 transition-colors p-2 font-medium text-xs tracking-wider uppercase pointer-events-auto"
+        >
+           Close Player
+        </button>
       </div>
 
       {/* Main Video Layer - Default YouTube Player */}
@@ -280,9 +231,6 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           onEnd={handleNextVideo}
         />
       </div>
-
-      {/* Notes rail */}
-      <PlayerNotes />
 
       {/* Overlays: Break & Inactivity (Higher Z) */}
       {isOnBreak && <BreakOverlay milestones={milestones} onBreakEnd={handleBreakEnd} />}

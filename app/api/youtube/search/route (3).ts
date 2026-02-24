@@ -55,31 +55,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ results: [], nextPageToken: null });
     }
 
-    // Step 2: Fetch video durations + embeddable status
+    // Step 2: Fetch video durations
     const videoP = new URLSearchParams({
-      part: "contentDetails,status",
+      part: "contentDetails",
       id: videoIds,
       key: API_KEY,
     });
     const videosRes = await fetch(`${YT_BASE}/videos?${videoP}`);
     const videosData = await videosRes.json();
 
-    const videoInfoMap = new Map<string, { durationSeconds: number; embeddable: boolean }>();
+    const durationMap = new Map<string, number>();
     for (const v of videosData.items ?? []) {
-      videoInfoMap.set(v.id, {
-        durationSeconds: parseDuration(v.contentDetails?.duration ?? "PT0S"),
-        embeddable: v.status?.embeddable ?? false,
-      });
+      durationMap.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
     }
 
+    // Step 3: Build results
     const results: SearchResult[] = items
-      .filter((i: { id?: { videoId?: string } }) => {
-        const vid = i.id?.videoId;
-        if (!vid) return false;
-        // Only include embeddable videos
-        const info = videoInfoMap.get(vid);
-        return info?.embeddable !== false;
-      })
+      .filter((i: { id?: { videoId?: string } }) => i.id?.videoId)
       .map((i: {
         id: { videoId: string };
         snippet: {
@@ -97,7 +89,7 @@ export async function GET(req: NextRequest) {
         channelTitle: i.snippet.channelTitle,
         publishedAt: i.snippet.publishedAt,
         duration: "",
-        durationSeconds: videoInfoMap.get(i.id.videoId)?.durationSeconds ?? 0,
+        durationSeconds: durationMap.get(i.id.videoId) ?? 0,
         isSearchResult: true as const,
       }));
 

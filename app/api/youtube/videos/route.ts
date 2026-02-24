@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 
 interface YTVideoItem {

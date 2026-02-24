@@ -27,6 +27,7 @@ yarn-error.log*
 Thumbs.db
 
 # Editor
+.cursor/
 .vscode/
 .idea/
 *.suo
@@ -48,3 +49,7 @@ coverage/
 # Local cache
 .turbo/
 .cache/
+
+.vercel
+.env*.local
+.eslintrc.json

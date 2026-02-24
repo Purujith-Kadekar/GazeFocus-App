@@ -12,20 +12,14 @@ import {
   Minimize,
   Settings,
   MessageCircle,
-  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/utils";
 
-interface Quality {
-  label: string;
-  value: string;
-}
-
 interface CustomVideoPlayerProps {
   videoId: string;
   duration: number;
-  currentTime: number; // Added currentTime prop
+  currentTime: number;
   title?: string;
   onTimeUpdate?: (seconds: number) => void;
   onStateChange?: (playing: boolean) => void;
@@ -35,18 +29,10 @@ interface CustomVideoPlayerProps {
   className?: string;
 }
 
-const AVAILABLE_QUALITIES: Quality[] = [
-  { label: "Auto", value: "auto" },
-  { label: "1080p", value: "1080p" },
-  { label: "720p", value: "720p" },
-  { label: "480p", value: "480p" },
-  { label: "360p", value: "360p" },
-];
-
 export function CustomVideoPlayer({
   videoId,
   duration,
-  currentTime: syncTime, // Use syncTime as a name for the prop
+  currentTime: syncTime,
   title,
   onTimeUpdate,
   onStateChange,
@@ -65,9 +51,8 @@ export function CustomVideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState("auto");
   const [showCaptions, setShowCaptions] = useState(true);
-  const [origin, setOrigin] = useState(""); // Track origin for YouTube embed
+  const [origin, setOrigin] = useState("");
   const controlsTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
@@ -76,7 +61,6 @@ export function CustomVideoPlayer({
     }
   }, []);
 
-  // Sync internal currentTime with parent's syncTime
   useEffect(() => {
     setCurrentTime(syncTime);
   }, [syncTime]);
@@ -148,184 +132,157 @@ export function CustomVideoPlayer({
     <div
       ref={containerRef}
       className={cn(
-        "relative bg-black w-full h-full overflow-hidden group",
+        "relative w-full aspect-video bg-black overflow-hidden group select-none",
+        isFullscreen ? "fixed inset-0 z-[9999] h-screen w-screen aspect-none" : "rounded-xl border border-white/10",
         className
       )}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
-      {/* YouTube Iframe */}
-      <iframe
-        ref={iframeRef}
-        className="w-full h-full"
-        src={embedUrl}
-        title={title}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-        style={{ border: "none" }}
-      />
+      <div className="absolute inset-0 w-full h-full pointer-events-none">
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full"
+          src={embedUrl}
+          title={title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          style={{ border: "none" }}
+        />
+      </div>
 
-      {/* Controls Overlay */}
+      <div 
+        className="absolute inset-0 z-10 cursor-pointer flex items-center justify-center" 
+        onClick={togglePlay}
+      >
+        {!isPlaying && (
+          <div className="w-20 h-20 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20 text-white animate-pulse">
+            <Play size={40} fill="currentColor" />
+          </div>
+        )}
+      </div>
+
       <div
         className={cn(
-          "absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/80 via-transparent to-black/20 transition-opacity duration-200",
-          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+          "absolute inset-0 z-20 flex flex-col justify-between bg-gradient-to-t from-black/95 via-transparent to-black/30 transition-opacity duration-300",
+          showControls || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
-        {/* Top Bar */}
-        <div className="p-4 flex items-center justify-between">
-          <div className="text-white text-sm font-medium truncate">
+        <div className="p-4 lg:p-6 flex items-center justify-between">
+          <div className="text-white text-sm lg:text-base font-medium truncate max-w-[70%] drop-shadow-md">
             {title && <span>{title}</span>}
           </div>
           <button
-            onClick={onClose}
-            className="text-white/80 hover:text-white text-xs uppercase tracking-wider bg-black/40 hover:bg-black/60 px-3 py-1.5 rounded transition-colors"
+            onClick={(e) => { e.stopPropagation(); onClose?.(); }}
+            className="text-white/80 hover:text-white text-xs font-display uppercase tracking-widest bg-black/40 hover:bg-black/60 border border-white/10 px-4 py-2 rounded-lg transition-all backdrop-blur-sm"
           >
-            Close
+            Exit Player
           </button>
         </div>
 
-        {/* Bottom Controls */}
-        <div className="space-y-2 p-4">
-          {/* Progress Bar */}
+        <div className="space-y-3 p-4 lg:p-6 bg-gradient-to-t from-black/80 to-transparent">
           <div
-            className="group/progress flex items-center gap-2 cursor-pointer"
-            onClick={handleProgressClick}
+            className="group/progress relative h-1.5 w-full bg-white/20 rounded-full cursor-pointer transition-all hover:h-2"
+            onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}
           >
-            <div className="flex-1 relative h-1 bg-white/20 rounded-full overflow-hidden hover:h-2 transition-all">
-              <div
-                className="h-full bg-red-500 transition-all"
-                style={{ width: `${(currentTime / duration) * 100}%` }}
-              />
-              <input
-                type="range"
-                min="0"
-                max={duration}
-                value={currentTime}
-                onChange={handleProgressChange}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-            </div>
-            <span className="text-white text-xs whitespace-nowrap font-mono">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
+            <div
+              className="absolute inset-y-0 left-0 bg-red-600 rounded-full transition-all"
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            />
+            <input
+              type="range"
+              min="0"
+              max={duration}
+              value={currentTime}
+              onChange={(e) => { e.stopPropagation(); handleProgressChange(e); }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+            />
           </div>
 
-          {/* Controls Row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {/* Play/Pause */}
+            <div className="flex items-center gap-3 lg:gap-5">
               <button
-                onClick={togglePlay}
-                className="p-2 rounded hover:bg-white/20 transition-colors text-white"
+                onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                className="p-1.5 text-white hover:scale-110 transition-transform"
                 title={isPlaying ? "Pause" : "Play"}
               >
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
               </button>
 
-              {/* Skip Previous */}
-              {onPrevious && (
-                <button
-                  onClick={onPrevious}
-                  className="p-2 rounded hover:bg-white/20 transition-colors text-white"
-                  title="Previous"
-                >
-                  <SkipBack size={20} />
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {onPrevious && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPrevious(); }}
+                    className="p-1 text-white/80 hover:text-white transition-colors"
+                    title="Previous"
+                  >
+                    <SkipBack size={20} fill="currentColor" />
+                  </button>
+                )}
 
-              {/* Skip Next */}
-              {onNext && (
-                <button
-                  onClick={onNext}
-                  className="p-2 rounded hover:bg-white/20 transition-colors text-white"
-                  title="Next"
-                >
-                  <SkipForward size={20} />
-                </button>
-              )}
-
-              {/* Volume Control */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={toggleMute}
-                  className="p-2 rounded hover:bg-white/20 transition-colors text-white"
-                  title={isMuted ? "Unmute" : "Mute"}
-                >
-                  {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={volume}
-                  onChange={handleVolumeChange}
-                  className="w-16 h-1 bg-white/30 rounded-full accent-red-500 cursor-pointer"
-                  title="Volume"
-                />
+                {onNext && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onNext(); }}
+                    className="p-1 text-white/80 hover:text-white transition-colors"
+                    title="Next"
+                  >
+                    <SkipForward size={20} fill="currentColor" />
+                  </button>
+                )}
               </div>
 
-              {/* Duration */}
-              <div className="flex items-center gap-1.5 text-white text-xs ml-2">
-                <Clock size={16} />
+              <div className="flex items-center gap-2 group/volume">
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                  className="p-1 text-white/80 hover:text-white transition-colors"
+                  title={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
+                </button>
+                <div className="w-0 overflow-hidden group-hover/volume:w-24 transition-all duration-300 ease-out">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={volume}
+                    onChange={(e) => { e.stopPropagation(); handleVolumeChange(e); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full h-1 bg-white/30 rounded-full accent-white cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 text-white/90 text-xs font-mono tabular-nums">
+                <span>{formatTime(currentTime)}</span>
+                <span className="text-white/40">/</span>
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Captions */}
+            <div className="flex items-center gap-4">
               <button
-                onClick={() => setShowCaptions(!showCaptions)}
+                onClick={(e) => { e.stopPropagation(); setShowCaptions(!showCaptions); }}
                 className={cn(
-                  "p-2 rounded transition-colors",
-                  showCaptions
-                    ? "bg-white/30 text-white"
-                    : "hover:bg-white/20 text-white/60"
+                  "p-1.5 rounded transition-colors",
+                  showCaptions ? "text-white" : "text-white/40 hover:text-white/70"
                 )}
-                title={showCaptions ? "Hide Captions" : "Show Captions"}
+                title="Captions"
               >
-                <MessageCircle size={20} />
+                <MessageCircle size={22} />
               </button>
 
-              {/* Quality Selector */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowQualityMenu(!showQualityMenu)}
-                  className="p-2 rounded hover:bg-white/20 transition-colors text-white text-xs font-medium uppercase tracking-wider"
-                  title="Quality"
-                >
-                  <Settings size={20} />
-                </button>
-                {showQualityMenu && (
-                  <div className="absolute bottom-full right-0 mb-2 bg-black/95 border border-white/20 rounded-lg overflow-hidden z-50">
-                    {AVAILABLE_QUALITIES.map((q) => (
-                      <button
-                        key={q.value}
-                        onClick={() => {
-                          setSelectedQuality(q.value);
-                          setShowQualityMenu(false);
-                        }}
-                        className={cn(
-                          "block w-full px-4 py-2 text-left text-sm transition-colors",
-                          selectedQuality === q.value
-                            ? "bg-red-500 text-white"
-                            : "text-white/80 hover:bg-white/10"
-                        )}
-                      >
-                        {q.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Fullscreen */}
               <button
-                onClick={handleFullscreen}
-                className="p-2 rounded hover:bg-white/20 transition-colors text-white"
-                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                onClick={(e) => { e.stopPropagation(); setShowQualityMenu(!showQualityMenu); }}
+                className="p-1.5 text-white/80 hover:text-white transition-all hover:rotate-45"
               >
-                {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                <Settings size={22} />
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); handleFullscreen(); }}
+                className="p-1.5 text-white/80 hover:text-white transition-transform hover:scale-110"
+              >
+                {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
               </button>
             </div>
           </div>

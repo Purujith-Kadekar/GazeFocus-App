@@ -24,6 +24,8 @@ interface Quality {
 
 interface CustomVideoPlayerProps {
   videoId: string;
+  duration: number;
+  currentTime: number; // Added currentTime prop
   title?: string;
   onTimeUpdate?: (seconds: number) => void;
   onStateChange?: (playing: boolean) => void;
@@ -43,6 +45,8 @@ const AVAILABLE_QUALITIES: Quality[] = [
 
 export function CustomVideoPlayer({
   videoId,
+  duration,
+  currentTime: syncTime, // Use syncTime as a name for the prop
   title,
   onTimeUpdate,
   onStateChange,
@@ -56,7 +60,6 @@ export function CustomVideoPlayer({
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration] = useState(0);
   const [volume, setVolume] = useState(100);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -64,67 +67,21 @@ export function CustomVideoPlayer({
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState("auto");
   const [showCaptions, setShowCaptions] = useState(true);
+  const [origin, setOrigin] = useState(""); // Track origin for YouTube embed
   const controlsTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const handleMouseMove = useCallback(() => {
-    setShowControls(true);
-    clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying && !showQualityMenu) {
-        setShowControls(false);
-      }
-    }, 3000);
-  }, [isPlaying, showQualityMenu]);
-
-  const handleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
     }
   }, []);
 
-  const togglePlay = useCallback(() => {
-    setIsPlaying(!isPlaying);
-    onStateChange?.(!isPlaying);
-  }, [isPlaying, onStateChange]);
-
-  const toggleMute = useCallback(() => {
-    setIsMuted(!isMuted);
-  }, [isMuted]);
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value);
-    setVolume(val);
-    if (val > 0) setIsMuted(false);
-  };
-
-  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value);
-    setCurrentTime(val);
-    onTimeUpdate?.(val);
-  };
-
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    const newTime = percent * duration;
-    setCurrentTime(newTime);
-    onTimeUpdate?.(newTime);
-  };
-
+  // Sync internal currentTime with parent's syncTime
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    setCurrentTime(syncTime);
+  }, [syncTime]);
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?fs=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&cc_load_policy=${showCaptions ? 1 : 0}${origin ? `&origin=${origin}` : ""}`;
 
   return (
     <div
@@ -140,7 +97,7 @@ export function CustomVideoPlayer({
       <iframe
         ref={iframeRef}
         className="w-full h-full"
-        src={`https://www.youtube-nocookie.com/embed/${videoId}?fs=0&rel=0&modestbranding=1&playsinline=1&cc_load_policy=${showCaptions ? 1 : 0}`}
+        src={embedUrl}
         title={title}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen

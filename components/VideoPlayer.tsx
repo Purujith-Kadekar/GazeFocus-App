@@ -183,6 +183,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
 
       <CustomVideoPlayer
         videoId={currentVideo.id}
+        duration={durationSeconds}
+        currentTime={currentTimeSeconds}
         title={currentVideo.title}
         onTimeUpdate={handleTimeUpdate}
         onStateChange={handlePlayerStateChange}

@@ -9,11 +9,11 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               // Allow YouTube embeds
-              "frame-src 'self' https://www.youtube.com https://*.youtube.com https://*.ytimg.com",
+              "frame-src 'self' https://www.youtube.com https://*.youtube.com https://www.youtube-nocookie.com https://*.youtube-nocookie.com https://*.ytimg.com",
               // Allow MediaPipe WASM + YouTube scripts
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://*.youtube.com https://cdn.jsdelivr.net",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://*.youtube.com https://www.youtube-nocookie.com https://cdn.jsdelivr.net",
               // Allow MediaPipe model downloads + YouTube API calls
-              "connect-src 'self' https://www.youtube.com https://*.youtube.com https://cdn.jsdelivr.net https://storage.googleapis.com",
+              "connect-src 'self' https://www.youtube.com https://*.youtube.com https://www.youtube-nocookie.com https://cdn.jsdelivr.net https://storage.googleapis.com",
               // Allow WASM workers
               "worker-src 'self' blob:",
               "child-src 'self' blob:",

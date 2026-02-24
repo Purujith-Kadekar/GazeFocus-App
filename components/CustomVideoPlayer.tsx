@@ -81,6 +81,67 @@ export function CustomVideoPlayer({
     setCurrentTime(syncTime);
   }, [syncTime]);
 
+  const handleMouseMove = useCallback(() => {
+    setShowControls(true);
+    clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying && !showQualityMenu) {
+        setShowControls(false);
+      }
+    }, 3000);
+  }, [isPlaying, showQualityMenu]);
+
+  const handleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  const togglePlay = useCallback(() => {
+    const nextPlaying = !isPlaying;
+    setIsPlaying(nextPlaying);
+    onStateChange?.(nextPlaying);
+  }, [isPlaying, onStateChange]);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted(!isMuted);
+  }, [isMuted]);
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setVolume(val);
+    if (val > 0) setIsMuted(false);
+  };
+
+  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setCurrentTime(val);
+    onTimeUpdate?.(val);
+  };
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const newTime = percent * duration;
+    setCurrentTime(newTime);
+    onTimeUpdate?.(newTime);
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
   const embedUrl = `https://www.youtube.com/embed/${videoId}?fs=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&cc_load_policy=${showCaptions ? 1 : 0}${origin ? `&origin=${origin}` : ""}`;
 
   return (

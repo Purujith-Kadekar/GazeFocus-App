@@ -45,117 +45,134 @@ async function refreshAccessToken(token: Record<string, unknown>) {
   }
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET || "dummy-secret-for-build",
-  adapter: PrismaAdapter(prisma),
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID || "dummy-id",
-      clientSecret: process.env.AUTH_GOOGLE_SECRET || "dummy-secret",
-      authorization: {
-        params: {
-          scope: [
-            "openid",
-            "email",
-            "profile",
-            "https://www.googleapis.com/auth/youtube",
-            "https://www.googleapis.com/auth/youtube.readonly",
-          ].join(" "),
-          access_type: "offline",
-          prompt: "consent",
+// Wrap NextAuth in try-catch to debug build errors
+let handlers: any = { GET: () => {}, POST: () => {} };
+let auth: any = () => {};
+let signIn: any = () => {};
+let signOut: any = () => {};
+
+try {
+  const nextAuth = NextAuth({
+    secret: process.env.AUTH_SECRET || "dummy-secret-for-build",
+    adapter: PrismaAdapter(prisma),
+    providers: [
+      Google({
+        clientId: process.env.AUTH_GOOGLE_ID || "dummy-id",
+        clientSecret: process.env.AUTH_GOOGLE_SECRET || "dummy-secret",
+        authorization: {
+          params: {
+            scope: [
+              "openid",
+              "email",
+              "profile",
+              "https://www.googleapis.com/auth/youtube",
+              "https://www.googleapis.com/auth/youtube.readonly",
+            ].join(" "),
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
-      },
-    }),
-    Credentials({
-      name: "Email and Password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials: Partial<Record<"email" | "password", unknown>> | undefined) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
+      }),
+      Credentials({
+        name: "Email and Password",
+        credentials: {
+          email: { label: "Email", type: "email" },
+          password: { label: "Password", type: "password" },
+        },
+        async authorize(credentials: Partial<Record<"email" | "password", unknown>> | undefined) {
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
 
-        const user = await prisma.user.findUnique({
-          where: { email: String(credentials.email).toLowerCase() },
-        });
+          const user = await prisma.user.findUnique({
+            where: { email: String(credentials.email).toLowerCase() },
+          });
 
-        if (!user?.passwordHash) {
-          return null;
-        }
+          if (!user?.passwordHash) {
+            return null;
+          }
 
-        const isValid = await bcrypt.compare(String(credentials.password), user.passwordHash);
-        if (!isValid) {
-          return null;
-        }
+          const isValid = await bcrypt.compare(String(credentials.password), user.passwordHash);
+          if (!isValid) {
+            return null;
+          }
 
-        return {
-          id: user.id,
-          name: user.name ?? null,
-          email: user.email ?? null,
-        };
-      },
-    }),
-  ],
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
-  },
-  callbacks: {
-    async jwt({ token, account, user }) {
-      // Persist user id for DB lookups
-      if (user) {
-        token.userId = (user as { id: string }).id;
-      }
-
-      // First Google login: save tokens from OAuth provider
-      if (account && account.provider === "google") {
-        return {
-          ...token,
-          userId: token.userId ?? account.userId,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          expiresAt: account.expires_at,
-        };
-      }
-
-      // Non-Google providers (e.g., credentials) don't have YouTube tokens
-      if (!token.accessToken || !token.expiresAt) {
-        return token;
-      }
-
-      const expiresAt = token.expiresAt as number;
-      if (Date.now() / 1000 < expiresAt - 60) {
-        return token;
-      }
-
-      console.log("[Auth] Access token expired, refreshing...");
-      return refreshAccessToken(token);
+          return {
+            id: user.id,
+            name: user.name ?? null,
+            email: user.email ?? null,
+          };
+        },
+      }),
+    ],
+    session: {
+      strategy: "jwt",
+      maxAge: 30 * 24 * 60 * 60,
     },
-    async session({ session, token }) {
-      if (token.accessToken) {
-        session.accessToken = token.accessToken as string;
-      }
-      if (token.userId) {
-        session.userId = token.userId as string;
-        const user = session.user ?? { id: "", name: null, email: null, image: null, emailVerified: null };
-        session.user = {
-          id: token.userId as string,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          emailVerified: user.emailVerified,
-        };
-      }
-      if (token.error) {
-        (session as unknown as Record<string, unknown>).error = token.error;
-      }
-      return session;
+    callbacks: {
+      async jwt({ token, account, user }) {
+        // Persist user id for DB lookups
+        if (user) {
+          token.userId = (user as { id: string }).id;
+        }
+
+        // First Google login: save tokens from OAuth provider
+        if (account && account.provider === "google") {
+          return {
+            ...token,
+            userId: token.userId ?? account.userId,
+            accessToken: account.access_token,
+            refreshToken: account.refresh_token,
+            expiresAt: account.expires_at,
+          };
+        }
+
+        // Non-Google providers (e.g., credentials) don't have YouTube tokens
+        if (!token.accessToken || !token.expiresAt) {
+          return token;
+        }
+
+        const expiresAt = token.expiresAt as number;
+        if (Date.now() / 1000 < expiresAt - 60) {
+          return token;
+        }
+
+        console.log("[Auth] Access token expired, refreshing...");
+        return refreshAccessToken(token);
+      },
+      async session({ session, token }) {
+        if (token.accessToken) {
+          session.accessToken = token.accessToken as string;
+        }
+        if (token.userId) {
+          session.userId = token.userId as string;
+          const user = session.user ?? { id: "", name: null, email: null, image: null, emailVerified: null };
+          session.user = {
+            id: token.userId as string,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            emailVerified: user.emailVerified,
+          };
+        }
+        if (token.error) {
+          (session as unknown as Record<string, unknown>).error = token.error;
+        }
+        return session;
+      },
     },
-  },
-  pages: {
-    signIn: "/",
-    error: "/",
-  },
-});
+    pages: {
+      signIn: "/",
+      error: "/",
+    },
+  });
+
+  handlers = nextAuth.handlers;
+  auth = nextAuth.auth;
+  signIn = nextAuth.signIn;
+  signOut = nextAuth.signOut;
+} catch (error) {
+  console.error("NextAuth initialization failed:", error);
+}
+
+export { handlers, auth, signIn, signOut };

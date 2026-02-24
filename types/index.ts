@@ -72,6 +72,15 @@ export interface SearchLeashState {
   locked: boolean;
 }
 
+// --- Folder Types ---
+
+export interface UserFolder {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+}
+
 // --- Settings Types ---
 
 export interface GazeFocusSettings {

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Shield, Eye, Timer, Search, Lock, Mail, KeyRound } from "lucide-react";
 
 const FEATURES = [
@@ -12,6 +13,7 @@ const FEATURES = [
 ];
 
 export function LoginScreen() {
+  const router = useRouter();
   const [mode, setMode] = useState<"google" | "email-login" | "email-register">("google");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +40,7 @@ export function LoginScreen() {
       }
 
       const signInResult = await signIn("credentials", {
-        redirect: true,
+        redirect: false,
         callbackUrl: "/app",
         email,
         password,
@@ -46,6 +48,8 @@ export function LoginScreen() {
 
       if (signInResult?.error) {
         setError("Invalid email or password");
+      } else {
+        router.push("/app");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

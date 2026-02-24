@@ -1,7 +1,9 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 /**
  * Refresh an expired Google access token using the refresh token.
@@ -51,12 +53,12 @@ let signOut: any = () => {};
 
 try {
   const nextAuth = NextAuth({
-    secret: process.env.AUTH_SECRET,
+    secret: process.env.AUTH_SECRET || "dummy-secret-for-build",
     adapter: PrismaAdapter(prisma),
     providers: [
       Google({
-        clientId: process.env.AUTH_GOOGLE_ID,
-        clientSecret: process.env.AUTH_GOOGLE_SECRET,
+        clientId: process.env.AUTH_GOOGLE_ID || "dummy-id",
+        clientSecret: process.env.AUTH_GOOGLE_SECRET || "dummy-secret",
         authorization: {
           params: {
             scope: [
@@ -71,13 +73,13 @@ try {
           },
         },
       }),
-      /* Credentials({
+      Credentials({
         name: "Email and Password",
         credentials: {
           email: { label: "Email", type: "email" },
           password: { label: "Password", type: "password" },
         },
-        async authorize(credentials: Partial<Record<"email" | "password", unknown>> | undefined) {
+        async authorize(credentials) {
           if (!credentials?.email || !credentials?.password) {
             return null;
           }
@@ -101,7 +103,7 @@ try {
             email: user.email ?? null,
           };
         },
-      }), */
+      }),
     ],
     session: {
       strategy: "jwt",

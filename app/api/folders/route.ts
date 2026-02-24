@@ -14,7 +14,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(folders);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to fetch folders" }, { status: 500 });
   }
 }
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       },
     });
     return NextResponse.json(folder);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to create folder" }, { status: 500 });
   }
 }

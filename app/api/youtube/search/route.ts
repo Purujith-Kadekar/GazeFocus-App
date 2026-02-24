@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { parseDuration } from "@/lib/youtube";
 import type { SearchResult } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 const API_KEY = process.env.YOUTUBE_API_KEY!;
 

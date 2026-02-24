@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +12,10 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = String(email).toLowerCase();
+
+    // Import dependencies dynamically to avoid build-time issues
+    const { prisma } = await import("@/lib/db");
+    const { hash } = await import("bcryptjs");
 
     const existing = await prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(String(password), 10);
+    const passwordHash = await hash(String(password), 10);
 
     if (existing && !existing.passwordHash) {
       // User exists from Google OAuth — attach password for credentials login
@@ -50,4 +53,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Registration failed" }, { status: 500 });
   }
 }
-

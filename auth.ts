@@ -1,15 +1,15 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-// import Credentials from "next-auth/providers/credentials";
-// import { PrismaAdapter } from "@auth/prisma-adapter";
-// import { prisma } from "@/lib/db";
-// import bcrypt from "bcryptjs";
+import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 /**
  * Refresh an expired Google access token using the refresh token.
  * Returns the new token data or marks the token as errored.
  */
-async function refreshAccessToken(token: Record<string, unknown>) {
+async function refreshAccessToken(token: any) {
   try {
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -31,9 +31,7 @@ async function refreshAccessToken(token: Record<string, unknown>) {
     return {
       ...token,
       accessToken: refreshed.access_token,
-      // Google returns expires_in (seconds), convert to absolute timestamp
       expiresAt: Math.floor(Date.now() / 1000) + (refreshed.expires_in as number),
-      // Use new refresh token if provided, otherwise keep the old one
       refreshToken: refreshed.refresh_token ?? token.refreshToken,
     };
   } catch (error) {
@@ -45,134 +43,104 @@ async function refreshAccessToken(token: Record<string, unknown>) {
   }
 }
 
-// Wrap NextAuth in try-catch to debug build errors
-let handlers: any = { GET: () => {}, POST: () => {} };
-let auth: any = () => {};
-let signIn: any = () => {};
-let signOut: any = () => {};
-
-try {
-  const nextAuth = NextAuth({
-    secret: process.env.AUTH_SECRET || "dummy-secret-for-build",
-    // adapter: PrismaAdapter(prisma), // Disabled for build fix
-    providers: [
-      Google({
-        clientId: process.env.AUTH_GOOGLE_ID || "dummy-id",
-        clientSecret: process.env.AUTH_GOOGLE_SECRET || "dummy-secret",
-        authorization: {
-          params: {
-            scope: [
-              "openid",
-              "email",
-              "profile",
-              "https://www.googleapis.com/auth/youtube",
-              "https://www.googleapis.com/auth/youtube.readonly",
-            ].join(" "),
-            access_type: "offline",
-            prompt: "consent",
-          },
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET || "dummy-secret-for-build",
+  adapter: PrismaAdapter(prisma),
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID || "dummy-id",
+      clientSecret: process.env.AUTH_GOOGLE_SECRET || "dummy-secret",
+      authorization: {
+        params: {
+          scope: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/youtube",
+            "https://www.googleapis.com/auth/youtube.readonly",
+          ].join(" "),
+          access_type: "offline",
+          prompt: "consent",
         },
-      }),
-      /* Credentials({
-        name: "Email and Password",
-        credentials: {
-          email: { label: "Email", type: "email" },
-          password: { label: "Password", type: "password" },
-        },
-        async authorize(credentials: Partial<Record<"email" | "password", unknown>> | undefined) {
-          if (!credentials?.email || !credentials?.password) {
-            return null;
-          }
-
-          const user = await prisma.user.findUnique({
-            where: { email: String(credentials.email).toLowerCase() },
-          });
-
-          if (!user?.passwordHash) {
-            return null;
-          }
-
-          const isValid = await bcrypt.compare(String(credentials.password), user.passwordHash);
-          if (!isValid) {
-            return null;
-          }
-
-          return {
-            id: user.id,
-            name: user.name ?? null,
-            email: user.email ?? null,
-          };
-        },
-      }), */
-    ],
-    session: {
-      strategy: "jwt",
-      maxAge: 30 * 24 * 60 * 60,
-    },
-    callbacks: {
-      async jwt({ token, account, user }) {
-        // Persist user id for DB lookups
-        // if (user) {
-        //   token.userId = (user as { id: string }).id;
-        // }
-
-        // First Google login: save tokens from OAuth provider
-        if (account && account.provider === "google") {
-          return {
-            ...token,
-            // userId: token.userId ?? account.userId,
-            accessToken: account.access_token,
-            refreshToken: account.refresh_token,
-            expiresAt: account.expires_at,
-          };
-        }
-
-        // Non-Google providers (e.g., credentials) don't have YouTube tokens
-        if (!token.accessToken || !token.expiresAt) {
-          return token;
-        }
-
-        const expiresAt = token.expiresAt as number;
-        if (Date.now() / 1000 < expiresAt - 60) {
-          return token;
-        }
-
-        console.log("[Auth] Access token expired, refreshing...");
-        return refreshAccessToken(token);
       },
-      async session({ session, token }) {
-        if (token.accessToken) {
-          session.accessToken = token.accessToken as string;
-        }
-        // if (token.userId) {
-        //   session.userId = token.userId as string;
-        //   const user = session.user ?? { id: "", name: null, email: null, image: null, emailVerified: null };
-        //   session.user = {
-        //     id: token.userId as string,
-        //     name: user.name,
-        //     email: user.email,
-        //     image: user.image,
-        //     emailVerified: user.emailVerified,
-        //   };
-        // }
-        if (token.error) {
-          (session as unknown as Record<string, unknown>).error = token.error;
-        }
-        return session;
+    }),
+    Credentials({
+      name: "Email and Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
-    },
-    pages: {
-      signIn: "/",
-      error: "/",
-    },
-  });
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
 
-  handlers = nextAuth.handlers;
-  auth = nextAuth.auth;
-  signIn = nextAuth.signIn;
-  signOut = nextAuth.signOut;
-} catch (error) {
-  console.error("NextAuth initialization failed:", error);
-}
+        const user = await prisma.user.findUnique({
+          where: { email: String(credentials.email).toLowerCase() },
+        });
 
-export { handlers, auth, signIn, signOut };
+        if (!user || !user.passwordHash) {
+          return null;
+        }
+
+        const isValid = await bcrypt.compare(String(credentials.password), user.passwordHash);
+        if (!isValid) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        };
+      },
+    }),
+  ],
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
+  },
+  callbacks: {
+    async jwt({ token, account, user }) {
+      if (user) {
+        token.userId = (user as any).id;
+      }
+
+      if (account && account.provider === "google") {
+        return {
+          ...token,
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
+          expiresAt: account.expires_at,
+        };
+      }
+
+      if (!token.accessToken || !token.expiresAt) {
+        return token;
+      }
+
+      const expiresAt = token.expiresAt as number;
+      if (Date.now() / 1000 < expiresAt - 60) {
+        return token;
+      }
+
+      return refreshAccessToken(token);
+    },
+    async session({ session, token }: { session: any; token: any }) {
+      if (token.accessToken) {
+        session.accessToken = token.accessToken;
+      }
+      if (token.userId) {
+        session.userId = token.userId;
+      }
+      if (token.error) {
+        session.error = token.error;
+      }
+      return session;
+    },
+  },
+  pages: {
+    signIn: "/",
+    error: "/",
+  },
+});

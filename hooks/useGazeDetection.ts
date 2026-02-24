@@ -179,7 +179,7 @@ export function useGazeDetection({
           // Check if buffer exceeded
           const awayMs = gazeAwayStartedAt
             ? Date.now() - gazeAwayStartedAt
-            : Date.now() - (Date.now() - 1); // fallback
+            : 0;
           const bufferMs = settings.gazeBufferSeconds * 1000;
 
           if (awayMs >= bufferMs && gazeStatus !== "paused" && gazeStatus !== "away") {

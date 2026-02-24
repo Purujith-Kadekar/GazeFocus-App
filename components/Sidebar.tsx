@@ -46,6 +46,7 @@ export function Sidebar() {
     playlistRefreshTrigger,
     setActivePlaylistVideos,
     libraryFolders,
+    libraryPlaylists,
     rootItems,
     createFolder,
     moveItem,
@@ -55,7 +56,6 @@ export function Sidebar() {
     activeView
   } = useStore();
 
-  const [playlistsData, setPlaylistsData] = useState<Record<string, YTPlaylist>>({});
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [playlistVideos, setPlaylistVideos] = useState<Record<string, YTVideo[]>>({});
@@ -92,10 +92,6 @@ export function Sidebar() {
         return !isLiked && !isLikedId;
       });
 
-      const plMap: Record<string, YTPlaylist> = {};
-      filtered.forEach(pl => plMap[pl.id] = pl);
-      
-      setPlaylistsData(prev => ({ ...prev, ...plMap }));
       setLibraryItems(filtered);
     } catch (e) {
       console.error("Failed to load playlists", e);
@@ -165,8 +161,6 @@ export function Sidebar() {
       
       // Add to store
       setLibraryItems([pl]);
-      // Add to local data map
-      setPlaylistsData(prev => ({ ...prev, [pl.id]: pl }));
       
       setImportUrl("");
       setShowImportForm(false);
@@ -180,7 +174,7 @@ export function Sidebar() {
   const renderItems = (itemIds: string[], depth = 0) => {
     return itemIds.map(id => {
       const folder = libraryFolders[id];
-      const playlist = playlistsData[id];
+      const playlist = libraryPlaylists[id];
 
       if (folder) {
         return (

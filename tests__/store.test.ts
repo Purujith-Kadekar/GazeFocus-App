@@ -206,3 +206,82 @@ describe("Settings", () => {
     expect(settings.searchLeashLockBeep).toBe(true);    // unchanged
   });
 });
+
+// ─── Library & Folders ─────────────────────────────────────────────────────────
+
+describe("Library & Folders", () => {
+  beforeEach(() => {
+    // Clear library for each test
+    const store = useStore.getState();
+    // @ts-ignore
+    useStore.setState({ libraryFolders: {}, rootItems: [], libraryPlaylists: {} });
+  });
+
+  it("creates a folder at root", () => {
+    const store = useStore.getState();
+    store.createFolder("Test Folder", null);
+
+    const { libraryFolders, rootItems } = useStore.getState();
+    const folderIds = Object.keys(libraryFolders);
+    expect(folderIds).toHaveLength(1);
+    expect(rootItems).toContain(folderIds[0]);
+    expect(libraryFolders[folderIds[0]].title).toBe("Test Folder");
+    expect(libraryFolders[folderIds[0]].parentId).toBeNull();
+  });
+
+  it("creates a nested folder", () => {
+    const store = useStore.getState();
+    store.createFolder("Parent", null);
+    const parentId = Object.keys(useStore.getState().libraryFolders)[0];
+
+    store.createFolder("Child", parentId);
+    const { libraryFolders, rootItems } = useStore.getState();
+    const childId = Object.keys(libraryFolders).find(id => id !== parentId)!;
+
+    expect(libraryFolders[parentId].itemIds).toContain(childId);
+    expect(libraryFolders[childId].parentId).toBe(parentId);
+    expect(rootItems).not.toContain(childId);
+  });
+
+  it("moves a folder to another folder", () => {
+    const store = useStore.getState();
+    store.createFolder("F1", null);
+    store.createFolder("F2", null);
+    const ids = Object.keys(useStore.getState().libraryFolders);
+    const f1Id = ids.find(id => useStore.getState().libraryFolders[id].title === "F1")!;
+    const f2Id = ids.find(id => useStore.getState().libraryFolders[id].title === "F2")!;
+
+    store.moveItem(f1Id, f2Id);
+
+    const { libraryFolders, rootItems } = useStore.getState();
+    expect(rootItems).not.toContain(f1Id);
+    expect(libraryFolders[f2Id].itemIds).toContain(f1Id);
+    expect(libraryFolders[f1Id].parentId).toBe(f2Id);
+  });
+
+  it("updates parentId of children when folder is deleted", () => {
+    const store = useStore.getState();
+    store.createFolder("Parent", null);
+    const parentId = Object.keys(useStore.getState().libraryFolders)[0];
+    store.createFolder("Child", parentId);
+    const childId = Object.keys(useStore.getState().libraryFolders).find(id => id !== parentId)!;
+
+    store.deleteFolder(parentId);
+
+    const { libraryFolders, rootItems } = useStore.getState();
+    expect(libraryFolders[parentId]).toBeUndefined();
+    expect(rootItems).toContain(childId);
+    expect(libraryFolders[childId].parentId).toBeNull();
+  });
+
+  it("populates libraryPlaylists on setLibraryItems", () => {
+    const store = useStore.getState();
+    const mockPlaylist = { id: "pl1", title: "My Playlist" } as any;
+    store.setLibraryItems([mockPlaylist]);
+
+    const { libraryPlaylists, rootItems } = useStore.getState();
+    expect(libraryPlaylists["pl1"]).toBeDefined();
+    expect(libraryPlaylists["pl1"].title).toBe("My Playlist");
+    expect(rootItems).toContain("pl1");
+  });
+});

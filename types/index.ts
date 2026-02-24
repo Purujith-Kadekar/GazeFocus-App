@@ -117,6 +117,7 @@ export interface GazeFocusStore {
 
   // Library (Hierarchical)
   libraryFolders: Record<string, Folder>;
+  libraryPlaylists: Record<string, YTPlaylist>;
   rootItems: string[]; // Top-level item IDs (playlists or folders)
   
   // Current player state

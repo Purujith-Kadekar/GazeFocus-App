@@ -19,10 +19,12 @@ interface VideoPlayerProps {
 export function VideoPlayer({ className }: VideoPlayerProps) {
   const {
     currentVideo,
+    currentPlaylistId,
     setActiveView,
     activePlaylistVideos,
     setCurrentVideo,
     isPlaying,
+    currentTimeSeconds,
     isOnBreak,
     settings,
     setIsPlaying,
@@ -38,6 +40,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const webcamRef = useRef<HTMLVideoElement>(null);
+  const currentTimeRef = useRef(currentTimeSeconds);
   
   const [inactivityPaused, setInactivityPaused] = useState(false);
   const [savingProgress, setSavingProgress] = useState(false);
@@ -119,6 +122,10 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
   // ─── Time Tracking ─────────────────────────────────────────────────────────
 
   useEffect(() => {
+    currentTimeRef.current = currentTimeSeconds;
+  }, [currentTimeSeconds]);
+
+  useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(async () => {
       if (!playerRef.current) return;
@@ -153,11 +160,8 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             videoId: currentVideo.id,
-            playlistId: null,
-            currentSeconds: Math.floor(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (window as any).GZ_CURRENT_TIME ?? 0
-            ),
+            playlistId: currentPlaylistId,
+            currentSeconds: Math.floor(currentTimeRef.current),
             durationSeconds: currentVideo.durationSeconds,
             completed: false,
           }),
@@ -173,7 +177,7 @@ export function VideoPlayer({ className }: VideoPlayerProps) {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [currentVideo, isPlaying]);
+  }, [currentVideo, isPlaying, currentPlaylistId]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 

@@ -43,6 +43,7 @@ export const useStore = create<GazeFocusStore>()(
 
       // --- Library (Hierarchical) ---
       libraryFolders: {},
+      libraryPlaylists: {},
       rootItems: [],
 
       // --- Player ---
@@ -194,23 +195,26 @@ export const useStore = create<GazeFocusStore>()(
 
       createFolder: (title, parentId) => {
         const id = `folder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const newFolder: Folder = {
-          id,
-          title,
-          parentId,
-          itemIds: [],
-        };
         
         set((state) => {
+          const effectiveParentId = (parentId && state.libraryFolders[parentId]) ? parentId : null;
+
+          const newFolder: Folder = {
+            id,
+            title,
+            parentId: effectiveParentId,
+            itemIds: [],
+          };
+
           const updatedFolders = { ...state.libraryFolders, [id]: newFolder };
           let updatedRoot = [...state.rootItems];
           
-          if (parentId && state.libraryFolders[parentId]) {
-            updatedFolders[parentId] = {
-              ...state.libraryFolders[parentId],
-              itemIds: [...state.libraryFolders[parentId].itemIds, id],
+          if (effectiveParentId) {
+            updatedFolders[effectiveParentId] = {
+              ...state.libraryFolders[effectiveParentId],
+              itemIds: [...state.libraryFolders[effectiveParentId].itemIds, id],
             };
-          } else if (!parentId) {
+          } else {
             updatedRoot = [...state.rootItems, id];
           }
           
@@ -224,15 +228,12 @@ export const useStore = create<GazeFocusStore>()(
           let updatedRoot = [...state.rootItems];
           
           // 1. Remove from current location
-          // Find where the item is currently
-          let currentParentId: string | null = null;
           if (state.rootItems.includes(itemId)) {
              updatedRoot = updatedRoot.filter(id => id !== itemId);
           } else {
              // Look in folders
              for (const fid in updatedFolders) {
                if (updatedFolders[fid].itemIds.includes(itemId)) {
-                 currentParentId = fid;
                  updatedFolders[fid] = {
                    ...updatedFolders[fid],
                    itemIds: updatedFolders[fid].itemIds.filter(id => id !== itemId),
@@ -243,14 +244,23 @@ export const useStore = create<GazeFocusStore>()(
           }
           
           // 2. Add to target location
-          if (targetFolderId && updatedFolders[targetFolderId]) {
-            updatedFolders[targetFolderId] = {
-              ...updatedFolders[targetFolderId],
-              itemIds: [...updatedFolders[targetFolderId].itemIds, itemId],
+          const effectiveTargetId = (targetFolderId && updatedFolders[targetFolderId]) ? targetFolderId : null;
+
+          if (effectiveTargetId) {
+            updatedFolders[effectiveTargetId] = {
+              ...updatedFolders[effectiveTargetId],
+              itemIds: [...updatedFolders[effectiveTargetId].itemIds, itemId],
             };
           } else {
-            // Move to root
             updatedRoot = [...updatedRoot, itemId];
+          }
+
+          // 3. Update parentId if it's a folder
+          if (updatedFolders[itemId]) {
+            updatedFolders[itemId] = {
+              ...updatedFolders[itemId],
+              parentId: effectiveTargetId,
+            };
           }
           
           return { libraryFolders: updatedFolders, rootItems: updatedRoot };
@@ -262,22 +272,39 @@ export const useStore = create<GazeFocusStore>()(
           const updatedFolders = { ...state.libraryFolders };
           let updatedRoot = state.rootItems.filter(id => id !== folderId);
           
-          // If it has a parent, remove from parent's itemIds
           const folder = updatedFolders[folderId];
-          if (folder && folder.parentId && updatedFolders[folder.parentId]) {
-            updatedFolders[folder.parentId] = {
-              ...updatedFolders[folder.parentId],
-              itemIds: updatedFolders[folder.parentId].itemIds.filter(id => id !== folderId),
+          if (!folder) return state;
+
+          const parentId = folder.parentId;
+
+          // If it has a parent, remove from parent's itemIds
+          if (parentId && updatedFolders[parentId]) {
+            updatedFolders[parentId] = {
+              ...updatedFolders[parentId],
+              itemIds: updatedFolders[parentId].itemIds.filter(id => id !== folderId),
             };
           }
           
           // Move all children to parent or root before deleting
-          if (folder && folder.itemIds.length > 0) {
-            if (folder.parentId) {
-               updatedFolders[folder.parentId].itemIds.push(...folder.itemIds);
+          if (folder.itemIds.length > 0) {
+            if (parentId && updatedFolders[parentId]) {
+               updatedFolders[parentId].itemIds = [
+                 ...updatedFolders[parentId].itemIds,
+                 ...folder.itemIds
+               ];
             } else {
-               updatedRoot.push(...folder.itemIds);
+               updatedRoot = [...updatedRoot, ...folder.itemIds];
             }
+
+            // Update children's parentId
+            folder.itemIds.forEach(childId => {
+              if (updatedFolders[childId]) {
+                updatedFolders[childId] = {
+                  ...updatedFolders[childId],
+                  parentId: parentId && updatedFolders[parentId] ? parentId : null
+                };
+              }
+            });
           }
           
           delete updatedFolders[folderId];
@@ -287,6 +314,11 @@ export const useStore = create<GazeFocusStore>()(
 
       setLibraryItems: (playlists: YTPlaylist[]) => {
         set((state) => {
+          const updatedPlaylists = { ...state.libraryPlaylists };
+          playlists.forEach(pl => {
+            updatedPlaylists[pl.id] = pl;
+          });
+
           // Sync playlists into the rootItems if they are not already in the library
           const currentItemIds = new Set<string>();
           Object.values(state.libraryFolders).forEach(f => f.itemIds.forEach(id => currentItemIds.add(id)));
@@ -299,7 +331,7 @@ export const useStore = create<GazeFocusStore>()(
             }
           });
           
-          return { rootItems: newRootItems };
+          return { rootItems: newRootItems, libraryPlaylists: updatedPlaylists };
         });
       }
     }),
@@ -313,6 +345,7 @@ export const useStore = create<GazeFocusStore>()(
         volume: state.volume,
         isMuted: state.isMuted,
         libraryFolders: state.libraryFolders,
+        libraryPlaylists: state.libraryPlaylists,
         rootItems: state.rootItems,
       }),
     }

@@ -1,15 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { BarChart3, Clock, CheckCircle2, Video, TrendingUp, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface PlaylistStats {
   id: string;
@@ -42,55 +36,16 @@ export function DashboardPanel() {
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError("Not authenticated");
-        return;
+      const res = await fetch("/api/stats");
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Not authenticated");
+          return;
+        }
+        throw new Error("Failed to load stats");
       }
-
-      const { data: playlistProgress, error: err1 } = await supabase
-        .from("playlist_progress")
-        .select(`
-          id,
-          playlist_id,
-          watched_videos,
-          total_videos,
-          completion_percent,
-          total_watch_time_seconds
-        `)
-        .eq("user_id", user.id);
-
-      if (err1) throw err1;
-
-      const { data: playlists, error: err2 } = await supabase
-        .from("user_playlists")
-        .select("id, name")
-        .eq("user_id", user.id);
-
-      if (err2) throw err2;
-
-      const playlistMap = new Map(playlists?.map(p => [p.id, p.name]) || []);
-
-      const playlistStats: PlaylistStats[] = (playlistProgress || []).map(pp => ({
-        id: pp.playlist_id,
-        name: playlistMap.get(pp.playlist_id) || "Unknown",
-        totalVideos: pp.total_videos || 0,
-        watchedVideos: pp.watched_videos || 0,
-        completionPercent: pp.completion_percent || 0,
-        totalWatchTime: pp.total_watch_time_seconds || 0,
-      }));
-
-      const totalVideosWatched = playlistStats.reduce((sum, p) => sum + p.watchedVideos, 0);
-      const totalWatchTime = playlistStats.reduce((sum, p) => sum + p.totalWatchTime, 0);
-      const completedPlaylists = playlistStats.filter(p => p.completionPercent >= 100).length;
-
-      setStats({
-        totalPlaylists: playlistStats.length,
-        completedPlaylists,
-        totalVideosWatched,
-        totalWatchTime,
-        playlistStats: playlistStats.sort((a, b) => b.completionPercent - a.completionPercent),
-      });
+      const data = await res.json();
+      setStats(data);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load stats");

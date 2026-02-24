@@ -1,5 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Refresh an expired Google access token using the refresh token.
@@ -42,6 +44,7 @@ async function refreshAccessToken(token: Record<string, unknown>) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
   secret: process.env.AUTH_SECRET,
   providers: [
     Google({
@@ -67,7 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 30 * 24 * 60 * 60,
   },
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
       // First login: save the tokens from the OAuth provider
       if (account) {
         return {
@@ -75,6 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
           expiresAt: account.expires_at,
+          userId: user?.id,
         };
       }
 
@@ -91,6 +95,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
+      if (session.user) {
+        session.user.id = token.userId as string;
+      }
       if (token.error) {
         // Signal the client that re-login is needed
         (session as unknown as Record<string, unknown>).error = token.error;

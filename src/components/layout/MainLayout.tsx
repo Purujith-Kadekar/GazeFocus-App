@@ -1,0 +1,142 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Sidebar } from './Sidebar'
+import { Header } from './Header'
+import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore } from '@/store/useStore'
+import { cn } from '@/lib/utils'
+import { AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
+interface MainLayoutProps {
+  children: React.ReactNode
+}
+
+export function MainLayout({ children }: MainLayoutProps) {
+  const { isSidebarOpen } = useUIStore()
+  const { setFolders } = useFolderStore()
+  const { setUser } = useAuthStore()
+  const { timeoutSeconds, setAlerting, isAlerting, setLastActivityTime, setTimeUntilAlert, lastActivityTime, isActive: soundAlertsEnabled } = useInactivityStore()
+  const { isPlaying } = usePlayerStore()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/folders').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/auth/session').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([folders, session]) => {
+      setFolders(folders)
+      if (session?.user) {
+        fetch('/api/user/profile')
+          .then(r => r.ok ? r.json() : null)
+          .then(userData => {
+            setUser({
+              id: session.user.id,
+              email: userData?.email || session.user.email,
+              name: userData?.name || session.user.name,
+              image: userData?.image || session.user.image,
+            })
+          })
+          .catch(() => setUser(session.user))
+      }
+    }).catch(() => {})
+  }, [setFolders, setUser])
+
+  // Inactivity detection
+  useEffect(() => {
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+    
+    const handleActivity = () => {
+      setLastActivityTime(Date.now())
+      setAlerting(false)
+    }
+
+    events.forEach((event) => {
+      window.addEventListener(event, handleActivity)
+    })
+
+    const interval = setInterval(() => {
+      const now = Date.now()
+      const elapsed = Math.floor((now - lastActivityTime) / 1000)
+      const remaining = timeoutSeconds - elapsed
+      
+      setTimeUntilAlert(Math.max(0, remaining))
+      
+      if (remaining <= 0 && !isAlerting && !isPlaying) {
+        setAlerting(true)
+        // Only play sound if sound alerts are enabled in settings
+        if (soundAlertsEnabled) {
+          try {
+          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH+Onp6XiHVnZXt8goqXk4d1Z2R3e4OKlJOHdGdle3uBiZKSi3xoZ2V5fIGIkZOLfWpoZnZ7gIiQk4t9a2hmdnuAh5CTin1raGZ2e3+GjpGJfGxqZXh6gIaOkYl8bGpleHp/hY2QiHxubGZ4e4CFjpCHfG5sZnh8gISNj4d8bm1meHyAg42Ph3xubWZ4fH+Ci46GfG9tZnh9gIKLjoZ8b25meH2AgouOhnxxbmZ4fYCCi46GfHFuZnh9gIKLjoZ8cW5meICAgoqOhnxxb2Z4gICCio6GfHJvZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhnxyb2Z4gICCio6GfHJwZniAgIKKjoZ8cnBmeICAgomOhg==')
+            audio.play().catch(() => {})
+          } catch {}
+        }
+      }
+    }, 1000)
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, handleActivity)
+      })
+      clearInterval(interval)
+    }
+  }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled])
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <div
+        className={cn(
+          '',
+          isSidebarOpen ? 'ml-64' : 'ml-16'
+        )}
+      >
+        <Header />
+        <main className="p-4 md:p-6">
+          {children}
+        </main>
+      </div>
+
+      {/* Inactivity Alert */}
+      {mounted && (
+        <AlertDialog open={isAlerting} onOpenChange={setAlerting}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-yellow-500" />
+                Are you still there?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You&apos;ve been inactive for {timeoutSeconds} seconds. Your learning session has been paused.
+                Click Continue to resume.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction asChild>
+                <Button onClick={() => {
+                  setAlerting(false)
+                  setLastActivityTime(Date.now())
+                }}>
+                  Continue Learning
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  )
+}

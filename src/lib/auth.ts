@@ -200,30 +200,34 @@ export const authOptions: NextAuthOptions = {
       // Note: Streak is now updated in JWT callback with trigger === 'signIn'
       
       // For Google sign in, ensure user settings are created and update profile
-      if (account?.provider === 'google' && user.email) {
-        const existingUser = await db.user.findUnique({
-          where: { email: user.email },
-          include: { settings: true },
-        })
+      try {
+        if (account?.provider === 'google' && user.email) {
+          const existingUser = await db.user.findUnique({
+            where: { email: user.email },
+            include: { settings: true },
+          })
 
-        if (existingUser) {
-          // Update user profile with Google info if not already set
-          if (!existingUser.name || !existingUser.image) {
-            await db.user.update({
-              where: { id: existingUser.id },
-              data: {
-                name: existingUser.name || user.name || user.email?.split('@')[0],
-                image: existingUser.image || user.image,
-              },
-            })
-          }
+          if (existingUser) {
+            // Update user profile with Google info if not already set
+            if (!existingUser.name || !existingUser.image) {
+              await db.user.update({
+                where: { id: existingUser.id },
+                data: {
+                  name: existingUser.name || user.name || user.email?.split('@')[0],
+                  image: existingUser.image || user.image,
+                },
+              })
+            }
 
-          if (!existingUser.settings) {
-            await db.userSettings.create({
-              data: { userId: existingUser.id },
-            })
+            if (!existingUser.settings) {
+              await db.userSettings.create({
+                data: { userId: existingUser.id },
+              })
+            }
           }
         }
+      } catch (error) {
+        console.error('Error in signIn callback:', error)
       }
       return true
     },
@@ -231,10 +235,14 @@ export const authOptions: NextAuthOptions = {
   events: {
     async createUser({ user }) {
       // Create default settings for new users
-      if (user.id) {
-        await db.userSettings.create({
-          data: { userId: user.id },
-        })
+      try {
+        if (user.id) {
+          await db.userSettings.create({
+            data: { userId: user.id },
+          })
+        }
+      } catch (error) {
+        console.error('Error creating user settings:', error)
       }
     },
   },

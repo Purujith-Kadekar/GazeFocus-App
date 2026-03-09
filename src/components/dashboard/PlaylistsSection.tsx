@@ -36,9 +36,7 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
     setPlaylists(propPlaylists)
     setFolders(propFolders)
     setCompletedPlaylists(propCompleted)
-    if (propPlaylists.length > 0 || propFolders.length > 0) {
-      setIsLoading(false)
-    }
+    setIsLoading(false)
   }, [propPlaylists, propFolders, propCompleted])
 
   const handleDelete = async (playlistId: string, e: React.MouseEvent) => {

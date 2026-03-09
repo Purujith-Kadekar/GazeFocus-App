@@ -78,7 +78,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] grid-rows-[auto_auto_1fr]">
         <DialogHeader>
           <DialogTitle>Search</DialogTitle>
           <DialogDescription>
@@ -114,8 +114,8 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         )}
 
         {!isSearching && results.length > 0 && (
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="overflow-hidden flex flex-col min-h-0">
+            <TabsList className="shrink-0">
               <TabsTrigger value="all">All ({results.length})</TabsTrigger>
               <TabsTrigger value="video">
                 Videos ({results.filter((r) => r.type === 'video').length})
@@ -125,14 +125,12 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab} className="mt-4">
-              <ScrollArea className="h-[400px] pr-4">
-                <div className="space-y-3">
+            <TabsContent value={activeTab} className="mt-4 overflow-y-auto min-h-0 flex-1">
+              <div className="space-y-3 pr-2">
                   {filteredResults.map((result) => (
                     <SearchResultCard key={getUniqueKey(result)} result={result} />
                   ))}
                 </div>
-              </ScrollArea>
             </TabsContent>
           </Tabs>
         )}

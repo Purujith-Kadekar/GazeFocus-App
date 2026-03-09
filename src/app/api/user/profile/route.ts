@@ -39,6 +39,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Run background cleanup of expired accounts
+    db.user.deleteMany({
+      where: {
+        deletionScheduledAt: { lte: new Date(), not: null },
+      },
+    }).catch(() => {})
+
     const userData = await db.user.findUnique({
       where: { id: user.id },
       select: {
@@ -47,10 +54,15 @@ export async function GET() {
         email: true,
         image: true,
         createdAt: true,
+        deletionScheduledAt: true,
+        accounts: {
+          select: { provider: true },
+        },
       },
     })
 
-    return NextResponse.json(userData)
+    const provider = userData?.accounts?.[0]?.provider || 'credentials'
+    return NextResponse.json({ ...userData, provider })
   } catch (error) {
     console.error('Error fetching profile:', error)
     return NextResponse.json(

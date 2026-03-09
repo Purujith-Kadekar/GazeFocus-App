@@ -6,6 +6,7 @@ import { Header } from './Header'
 import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
 import { AlertCircle } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -28,10 +29,18 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { timeoutSeconds, setAlerting, isAlerting, setLastActivityTime, setTimeUntilAlert, lastActivityTime, isActive: soundAlertsEnabled } = useInactivityStore()
   const { isPlaying } = usePlayerStore()
   const [mounted, setMounted] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    // Reset activity time on mount to prevent immediate inactivity popup
+    setLastActivityTime(Date.now())
+    // Delay inactivity detection by 30 seconds after page load
+    const readyTimer = setTimeout(() => setSessionReady(true), 30000)
+
+    return () => clearTimeout(readyTimer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     Promise.all([
@@ -49,11 +58,24 @@ export function MainLayout({ children }: MainLayoutProps) {
               name: userData?.name || session.user.name,
               image: userData?.image || session.user.image,
             })
+            // Show welcome toast for new users (account created within last 60 seconds)
+            if (userData?.createdAt) {
+              const createdAt = new Date(userData.createdAt).getTime()
+              const now = Date.now()
+              const welcomeShown = localStorage.getItem('gazefocus_welcome_shown')
+              if (now - createdAt < 60000 && welcomeShown !== session.user.id) {
+                localStorage.setItem('gazefocus_welcome_shown', session.user.id)
+                toast({
+                  title: 'Welcome to Gaze Focus! \ud83c\udf89',
+                  description: 'Your distraction-free learning journey starts now.',
+                })
+              }
+            }
           })
           .catch(() => setUser(session.user))
       }
     }).catch(() => {})
-  }, [setFolders, setUser])
+  }, [setFolders, setUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inactivity detection
   useEffect(() => {
@@ -75,7 +97,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       setTimeUntilAlert(Math.max(0, remaining))
       
-      if (remaining <= 0 && !isAlerting && !isPlaying) {
+      if (remaining <= 0 && !isAlerting && !isPlaying && sessionReady) {
         setAlerting(true)
         // Only play sound if sound alerts are enabled in settings
         if (soundAlertsEnabled) {
@@ -93,7 +115,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       })
       clearInterval(interval)
     }
-  }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled])
+  }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled, sessionReady])
 
   return (
     <div className="min-h-screen bg-background">

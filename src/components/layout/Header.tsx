@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Search, Plus, Bell, Menu, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,41 +23,63 @@ import { useUIStore, useEyeTrackingStore, useFolderStore } from '@/store/useStor
 import { SearchModal } from '@/components/search/SearchModal'
 import { AddContentModal } from '@/components/search/AddContentModal'
 
+interface Notification {
+  id: string
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days > 1 ? 's' : ''} ago`
+}
+
 export function Header() {
   const { toggleSidebar, isSidebarOpen } = useUIStore()
   const { isEnabled: eyeTrackingEnabled, setEnabled: setEyeTrackingEnabled, isCalibrated, isLookingAtScreen } = useEyeTrackingStore()
   const { folders } = useFolderStore()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [notifications, setNotifications] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('notifications')
-      if (saved) {
-        try {
-          return JSON.parse(saved)
-        } catch {
-          return [
-            { id: '1', title: 'Video ready', message: 'Your video is ready to watch', time: '2 min ago', read: false },
-            { id: '2', title: 'Progress milestone', message: 'You completed 5 videos this week!', time: '1 hour ago', read: false },
-            { id: '3', title: 'New features', message: 'Check out the new note-taking feature', time: '1 day ago', read: true },
-          ]
-        }
+  const [notifications, setNotifications] = useState<Notification[]>([])
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications')
+      if (res.ok) {
+        const data = await res.json()
+        setNotifications(Array.isArray(data) ? data : [])
       }
-    }
-    return [
-      { id: '1', title: 'Video ready', message: 'Your video is ready to watch', time: '2 min ago', read: false },
-      { id: '2', title: 'Progress milestone', message: 'You completed 5 videos this week!', time: '1 hour ago', read: false },
-      { id: '3', title: 'New features', message: 'Check out the new note-taking feature', time: '1 day ago', read: true },
-    ]
-  })
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
 
   const unreadCount = notifications.filter(n => !n.read).length
 
-  const clearAllNotifications = () => {
-    setNotifications([])
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('notifications', JSON.stringify([]))
+  const clearAllNotifications = async () => {
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
+    if (unreadIds.length > 0) {
+      try {
+        await fetch('/api/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationIds: unreadIds }),
+        })
+      } catch {}
     }
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
 
   return (
@@ -116,11 +138,6 @@ export function Header() {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Eye Tracking {eyeTrackingEnabled ? 'On' : 'Off'}</p>
-                {eyeTrackingEnabled && (
-                  <p className="text-xs text-muted-foreground">
-                    {isCalibrated ? 'Calibrated' : 'Not calibrated'}
-                  </p>
-                )}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -160,7 +177,7 @@ export function Header() {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">{notification.message}</span>
-                    <span className="text-xs text-muted-foreground">{notification.time}</span>
+                    <span className="text-xs text-muted-foreground">{timeAgo(notification.createdAt)}</span>
                   </DropdownMenuItem>
                 ))
               ) : (

@@ -116,6 +116,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid email or password')
         }
 
+        if (user.isBlocked) {
+          throw new Error('Your account has been blocked')
+        }
+
         return {
           id: user.id,
           email: user.email as string,
@@ -206,6 +210,19 @@ export const authOptions: NextAuthOptions = {
             where: { email: user.email },
             include: { settings: true },
           })
+
+          // Block login for blocked users
+          if (existingUser?.isBlocked) {
+            return false
+          }
+
+          // Block new Google signups if signups are disabled
+          if (!existingUser) {
+            const settings = await db.siteSettings.findUnique({ where: { id: 'global' } })
+            if (settings && !settings.signupEnabled) {
+              return false
+            }
+          }
 
           if (existingUser) {
             // Update user profile with Google info if not already set

@@ -20,7 +20,10 @@ export const metadata: Metadata = {
   keywords: ["Gaze Focus", "learning", "eye tracking", "YouTube", "playlists", "notes", "focus"],
   authors: [{ name: "Gaze Focus Team" }],
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
   },
   openGraph: {
     title: "Gaze Focus",

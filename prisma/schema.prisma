@@ -21,6 +21,8 @@ model User {
   lastActiveDate DateTime?
   weeklyVideosWatched Int  @default(0)
   lastWeeklyReset     DateTime?
+  deletionScheduledAt DateTime?
+  isBlocked           Boolean   @default(false)
 
   accounts      Account[]
   sessions      Session[]
@@ -32,6 +34,7 @@ model User {
   playlists     Playlist[]
   videos        Video[]
   settings      UserSettings?
+  notifications Notification[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -222,4 +225,25 @@ model UserSettings {
   updatedAt            DateTime @updatedAt
   
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SiteSettings {
+  id               String   @id @default("global")
+  signupEnabled    Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  global    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([global])
 }

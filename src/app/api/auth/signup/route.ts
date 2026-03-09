@@ -5,6 +5,15 @@ import { hashPassword } from '@/lib/auth'
 // POST /api/auth/signup - Register a new user
 export async function POST(request: NextRequest) {
   try {
+    // Check if signups are enabled
+    const settings = await db.siteSettings.findUnique({ where: { id: 'global' } })
+    if (settings && !settings.signupEnabled) {
+      return NextResponse.json(
+        { error: 'New signups are currently disabled' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { email, password, name } = body
 

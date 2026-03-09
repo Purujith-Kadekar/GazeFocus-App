@@ -187,7 +187,6 @@ export function Dashboard() {
           subtitle={`of ${stats?.totalVideos || 0} total`}
           icon={Play}
           color="bg-blue-500"
-          trend={{ value: 12, isPositive: true }}
         />
         <StatsCard
           title="Completed"

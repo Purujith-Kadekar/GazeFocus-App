@@ -47,8 +47,9 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
   const isAuthenticated = !!token
   const isAuthPage = pathname.startsWith("/auth/")
+  const isPublicPage = pathname === "/"
 
-  if (!isAuthenticated && !isAuthPage) {
+  if (!isAuthenticated && !isAuthPage && !isPublicPage) {
     return NextResponse.redirect(new URL("/auth/login", request.url))
   }
 

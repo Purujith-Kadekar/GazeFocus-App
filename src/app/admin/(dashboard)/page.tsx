@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Shield, Users, Bell, Settings, LogOut, Loader2,
   Ban, CheckCircle, Send, ToggleLeft, ToggleRight,
-  Mail, Clock, Trash2, ChevronDown
+  Mail, Clock, Trash2, ChevronDown, MoreVertical, AlertTriangle, Undo2
 } from 'lucide-react'
 
 interface UserData {
@@ -40,6 +40,9 @@ export default function AdminDashboard() {
   const [signupEnabled, setSignupEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   // Notification form
   const [notifTitle, setNotifTitle] = useState('')
@@ -143,6 +146,56 @@ export default function AdminDashboard() {
       }
     } catch { /* ignore */ }
     setDeletingNotif(null)
+  }
+
+  const scheduleDelete = async (userId: string) => {
+    setActionLoading(userId)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'schedule' }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, deletionScheduledAt: data.deletionScheduledAt } : u))
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null)
+    setOpenDropdown(null)
+  }
+
+  const cancelDelete = async (userId: string) => {
+    setActionLoading(userId)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'cancel' }),
+      })
+      if (res.ok) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, deletionScheduledAt: null } : u))
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null)
+    setOpenDropdown(null)
+  }
+
+  const deleteImmediate = async (userId: string) => {
+    setActionLoading(userId)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'immediate' }),
+      })
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== userId))
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null)
+    setConfirmDelete(null)
+    setOpenDropdown(null)
   }
 
   const handleLogout = async () => {
@@ -278,23 +331,95 @@ export default function AdminDashboard() {
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => toggleBlock(user.id, !user.isBlocked)}
-                          disabled={actionLoading === user.id}
-                          className={`text-xs px-3 py-1.5 rounded font-medium transition-colors ${
-                            user.isBlocked
-                              ? 'bg-green-600 hover:bg-green-700 text-white'
-                              : 'bg-red-600 hover:bg-red-700 text-white'
-                          } disabled:opacity-50`}
-                        >
-                          {actionLoading === user.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : user.isBlocked ? (
-                            'Unblock'
-                          ) : (
-                            'Block'
-                          )}
-                        </button>
+                        <div className="relative flex items-center gap-2">
+                          <button
+                            onClick={() => toggleBlock(user.id, !user.isBlocked)}
+                            disabled={actionLoading === user.id}
+                            className={`text-xs px-3 py-1.5 rounded font-medium transition-colors ${
+                              user.isBlocked
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-red-600 hover:bg-red-700 text-white'
+                            } disabled:opacity-50`}
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : user.isBlocked ? (
+                              'Unblock'
+                            ) : (
+                              'Block'
+                            )}
+                          </button>
+
+                          {/* More actions dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setOpenDropdown(openDropdown === user.id ? null : user.id)}
+                              className="p-1.5 rounded hover:bg-slate-600 text-slate-400 hover:text-white transition-colors"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+
+                            {openDropdown === user.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => { setOpenDropdown(null); setConfirmDelete(null) }} />
+                                <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-slate-700 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
+                                  {confirmDelete === user.id ? (
+                                    <div className="p-3 space-y-3">
+                                      <div className="flex items-center gap-2 text-red-400">
+                                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                                        <p className="text-xs font-medium">Delete permanently? This cannot be undone.</p>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => deleteImmediate(user.id)}
+                                          disabled={actionLoading === user.id}
+                                          className="flex-1 text-xs px-2 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-50 transition-colors"
+                                        >
+                                          {actionLoading === user.id ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : 'Yes, Delete'}
+                                        </button>
+                                        <button
+                                          onClick={() => setConfirmDelete(null)}
+                                          className="flex-1 text-xs px-2 py-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white font-medium transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {user.deletionScheduledAt ? (
+                                        <button
+                                          onClick={() => cancelDelete(user.id)}
+                                          disabled={actionLoading === user.id}
+                                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-slate-600 text-green-400 transition-colors disabled:opacity-50"
+                                        >
+                                          <Undo2 className="h-3.5 w-3.5" />
+                                          Cancel Scheduled Deletion
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => scheduleDelete(user.id)}
+                                          disabled={actionLoading === user.id}
+                                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-slate-600 text-yellow-400 transition-colors disabled:opacity-50"
+                                        >
+                                          <Clock className="h-3.5 w-3.5" />
+                                          Schedule Delete (7 days)
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => setConfirmDelete(user.id)}
+                                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-slate-600 text-red-400 transition-colors border-t border-slate-600"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Delete Immediately
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   ))}

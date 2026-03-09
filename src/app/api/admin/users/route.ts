@@ -63,3 +63,50 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
   }
 }
+
+// DELETE /api/admin/users - Schedule or cancel deletion, or delete immediately
+export async function DELETE(request: NextRequest) {
+  if (!(await verifyAdminRequest(request))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const { userId, action } = await request.json()
+
+    if (!userId || !action) {
+      return NextResponse.json({ error: 'userId and action are required' }, { status: 400 })
+    }
+
+    if (action === 'schedule') {
+      // Schedule deletion 7 days from now
+      const deletionDate = new Date()
+      deletionDate.setDate(deletionDate.getDate() + 7)
+
+      const user = await db.user.update({
+        where: { id: userId },
+        data: { deletionScheduledAt: deletionDate },
+        select: { id: true, email: true, deletionScheduledAt: true },
+      })
+      return NextResponse.json(user)
+    }
+
+    if (action === 'cancel') {
+      const user = await db.user.update({
+        where: { id: userId },
+        data: { deletionScheduledAt: null },
+        select: { id: true, email: true, deletionScheduledAt: true },
+      })
+      return NextResponse.json(user)
+    }
+
+    if (action === 'immediate') {
+      await db.user.delete({ where: { id: userId } })
+      return NextResponse.json({ success: true, id: userId })
+    }
+
+    return NextResponse.json({ error: 'Invalid action. Use: schedule, cancel, or immediate' }, { status: 400 })
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json({ error: 'Failed to process deletion' }, { status: 500 })
+  }
+}

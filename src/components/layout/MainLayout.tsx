@@ -26,10 +26,22 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarOpen } = useUIStore()
   const { setFolders } = useFolderStore()
   const { setUser } = useAuthStore()
-  const { timeoutSeconds, setAlerting, isAlerting, setLastActivityTime, setTimeUntilAlert, lastActivityTime, isActive: soundAlertsEnabled } = useInactivityStore()
+  const {
+    timeoutSeconds,
+    setAlerting,
+    isAlerting,
+    setLastActivityTime,
+    setTimeUntilAlert,
+    lastActivityTime,
+    isActive: soundAlertsEnabled,
+    setActive,
+    setTimeoutSeconds,
+  } = useInactivityStore()
   const { isPlaying } = usePlayerStore()
+  const { setEnabled: setEyeTrackingEnabled, setThresholdSeconds } = useEyeTrackingStore()
   const [mounted, setMounted] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [settingsHydrated, setSettingsHydrated] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -77,6 +89,36 @@ export function MainLayout({ children }: MainLayoutProps) {
     }).catch(() => {})
   }, [setFolders, setUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Hydrate behavior settings early so alert logic never uses default values.
+  useEffect(() => {
+    let isMounted = true
+
+    const hydrateSettings = async () => {
+      try {
+        const res = await fetch('/api/settings')
+        if (!res.ok) return
+
+        const data = await res.json()
+        if (!isMounted) return
+
+        if (typeof data.soundAlerts === 'boolean') setActive(data.soundAlerts)
+        if (typeof data.inactivityTimeout === 'number') setTimeoutSeconds(data.inactivityTimeout)
+        if (typeof data.eyeTrackingEnabled === 'boolean') setEyeTrackingEnabled(data.eyeTrackingEnabled)
+        if (typeof data.eyeTrackingThreshold === 'number') setThresholdSeconds(data.eyeTrackingThreshold)
+      } catch {
+        // ignore and keep defaults
+      } finally {
+        if (isMounted) setSettingsHydrated(true)
+      }
+    }
+
+    hydrateSettings()
+
+    return () => {
+      isMounted = false
+    }
+  }, [setActive, setTimeoutSeconds, setEyeTrackingEnabled, setThresholdSeconds])
+
   // Inactivity detection
   useEffect(() => {
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
@@ -97,7 +139,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       setTimeUntilAlert(Math.max(0, remaining))
       
-      if (remaining <= 0 && !isAlerting && !isPlaying && sessionReady) {
+      if (remaining <= 0 && !isAlerting && !isPlaying && sessionReady && settingsHydrated) {
         setAlerting(true)
         // Only play sound if sound alerts are enabled in settings
         if (soundAlertsEnabled) {
@@ -115,7 +157,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       })
       clearInterval(interval)
     }
-  }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled, sessionReady])
+  }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled, sessionReady, settingsHydrated])
 
   return (
     <div className="min-h-screen bg-background">

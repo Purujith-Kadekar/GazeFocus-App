@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
-import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore } from '@/store/useStore'
+import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore, useEyeTrackingStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
 import { AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'

@@ -12,7 +12,8 @@ import {
   Loader2,
   RotateCcw,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  BookOpen
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -340,6 +341,40 @@ export function SettingsPage() {
                   onValueChange={([val]) => updateLocal('inactivityTimeout', val)}
                   onValueCommit={([val]) => handleChange('inactivityTimeout', val)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                Setup Guide
+              </CardTitle>
+              <CardDescription>Re-run the onboarding walkthrough</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Walk through all the features of GazeFocus step by step.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-2 shrink-0 ml-4"
+                  onClick={() => {
+                    fetch('/api/settings', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ onboardingCompleted: false }),
+                    }).catch(() => {})
+                    window.dispatchEvent(new CustomEvent('run-onboarding'))
+                  }}
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Run Guide
+                </Button>
               </div>
             </CardContent>
           </Card>

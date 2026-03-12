@@ -50,7 +50,8 @@ export async function PUT(request: NextRequest) {
       theme, 
       autoPlayNext,
       defaultPlaybackSpeed,
-      eyeTrackingThreshold
+      eyeTrackingThreshold,
+      onboardingCompleted
     } = body
 
     const settings = await db.userSettings.update({
@@ -63,6 +64,7 @@ export async function PUT(request: NextRequest) {
         ...(autoPlayNext !== undefined && { autoPlayNext }),
         ...(defaultPlaybackSpeed !== undefined && { defaultPlaybackSpeed }),
         ...(eyeTrackingThreshold !== undefined && { eyeTrackingThreshold }),
+        ...(onboardingCompleted !== undefined && { onboardingCompleted }),
       },
     })
 

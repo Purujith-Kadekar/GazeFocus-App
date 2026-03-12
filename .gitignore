@@ -50,3 +50,7 @@ prompt
 server.log
 # Skills directory
 /skills/
+# Electron build output
+electron-dist/
+electron-builder.yml
+electron/

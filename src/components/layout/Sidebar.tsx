@@ -317,6 +317,7 @@ export function Sidebar({ className }: SidebarProps) {
           <ScrollArea className="flex-1 px-2 py-4">
             <nav className="space-y-1">
               <NavItem
+                id="onboarding-dashboard"
                 icon={Home}
                 label="Dashboard"
                 collapsed={!isSidebarOpen}
@@ -324,24 +325,28 @@ export function Sidebar({ className }: SidebarProps) {
                 href="/dashboard"
               />
               <NavItem
+                id="onboarding-search"
                 icon={Search}
                 label="Search"
                 collapsed={!isSidebarOpen}
                 href="/search"
               />
               <NavItem
+                id="onboarding-videos"
                 icon={Film}
                 label="Videos"
                 collapsed={!isSidebarOpen}
                 href="/videos"
               />
               <NavItem
+                id="onboarding-playlists"
                 icon={ListVideo}
                 label="Playlists"
                 collapsed={!isSidebarOpen}
                 href="/playlists"
               />
               <NavItem
+                id="onboarding-notes"
                 icon={FileText}
                 label="Notes"
                 collapsed={!isSidebarOpen}
@@ -352,7 +357,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Separator className="my-4" />
 
             {isSidebarOpen && (
-              <div className="mb-2 flex items-center justify-between px-2">
+              <div id="onboarding-folders" className="mb-2 flex items-center justify-between px-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -422,6 +427,7 @@ export function Sidebar({ className }: SidebarProps) {
 
             <nav className="space-y-1">
               <NavItem
+                id="onboarding-settings"
                 icon={Settings}
                 label="Settings"
                 collapsed={!isSidebarOpen}
@@ -529,9 +535,10 @@ interface NavItemProps {
   collapsed: boolean
   active?: boolean
   onClick?: () => void
+  id?: string
 }
 
-function NavItem({ href, icon: Icon, label, collapsed, active, onClick }: NavItemProps) {
+function NavItem({ href, icon: Icon, label, collapsed, active, onClick, id }: NavItemProps) {
   const content = (
     <Button
       variant={active ? 'secondary' : 'ghost'}
@@ -547,8 +554,8 @@ function NavItem({ href, icon: Icon, label, collapsed, active, onClick }: NavIte
   )
 
   if (href) {
-    return <Link href={href}>{content}</Link>
+    return <div id={id}><Link href={href}>{content}</Link></div>
   }
 
-  return content
+  return <div id={id}>{content}</div>
 }

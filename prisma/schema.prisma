@@ -220,6 +220,7 @@ model UserSettings {
   autoPlayNext         Boolean  @default(true)
   defaultPlaybackSpeed Float    @default(1.0)
   eyeTrackingThreshold Float    @default(0)
+  onboardingCompleted  Boolean  @default(false)
   userId               String   @unique
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

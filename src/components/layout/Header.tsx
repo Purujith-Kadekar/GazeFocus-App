@@ -99,7 +99,7 @@ export function Header() {
         <div className="md:hidden w-8" />
 
         {/* Search Bar - Center */}
-        <div className="flex-1 max-w-md mx-auto">
+        <div id="onboarding-search-bar" className="flex-1 max-w-md mx-auto">
           <Button
             variant="outline"
             className="w-full justify-start text-muted-foreground bg-background border border-border hover:bg-accent hover:text-accent-foreground dark:border-white/30"
@@ -114,7 +114,7 @@ export function Header() {
         {/* Right Actions */}
         <div className="flex items-center gap-2">
           {/* Add Content Button */}
-          <Button onClick={() => setIsAddOpen(true)}>
+          <Button id="onboarding-add-content" onClick={() => setIsAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Add Content</span>
           </Button>
@@ -124,6 +124,7 @@ export function Header() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  id="onboarding-eye-tracking"
                   variant={eyeTrackingEnabled ? 'default' : 'outline'}
                   size="icon"
                   className={eyeTrackingEnabled ? 'bg-green-600 hover:bg-green-700' : ''}

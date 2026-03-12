@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { OnboardingGuide } from '@/components/onboarding/OnboardingGuide'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -42,6 +43,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const [settingsHydrated, setSettingsHydrated] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -51,7 +53,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     // Delay inactivity detection by 30 seconds after page load
     const readyTimer = setTimeout(() => setSessionReady(true), 30000)
 
-    return () => clearTimeout(readyTimer)
+    // Listen for onboarding re-run from Settings
+    const handleRunOnboarding = () => setShowOnboarding(true)
+    window.addEventListener('run-onboarding', handleRunOnboarding)
+
+    return () => {
+      clearTimeout(readyTimer)
+      window.removeEventListener('run-onboarding', handleRunOnboarding)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -105,6 +114,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         if (typeof data.inactivityTimeout === 'number') setTimeoutSeconds(data.inactivityTimeout)
         if (typeof data.eyeTrackingEnabled === 'boolean') setEyeTrackingEnabled(data.eyeTrackingEnabled)
         if (typeof data.eyeTrackingThreshold === 'number') setThresholdSeconds(data.eyeTrackingThreshold)
+        if (data.onboardingCompleted === false) setShowOnboarding(true)
       } catch {
         // ignore and keep defaults
       } finally {
@@ -173,6 +183,20 @@ export function MainLayout({ children }: MainLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Onboarding Guide */}
+      {mounted && showOnboarding && (
+        <OnboardingGuide
+          onComplete={() => {
+            setShowOnboarding(false)
+            fetch('/api/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ onboardingCompleted: true }),
+            }).catch(() => {})
+          }}
+        />
+      )}
 
       {/* Inactivity Alert */}
       {mounted && (

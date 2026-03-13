@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   Play, 
@@ -62,20 +62,20 @@ export function Dashboard() {
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
   const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    Promise.all([
+  const fetchDashboardData = useCallback(() => {
+    return Promise.all([
       fetch('/api/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'daily_checkin' }),
-      }).catch(() => {}),
+      }).then(r => r?.ok ? r.json() : null).catch(() => null),
       fetch('/api/folders').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/videos').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/notes').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => {}),
       fetch('/api/playlists').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/playlists/complete').then(r => r?.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
-    ]).then(([, foldersData, videosData, notesData, statsData, playlistsData, completedData]) => {
+    ]).then(([activityData, foldersData, videosData, notesData, statsData, playlistsData, completedData]) => {
       setFolders(foldersData)
       setVideos(videosData)
       setNotes(notesData)
@@ -84,26 +84,32 @@ export function Dashboard() {
       setRecentVideos(videosData.slice(0, 6))
       setRecentFolders(foldersData.slice(0, 4))
       setImportantNotes(notesData.filter((n: Note) => n.isImportant).slice(0, 4))
-      const stats = statsData as DashboardStats
+      const progress = statsData as DashboardStats
       setStats({
-        totalPlaylists: stats?.totalPlaylists ?? 0,
-        completedPlaylists: stats?.completedPlaylists ?? 0,
-        totalVideos: stats?.totalVideos ?? 0,
-        watchedVideos: stats?.watchedVideos ?? 0,
-        weeklyVideosWatched: stats?.weeklyVideosWatched ?? 0,
-        totalNotes: stats?.totalNotes ?? 0,
-        importantNotes: stats?.importantNotes ?? 0,
-        totalWatchTime: stats?.totalWatchTime ?? 0,
-        streak: stats?.streak ?? 0,
-        longestStreak: stats?.longestStreak ?? 0,
+        totalPlaylists: progress?.totalPlaylists ?? 0,
+        completedPlaylists: progress?.completedPlaylists ?? 0,
+        totalVideos: progress?.totalVideos ?? 0,
+        watchedVideos: progress?.watchedVideos ?? 0,
+        weeklyVideosWatched: progress?.weeklyVideosWatched ?? 0,
+        totalNotes: progress?.totalNotes ?? 0,
+        importantNotes: progress?.importantNotes ?? 0,
+        totalWatchTime: progress?.totalWatchTime ?? 0,
+        streak: activityData?.streak ?? progress?.streak ?? 0,
+        longestStreak: activityData?.longestStreak ?? progress?.longestStreak ?? 0,
       })
     }).catch(() => {})
-    .finally(() => {
-      setIsLoading(false)
-    })
-
-    return () => {}
   }, [setFolders, setVideos, setNotes, setRecentVideos, setRecentFolders, setImportantNotes, setStats])
+
+  useEffect(() => {
+    fetchDashboardData().finally(() => setIsLoading(false))
+  }, [fetchDashboardData])
+
+  // Listen for content additions from AddContentModal / SearchModal
+  useEffect(() => {
+    const handleRefresh = () => fetchDashboardData()
+    window.addEventListener('refresh-dashboard', handleRefresh)
+    return () => window.removeEventListener('refresh-dashboard', handleRefresh)
+  }, [fetchDashboardData])
 
   const handleVideoClick = (video: Video) => {
     useVideoStore.getState().setCurrentVideo(video)

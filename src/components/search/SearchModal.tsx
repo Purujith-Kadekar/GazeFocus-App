@@ -176,6 +176,9 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
       
       if (response.ok) {
         setAdded(true)
+        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+        window.dispatchEvent(new CustomEvent('refresh-playlists'))
+        window.dispatchEvent(new CustomEvent('refresh-videos'))
       }
     } catch (error) {
       console.error('Failed to add:', error)

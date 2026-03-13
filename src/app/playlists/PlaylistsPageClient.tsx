@@ -42,6 +42,18 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
     }
   }, [status, router])
 
+  // Refresh playlists when content is added from modals
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetch('/api/playlists')
+        .then(r => r.ok ? r.json() : [])
+        .then(setPlaylists)
+        .catch(() => {})
+    }
+    window.addEventListener('refresh-playlists', handleRefresh)
+    return () => window.removeEventListener('refresh-playlists', handleRefresh)
+  }, [])
+
   const handleDeletePlaylist = async (playlistId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     try {

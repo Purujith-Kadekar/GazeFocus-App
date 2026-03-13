@@ -175,6 +175,9 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
       onOpenChange(false)
       reset()
       setPreviewData({ type: null, id: null, title: null, description: null, thumbnail: null, channelName: null, channelId: null })
+      window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+      window.dispatchEvent(new CustomEvent('refresh-playlists'))
+      window.dispatchEvent(new CustomEvent('refresh-videos'))
     } catch (error) {
       console.error('Failed to add content:', error)
       setIsAdding(false)

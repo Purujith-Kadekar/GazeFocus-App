@@ -35,6 +35,7 @@ model User {
   videos        Video[]
   settings      UserSettings?
   notifications Notification[]
+  todos         Todo[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -221,6 +222,7 @@ model UserSettings {
   defaultPlaybackSpeed Float    @default(1.0)
   eyeTrackingThreshold Float    @default(0)
   onboardingCompleted  Boolean  @default(false)
+  weeklyGoal           Int      @default(10)
   userId               String   @unique
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -247,4 +249,18 @@ model Notification {
 
   @@index([userId])
   @@index([global])
+}
+
+model Todo {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  completed  Boolean   @default(false)
+  reminderAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

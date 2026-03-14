@@ -83,7 +83,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
                             e.stopPropagation()
                             handleDeleteFolder(folder.id)
                           }}
-                          className="bg-destructive text-white focus:bg-destructive focus:text-white"
+                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete

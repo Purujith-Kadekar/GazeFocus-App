@@ -160,8 +160,8 @@ export function ContinueWatching({ videos, folders: propFolders, onVideoClick, o
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem 
-                    className="bg-destructive text-white focus:bg-destructive focus:text-white"
+                  <DropdownMenuItem
+                    className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                     onClick={(e) => handleRemove(video.id, e)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />

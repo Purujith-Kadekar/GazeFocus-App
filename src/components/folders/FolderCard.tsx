@@ -108,7 +108,7 @@ export function FolderCard({ folder, onClick }: FolderCardProps) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="bg-destructive text-white focus:bg-destructive focus:text-white"
+                  className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                   onClick={(e) => {
                     e.stopPropagation()
                     setShowDeleteDialog(true)

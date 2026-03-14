@@ -198,8 +198,8 @@ export default function NotesPageClient({ initialNotes }: NotesPageClientProps) 
                           <Edit3 className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive focus:text-destructive"
+                        <DropdownMenuItem
+                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                           onClick={() => handleDelete(note.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />

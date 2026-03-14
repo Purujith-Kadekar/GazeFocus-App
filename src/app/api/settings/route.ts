@@ -51,21 +51,26 @@ export async function PUT(request: NextRequest) {
       autoPlayNext,
       defaultPlaybackSpeed,
       eyeTrackingThreshold,
-      onboardingCompleted
+      onboardingCompleted,
+      weeklyGoal
     } = body
 
-    const settings = await db.userSettings.update({
+    const data = {
+      ...(eyeTrackingEnabled !== undefined && { eyeTrackingEnabled }),
+      ...(inactivityTimeout !== undefined && { inactivityTimeout }),
+      ...(soundAlerts !== undefined && { soundAlerts }),
+      ...(theme !== undefined && { theme }),
+      ...(autoPlayNext !== undefined && { autoPlayNext }),
+      ...(defaultPlaybackSpeed !== undefined && { defaultPlaybackSpeed }),
+      ...(eyeTrackingThreshold !== undefined && { eyeTrackingThreshold }),
+      ...(onboardingCompleted !== undefined && { onboardingCompleted }),
+      ...(weeklyGoal !== undefined && { weeklyGoal }),
+    }
+
+    const settings = await db.userSettings.upsert({
       where: { userId },
-      data: {
-        ...(eyeTrackingEnabled !== undefined && { eyeTrackingEnabled }),
-        ...(inactivityTimeout !== undefined && { inactivityTimeout }),
-        ...(soundAlerts !== undefined && { soundAlerts }),
-        ...(theme !== undefined && { theme }),
-        ...(autoPlayNext !== undefined && { autoPlayNext }),
-        ...(defaultPlaybackSpeed !== undefined && { defaultPlaybackSpeed }),
-        ...(eyeTrackingThreshold !== undefined && { eyeTrackingThreshold }),
-        ...(onboardingCompleted !== undefined && { onboardingCompleted }),
-      },
+      update: data,
+      create: { userId, ...data },
     })
 
     return NextResponse.json(settings)

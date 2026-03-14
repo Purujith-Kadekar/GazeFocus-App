@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Play, 
-  CheckCircle, 
-  FileText, 
-  Clock, 
-  Flame, 
+import {
+  Play,
+  CheckCircle,
+  FileText,
+  Clock,
+  Flame,
   TrendingUp,
   BookOpen,
   ListVideo,
@@ -16,11 +16,15 @@ import {
   Trash2,
   Edit3,
   Star,
+  Target,
 } from 'lucide-react'
 import { StatsCard } from './StatsCard'
 import { ContinueWatching } from './ContinueWatching'
 import { RecentFolders } from './RecentFolders'
 import { PlaylistsSection } from './PlaylistsSection'
+import { TodoList } from './TodoList'
+import { ReminderDialog } from './ReminderDialog'
+import { useReminderChecker } from '@/hooks/useReminderChecker'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore } from '@/store/useStore'
+import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
 import { formatWatchTime } from '@/lib/utils'
 import type { Video, Note, Folder, Playlist } from '@prisma/client'
 
@@ -57,10 +61,13 @@ export function Dashboard() {
   const { notes, setNotes } = useNoteStore()
   const { stats, setStats, setRecentVideos, setRecentFolders, setImportantNotes } = useDashboardStore()
   const { setCurrentView, setAddModalOpen } = useUIStore()
+  const { setTodos } = useTodoStore()
   const [isLoading, setIsLoading] = useState(true)
+  const { dueTodos, dialogOpen, setDialogOpen, dismissReminder, dismissAll } = useReminderChecker()
 
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
   const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
+  const [weeklyGoal, setWeeklyGoal] = useState(10)
 
   const fetchDashboardData = useCallback(() => {
     return Promise.all([
@@ -75,12 +82,16 @@ export function Dashboard() {
       fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => {}),
       fetch('/api/playlists').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/playlists/complete').then(r => r?.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
-    ]).then(([activityData, foldersData, videosData, notesData, statsData, playlistsData, completedData]) => {
+      fetch('/api/todos').then(r => r?.ok ? r.json() : []).catch(() => []),
+      fetch('/api/settings', { cache: 'no-store' }).then(r => r?.ok ? r.json() : null).catch(() => null),
+    ]).then(([activityData, foldersData, videosData, notesData, statsData, playlistsData, completedData, todosData, settingsData]) => {
       setFolders(foldersData)
       setVideos(videosData)
       setNotes(notesData)
       setPlaylists(playlistsData)
       setCompletedPlaylists(new Set(completedData.completedPlaylists || []))
+      setTodos(todosData)
+      if (settingsData?.weeklyGoal != null) setWeeklyGoal(settingsData.weeklyGoal)
       setRecentVideos(videosData.slice(0, 6))
       setRecentFolders(foldersData.slice(0, 4))
       setImportantNotes(notesData.filter((n: Note) => n.isImportant).slice(0, 4))
@@ -98,7 +109,7 @@ export function Dashboard() {
         longestStreak: activityData?.longestStreak ?? progress?.longestStreak ?? 0,
       })
     }).catch(() => {})
-  }, [setFolders, setVideos, setNotes, setRecentVideos, setRecentFolders, setImportantNotes, setStats])
+  }, [setFolders, setVideos, setNotes, setTodos, setRecentVideos, setRecentFolders, setImportantNotes, setStats])
 
   useEffect(() => {
     fetchDashboardData().finally(() => setIsLoading(false))
@@ -162,7 +173,7 @@ export function Dashboard() {
     )
   }
 
-  const weeklyGoalProgress = stats ? Math.round((stats.weeklyVideosWatched / 10) * 100) : 0
+  const weeklyGoalProgress = stats ? Math.min(100, Math.round((stats.weeklyVideosWatched / weeklyGoal) * 100)) : 0
 
   return (
     <div className="space-y-6">
@@ -185,55 +196,79 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Videos Watched"
-          value={stats?.watchedVideos || 0}
-          subtitle={`of ${stats?.totalVideos || 0} total`}
-          icon={Play}
-          color="bg-blue-500"
-        />
-        <StatsCard
-          title="Completed"
-          value={stats?.completedPlaylists || 0}
-          subtitle={`of ${stats?.totalPlaylists || 0} playlists`}
-          icon={CheckCircle}
-          color="bg-green-500"
-        />
-        <StatsCard
-          title="Notes Taken"
-          value={stats?.totalNotes || 0}
-          subtitle={`${stats?.importantNotes || 0} important`}
-          icon={FileText}
-          color="bg-purple-500"
-        />
-        <StatsCard
-          title="Watch Time"
-          value={formatWatchTime(stats?.totalWatchTime || 0)}
-          subtitle="Total learning time"
-          icon={Clock}
-          color="bg-orange-500"
-        />
-      </div>
+      {/* Stats + Todo Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+        {/* Stats on the left */}
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Combined Stats Card */}
+          <Card className="flex items-center">
+            <CardContent className="p-5 space-y-3 w-full">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full p-1.5 bg-blue-500">
+                  <Play className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xl font-bold leading-none">{stats?.watchedVideos || 0}<span className="text-sm font-normal text-muted-foreground ml-1">/ {stats?.totalVideos || 0}</span></p>
+                  <p className="text-sm text-muted-foreground">Videos Watched</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-full p-1.5 bg-green-500">
+                  <CheckCircle className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xl font-bold leading-none">{stats?.completedPlaylists || 0}<span className="text-sm font-normal text-muted-foreground ml-1">/ {stats?.totalPlaylists || 0}</span></p>
+                  <p className="text-sm text-muted-foreground">Playlists Completed</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-full p-1.5 bg-purple-500">
+                  <FileText className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xl font-bold leading-none">{stats?.totalNotes || 0}<span className="text-sm font-normal text-muted-foreground ml-1">{stats?.importantNotes ? `${stats.importantNotes} important` : ''}</span></p>
+                  <p className="text-sm text-muted-foreground">Notes Taken</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Weekly Goal */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold">Weekly Goal</h3>
-              <p className="text-sm text-muted-foreground">
-                Watch {stats?.weeklyVideosWatched || 0} of 10 videos this week
-              </p>
-            </div>
-            <Badge variant={weeklyGoalProgress >= 100 ? "default" : "secondary"}>
-              {weeklyGoalProgress}%
-            </Badge>
-          </div>
-          <Progress value={weeklyGoalProgress} className="h-2" />
-        </CardContent>
-      </Card>
+          {/* Watch Time + Weekly Goal Card */}
+          <Card className="flex items-center">
+            <CardContent className="p-5 flex flex-col gap-5 w-full">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full p-1.5 bg-orange-500">
+                  <Clock className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xl font-bold leading-none">{formatWatchTime(stats?.totalWatchTime || 0)}</p>
+                  <p className="text-sm text-muted-foreground">Total Watch Time</p>
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Target className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">Weekly Goal</p>
+                  </div>
+                  <span className="text-sm text-muted-foreground">{stats?.weeklyVideosWatched || 0}/{weeklyGoal}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Progress value={weeklyGoalProgress} className="h-2 flex-1" />
+                  <Badge variant={weeklyGoalProgress >= 100 ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                    {weeklyGoalProgress}%
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Todo List on the right */}
+        <div className="min-h-0">
+          <TodoList />
+        </div>
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -247,7 +282,7 @@ export function Dashboard() {
           />
         </div>
 
-        {/* Notes */}
+        {/* Notes & Todos */}
         <div>
           <Card className="h-full">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -297,12 +332,12 @@ export function Dashboard() {
                           <Edit3 className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation()
                             handleDeleteNote(note.id)
                           }}
-                          className="text-destructive"
+                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -372,6 +407,13 @@ export function Dashboard() {
           </div>
         </CardContent>
       </Card>
+      <ReminderDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        dueTodos={dueTodos}
+        onDismiss={dismissReminder}
+        onDismissAll={dismissAll}
+      />
     </div>
   )
 }

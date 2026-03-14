@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Folder, Playlist, Video, Note } from '@prisma/client'
+import type { Folder, Playlist, Video, Note, Todo } from '@prisma/client'
 
 // Settings Store - Persisted for the theme script to work instantly
 interface SettingsState {
@@ -133,6 +133,27 @@ export const useNoteStore = create<NoteState>((set) => ({
   })),
   removeNote: (id) => set((state) => ({
     notes: state.notes.filter((n) => n.id !== id),
+  })),
+}))
+
+// Todo Store
+interface TodoState {
+  todos: Todo[]
+  setTodos: (todos: Todo[]) => void
+  addTodo: (todo: Todo) => void
+  updateTodo: (todo: Todo) => void
+  removeTodo: (id: string) => void
+}
+
+export const useTodoStore = create<TodoState>((set) => ({
+  todos: [],
+  setTodos: (todos) => set({ todos }),
+  addTodo: (todo) => set((state) => ({ todos: [todo, ...state.todos] })),
+  updateTodo: (todo) => set((state) => ({
+    todos: state.todos.map((t) => (t.id === todo.id ? todo : t)),
+  })),
+  removeTodo: (id) => set((state) => ({
+    todos: state.todos.filter((t) => t.id !== id),
   })),
 }))
 

@@ -183,8 +183,8 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
                         <DropdownMenuSeparator />
                       </>
                     )}
-                    <DropdownMenuItem 
-                      className="text-white focus:text-white text-destructive focus:text-destructive"
+                    <DropdownMenuItem
+                      className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                       onClick={() => handleDelete(video.id)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />

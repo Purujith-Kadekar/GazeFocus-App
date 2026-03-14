@@ -253,8 +253,8 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-red-600 focus:text-red-600"
+                        <DropdownMenuItem
+                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                           onClick={(e) => handleDeletePlaylist(playlist.id, e as unknown as React.MouseEvent)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />

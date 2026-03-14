@@ -106,8 +106,8 @@ export default function FolderDetailClient({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                className="text-destructive focus:text-destructive"
+              <DropdownMenuItem
+                className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                 onClick={() => handleDeleteFolder(selectedFolder?.id || '')}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -185,8 +185,8 @@ export default function FolderDetailClient({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem 
-                      className="text-destructive focus:text-destructive"
+                    <DropdownMenuItem
+                      className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleRemoveFromFolder(item)

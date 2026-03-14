@@ -408,7 +408,7 @@ export default function AdminDashboard() {
                                       )}
                                       <button
                                         onClick={() => setConfirmDelete(user.id)}
-                                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left hover:bg-slate-600 text-red-400 transition-colors border-t border-slate-600"
+                                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left bg-destructive text-white hover:bg-destructive/80 transition-colors border-t border-slate-600"
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
                                         Delete Immediately
@@ -518,7 +518,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => deleteNotification(n.id)}
                       disabled={deletingNotif === n.id}
-                      className="shrink-0 p-1.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                      className="shrink-0 p-1.5 rounded bg-destructive text-white hover:bg-destructive/80 transition-colors disabled:opacity-50"
                       title="Delete notification"
                     >
                       {deletingNotif === n.id ? (

@@ -313,7 +313,7 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-white hover:text-white text-destructive"
+                          className="h-6 w-6 bg-destructive text-white hover:bg-destructive/80 hover:text-white"
                           onClick={() => handleDeleteNote(note.id)}
                         >
                           <Trash2 className="h-3 w-3" />

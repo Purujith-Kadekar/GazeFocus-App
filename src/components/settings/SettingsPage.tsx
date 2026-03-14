@@ -13,7 +13,8 @@ import {
   RotateCcw,
   Zap,
   CheckCircle2,
-  BookOpen
+  BookOpen,
+  Target
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -71,7 +72,8 @@ export function SettingsPage() {
     inactivityTimeout: timeoutSeconds,
     soundAlerts: alertsEnabled,
     defaultPlaybackSpeed: playbackSpeed,
-    eyeTrackingThreshold: thresholdSeconds
+    eyeTrackingThreshold: thresholdSeconds,
+    weeklyGoal: 10
   })
 
   const [isLoading, setIsLoading] = useState(true)
@@ -84,7 +86,7 @@ export function SettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const response = await fetch('/api/settings')
+        const response = await fetch('/api/settings', { cache: 'no-store' })
         if (response.ok) {
           const data = await response.json()
 
@@ -100,7 +102,8 @@ export function SettingsPage() {
             soundAlerts: data.soundAlerts ?? true,
             autoPlayNext: data.autoPlayNext ?? true,
             defaultPlaybackSpeed: data.defaultPlaybackSpeed ?? 1.0,
-            eyeTrackingThreshold: data.eyeTrackingThreshold ?? 0
+            eyeTrackingThreshold: data.eyeTrackingThreshold ?? 0,
+            weeklyGoal: data.weeklyGoal ?? 10
           }
           
           setLocalSettings(settings)
@@ -142,8 +145,16 @@ export function SettingsPage() {
       body: JSON.stringify(payload),
       keepalive: true,
     })
-      .then(() => setLastSaved(new Date()))
-      .catch(err => console.error('Failed to save setting:', err))
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Save failed (${res.status})`)
+        }
+        setLastSaved(new Date())
+      })
+      .catch(err => {
+        console.error('Failed to save setting:', err)
+        toast({ title: 'Save failed', description: 'Your change could not be saved. Please try again.', variant: 'destructive' })
+      })
       .finally(() => setIsSaving(false))
   }
 
@@ -188,7 +199,8 @@ export function SettingsPage() {
         soundAlerts: true,
         autoPlayNext: true,
         defaultPlaybackSpeed: 1.0,
-        eyeTrackingThreshold: 0
+        eyeTrackingThreshold: 0,
+        weeklyGoal: 10
       }
       
       const response = await fetch('/api/settings', {
@@ -342,6 +354,44 @@ export function SettingsPage() {
                   onValueCommit={([val]) => handleChange('inactivityTimeout', val)}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                Weekly Goal
+              </CardTitle>
+              <CardDescription>Set how many videos you want to watch per week</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Videos per week</Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    step={1}
+                    value={localSettings.weeklyGoal}
+                    onChange={(e) => {
+                      const val = Math.max(1, Math.min(50, Number(e.target.value) || 1))
+                      handleChange('weeklyGoal', val)
+                    }}
+                    className="w-16 h-8 text-center font-mono font-bold text-primary border-2 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-sm font-semibold text-muted-foreground">videos</span>
+                </div>
+              </div>
+              <Slider
+                value={[localSettings.weeklyGoal]}
+                min={1}
+                max={50}
+                step={1}
+                onValueChange={([val]) => updateLocal('weeklyGoal', val)}
+                onValueCommit={([val]) => handleChange('weeklyGoal', val)}
+              />
             </CardContent>
           </Card>
 

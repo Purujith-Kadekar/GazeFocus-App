@@ -286,8 +286,8 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem 
-                  className="text-white bg-destructive hover:bg-destructive/80 focus:text-white"
+                <DropdownMenuItem
+                  className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
                   onClick={(e) => handleDelete(playlist.id, e)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />

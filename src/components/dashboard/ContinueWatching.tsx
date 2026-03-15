@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Play, MoreVertical, Trash2, FolderInput } from 'lucide-react'
+import { Play, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,11 +19,13 @@ import type { Video, Folder } from '@prisma/client'
 interface ContinueWatchingProps {
   videos: Video[]
   folders: Folder[]
+  completedVideos: Set<string>
   onVideoClick: (video: Video) => void
+  onVideoCompletionChanged?: () => void | Promise<void>
   onVideoRemoved?: (videoId: string) => void
 }
 
-export function ContinueWatching({ videos, folders: propFolders, onVideoClick, onVideoRemoved }: ContinueWatchingProps) {
+export function ContinueWatching({ videos, folders: propFolders, completedVideos, onVideoClick, onVideoCompletionChanged, onVideoRemoved }: ContinueWatchingProps) {
   const router = useRouter()
   const [localVideos, setLocalVideos] = useState(videos)
   const [folders, setFolders] = useState<Folder[]>([])
@@ -69,6 +71,28 @@ export function ContinueWatching({ videos, folders: propFolders, onVideoClick, o
     }
   }
 
+  const handleToggleComplete = async (video: Video, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const isCompleted = completedVideos.has(video.youtubeId)
+
+    try {
+      const res = await fetch('/api/progress/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          youtubeId: video.youtubeId,
+          completed: !isCompleted,
+        }),
+      })
+
+      if (res.ok) {
+        await onVideoCompletionChanged?.()
+      }
+    } catch (error) {
+      console.error('Failed to toggle video completion:', error)
+    }
+  }
+
   if (localVideos.length === 0) {
     return (
       <Card>
@@ -97,11 +121,13 @@ export function ContinueWatching({ videos, folders: propFolders, onVideoClick, o
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {localVideos.slice(0, 4).map((video) => (
+        {localVideos.slice(0, 4).map((video) => {
+            const isCompleted = completedVideos.has(video.youtubeId)
+            return (
             <div
               key={video.id}
               className="group flex gap-3 cursor-pointer"
-              onClick={() => router.push(`/video/${video.youtubeId}`)}
+              onClick={() => onVideoClick(video)}
             >
               <div className="relative w-32 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
                 {video.thumbnail ? (
@@ -126,8 +152,9 @@ export function ContinueWatching({ videos, folders: propFolders, onVideoClick, o
               </div>
 
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium line-clamp-2">
+                <h4 className="font-medium line-clamp-2 flex items-start gap-2">
                   {video.title}
+                  {isCompleted && <CheckCircle className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
                 </h4>
                 {video.description && (
                   <p className="text-sm text-muted-foreground truncate mt-0.5">
@@ -148,6 +175,20 @@ export function ContinueWatching({ videos, folders: propFolders, onVideoClick, o
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
+                    {isCompleted ? (
+                      <>
+                        <Circle className="h-4 w-4 mr-2" />
+                        Mark as incomplete
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Mark as complete
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   {folders.length > 0 && (
                     <>
                       <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
@@ -170,7 +211,7 @@ export function ContinueWatching({ videos, folders: propFolders, onVideoClick, o
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          ))}
+          )})}
       </CardContent>
     </Card>
   )

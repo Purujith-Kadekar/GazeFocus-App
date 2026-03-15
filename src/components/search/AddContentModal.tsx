@@ -21,10 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { extractYouTubeId, cn } from '@/lib/utils'
+import { extractYouTubeId } from '@/lib/utils'
 import type { Folder } from '@prisma/client'
 
 interface AddContentModalProps {
@@ -64,7 +63,6 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     reset,
     formState: { errors },
@@ -75,7 +73,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
     },
   })
 
-  const url = watch('url')
+  const urlField = register('url', { required: 'URL is required' })
 
   const fetchYouTubeDetails = async (youtubeId: string, type: 'video' | 'playlist') => {
     setIsLoadingPreview(true)
@@ -142,8 +140,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
 
     setIsAdding(true)
     try {
-      const endpoint = previewData.type === 'playlist' ? '/api/playlists' : '/api/videos'
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/playlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +191,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl overflow-x-hidden [&>*]:min-w-0">
         <DialogHeader>
           <DialogTitle>Add Content</DialogTitle>
           <DialogDescription>
@@ -202,22 +199,24 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
           {/* URL Input */}
           <div className="space-y-2">
             <Label htmlFor="url">YouTube URL</Label>
-            <div className="relative">
+            <div className="max-w-full px-1">
+              <div className="relative max-w-full">
               <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-red-500" />
               <Input
                 id="url"
                 placeholder="https://youtube.com/watch?v=... or playlist?list=..."
-                {...register('url', { required: 'URL is required' })}
-                className="pl-10"
+                {...urlField}
+                className="w-full max-w-full pl-10 pr-3"
                 onChange={(e) => {
-                  register('url').onChange(e)
+                  urlField.onChange(e)
                   detectContentType(e.target.value)
                 }}
               />
+              </div>
             </div>
             {errors.url && (
               <p className="text-sm text-destructive">{errors.url.message}</p>
@@ -226,10 +225,11 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
 
           {/* Preview */}
           {previewData.id && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex gap-3">
-                  <div className="relative w-32 h-20 shrink-0 rounded overflow-hidden bg-muted">
+            <div className="px-1">
+            <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
+              <CardContent className="min-w-0 max-w-full p-3">
+                <div className="flex min-w-0 max-w-full items-start gap-3 overflow-hidden">
+                  <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded bg-muted">
                     {isLoadingPreview ? (
                       <div className="w-full h-full flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -258,22 +258,22 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium line-clamp-2">
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 font-medium line-clamp-2 break-words">
                         {isLoadingPreview ? 'Loading...' : previewData.title}
                       </p>
-                      <Badge variant="outline" className="capitalize shrink-0">
+                      <Badge variant="outline" className="shrink-0 capitalize">
                         {previewData.type}
                       </Badge>
                     </div>
                     {previewData.channelName && (
-                      <p className="text-sm text-muted-foreground mt-1 truncate">
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
                         {previewData.channelName}
                       </p>
                     )}
                     {previewData.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">
                         {previewData.description}
                       </p>
                     )}
@@ -281,6 +281,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
                 </div>
               </CardContent>
             </Card>
+            </div>
           )}
 
           {/* Folder Selection */}
@@ -303,7 +304,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
           {/* Quick Actions */}
           <div className="border-t pt-4">
             <p className="text-sm text-muted-foreground mb-3">Quick Actions</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"

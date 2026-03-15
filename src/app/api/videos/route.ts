@@ -162,9 +162,30 @@ export async function POST(request: NextRequest) {
         description: finalDescription,
         thumbnail: finalThumbnail,
         duration: finalDuration,
-        playlistId: folderId || null,
+        playlistId: null,
         userId,
         position: 0,
+      },
+    })
+
+    await db.libraryItem.upsert({
+      where: {
+        userId_type_externalId: {
+          userId,
+          type: 'VIDEO',
+          externalId: youtubeId,
+        },
+      },
+      update: {
+        title: finalTitle,
+        folderId: folderId || null,
+      },
+      create: {
+        userId,
+        type: 'VIDEO',
+        externalId: youtubeId,
+        title: finalTitle,
+        folderId: folderId || null,
       },
     })
 

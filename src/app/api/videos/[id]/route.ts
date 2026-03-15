@@ -96,7 +96,13 @@ export async function DELETE(
     })
 
     await db.libraryItem.deleteMany({
-      where: { externalId: video.youtubeId, type: 'VIDEO', userId: user.id },
+      where: {
+        type: 'VIDEO',
+        userId: user.id,
+        externalId: {
+          in: [video.youtubeId, video.id],
+        },
+      },
     })
 
     await db.video.delete({

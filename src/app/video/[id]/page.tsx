@@ -38,9 +38,16 @@ export default function VideoPage() {
         if (videoRes.ok) {
           const videoData = await videoRes.json()
           // API returns an array for list view, check if we got our specific video
-          const foundVideo = Array.isArray(videoData) 
+          let foundVideo = Array.isArray(videoData) 
             ? videoData.find((v: Video) => v.youtubeId === videoId)
             : videoData;
+
+          if (!foundVideo) {
+            const directVideoRes = await fetch(`/api/videos/${videoId}`)
+            if (directVideoRes.ok) {
+              foundVideo = await directVideoRes.json()
+            }
+          }
             
           if (foundVideo) {
             setVideo(foundVideo)

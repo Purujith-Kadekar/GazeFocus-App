@@ -37,13 +37,23 @@ export async function GET(
     
     // Fetch all video thumbnails in one query
     const videoThumbnails = videoExternalIds.length > 0 ? await db.video.findMany({
-      where: { youtubeId: { in: videoExternalIds }, userId: user.id },
-      select: { youtubeId: true, thumbnail: true },
+      where: {
+        userId: user.id,
+        OR: [
+          { youtubeId: { in: videoExternalIds } },
+          { id: { in: videoExternalIds } },
+        ],
+      },
+      select: { id: true, youtubeId: true, thumbnail: true },
     }) : []
     
     // Create lookup maps
     const playlistMap = new Map(playlistThumbnails.map(p => [p.id, p.thumbnail]))
-    const videoMap = new Map(videoThumbnails.map(v => [v.youtubeId, v.thumbnail]))
+    const videoMap = new Map<string, string | null>()
+    for (const video of videoThumbnails) {
+      videoMap.set(video.id, video.thumbnail)
+      videoMap.set(video.youtubeId, video.thumbnail)
+    }
     
     // Map thumbnails to items
     const itemsWithThumbnails = folder.items.map(item => {

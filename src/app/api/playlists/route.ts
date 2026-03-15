@@ -466,10 +466,21 @@ export async function POST(request: NextRequest) {
     })
 
     // Create libraryItem entry for video
-    await db.libraryItem.create({
-      data: {
+    await db.libraryItem.upsert({
+      where: {
+        userId_type_externalId: {
+          userId,
+          type: 'VIDEO',
+          externalId: youtubeId,
+        },
+      },
+      update: {
+        title: finalTitle,
+        folderId: folderId || null,
+      },
+      create: {
         userId,
-        externalId: video.id,
+        externalId: youtubeId,
         type: 'VIDEO',
         title: finalTitle,
         folderId: folderId || null,

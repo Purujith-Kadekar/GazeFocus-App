@@ -64,8 +64,14 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
       select: { id: true, thumbnail: true },
     }) : [],
     videoExternalIds.length > 0 ? db.video.findMany({
-      where: { youtubeId: { in: videoExternalIds }, userId: user.id },
-      select: { youtubeId: true, thumbnail: true },
+      where: {
+        userId: user.id,
+        OR: [
+          { youtubeId: { in: videoExternalIds } },
+          { id: { in: videoExternalIds } },
+        ],
+      },
+      select: { id: true, youtubeId: true, thumbnail: true },
     }) : [],
   ])
   
@@ -75,6 +81,7 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
   }
   const videoMap = new Map<string, string | null>()
   for (const v of videoThumbnails) {
+    videoMap.set(v.id, v.thumbnail)
     videoMap.set(v.youtubeId, v.thumbnail)
   }
   

@@ -67,6 +67,7 @@ export function Dashboard() {
 
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
   const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
+  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
   const [weeklyGoal, setWeeklyGoal] = useState(10)
 
   const fetchDashboardData = useCallback(() => {
@@ -80,15 +81,17 @@ export function Dashboard() {
       fetch('/api/videos').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/notes').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => {}),
+      fetch('/api/progress/complete').then(r => r?.ok ? r.json() : { completedVideos: [] }).catch(() => ({ completedVideos: [] })),
       fetch('/api/playlists').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/playlists/complete').then(r => r?.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
       fetch('/api/todos').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/settings', { cache: 'no-store' }).then(r => r?.ok ? r.json() : null).catch(() => null),
-    ]).then(([activityData, foldersData, videosData, notesData, statsData, playlistsData, completedData, todosData, settingsData]) => {
+    ]).then(([activityData, foldersData, videosData, notesData, statsData, completedVideosData, playlistsData, completedData, todosData, settingsData]) => {
       setFolders(foldersData)
       setVideos(videosData)
       setNotes(notesData)
       setPlaylists(playlistsData)
+      setCompletedVideos(new Set(completedVideosData.completedVideos || []))
       setCompletedPlaylists(new Set(completedData.completedPlaylists || []))
       setTodos(todosData)
       if (settingsData?.weeklyGoal != null) setWeeklyGoal(settingsData.weeklyGoal)
@@ -277,7 +280,9 @@ export function Dashboard() {
           <ContinueWatching 
             videos={videos} 
             folders={folders}
+            completedVideos={completedVideos}
             onVideoClick={handleVideoClick}
+            onVideoCompletionChanged={fetchDashboardData}
             onVideoRemoved={(removedId) => setVideos(videos.filter(v => v.id !== removedId))}
           />
         </div>

@@ -48,14 +48,14 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
     }
   }
 
-  const handleMoveToFolder = async (videoId: string, folderId: string) => {
+  const handleMoveToFolder = async (youtubeId: string, folderId: string) => {
     try {
       await fetch(`/api/library-items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'VIDEO',
-          externalId: videoId,
+          externalId: youtubeId,
           folderId,
         }),
       })
@@ -175,7 +175,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
                       <>
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
                         {folders.map(folder => (
-                          <DropdownMenuItem key={folder.id} onClick={() => handleMoveToFolder(video.id, folder.id)}>
+                          <DropdownMenuItem key={folder.id} onClick={() => handleMoveToFolder(video.youtubeId, folder.id)}>
                             <FolderInput className="h-4 w-4 mr-2" />
                             {folder.title}
                           </DropdownMenuItem>

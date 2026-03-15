@@ -54,31 +54,64 @@ export function formatWatchTime(seconds: number): string {
 
 // Extract YouTube video/playlist ID from URL
 export function extractYouTubeId(url: string): { type: 'video' | 'playlist', id: string } | null {
-  // Playlist patterns
-  const playlistPatterns = [
-    /[?&]list=([^&]+)/,
-    /playlist\?list=([^&]+)/,
+  const value = url.trim()
+  if (!value) return null
+
+  const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`
+
+  try {
+    const parsed = new URL(normalized)
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '')
+    const path = parsed.pathname
+    const watchId = parsed.searchParams.get('v')
+    const listId = parsed.searchParams.get('list')
+
+    // Prefer explicit video URLs when both v and list are present (common shared links)
+    if (watchId && (host === 'youtube.com' || host === 'm.youtube.com')) {
+      return { type: 'video', id: watchId }
+    }
+
+    if (host === 'youtu.be') {
+      const shortId = path.split('/').filter(Boolean)[0]
+      if (shortId) return { type: 'video', id: shortId }
+    }
+
+    const pathSegments = path.split('/').filter(Boolean)
+    if ((host === 'youtube.com' || host === 'm.youtube.com') && pathSegments.length > 0) {
+      const [first, second] = pathSegments
+
+      if (first === 'playlist' && listId) {
+        return { type: 'playlist', id: listId }
+      }
+
+      if ((first === 'embed' || first === 'v' || first === 'shorts' || first === 'live') && second) {
+        return { type: 'video', id: second }
+      }
+
+      if (first === 'watch' && listId) {
+        return { type: 'playlist', id: listId }
+      }
+    }
+
+    if (listId) {
+      return { type: 'playlist', id: listId }
+    }
+  } catch {
+    // Fall through to regex matching for partially malformed inputs
+  }
+
+  const fallbackPatterns = [
+    { type: 'video' as const, pattern: /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/(?:embed|v|shorts|live)\/)([^&?/]+)/ },
+    { type: 'playlist' as const, pattern: /[?&]list=([^&]+)/ },
   ]
-  
-  for (const pattern of playlistPatterns) {
-    const match = url.match(pattern)
-    if (match) {
-      return { type: 'playlist', id: match[1] }
+
+  for (const { type, pattern } of fallbackPatterns) {
+    const match = value.match(pattern)
+    if (match?.[1]) {
+      return { type, id: match[1] }
     }
   }
-  
-  // Video patterns
-  const videoPatterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&?/]+)/,
-  ]
-  
-  for (const pattern of videoPatterns) {
-    const match = url.match(pattern)
-    if (match) {
-      return { type: 'video', id: match[1] }
-    }
-  }
-  
+
   return null
 }
 

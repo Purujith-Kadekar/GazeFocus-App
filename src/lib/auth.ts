@@ -8,7 +8,7 @@ import '@/types' // Import types for module augmentation
 
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
 
-// Helper to update user streak on login
+// Helper to update user streak on sign-in using activity-based date
 async function updateUserStreak(userId: string) {
   try {
     const user = await db.user.findUnique({ where: { id: userId } })
@@ -16,20 +16,24 @@ async function updateUserStreak(userId: string) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
-    const lastLoginDate = user.lastLoginDate ? new Date(user.lastLoginDate) : null
+
+    const lastReferenceDate = user.lastActiveDate
+      ? new Date(user.lastActiveDate)
+      : user.lastLoginDate
+        ? new Date(user.lastLoginDate)
+        : null
     
     let newStreak = 1
     
-    if (lastLoginDate) {
-      const lastLogin = new Date(lastLoginDate)
-      lastLogin.setHours(0, 0, 0, 0)
-      const daysSinceLastLogin = Math.floor((today.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24))
-      
-      if (daysSinceLastLogin === 0) {
-        // Same day login - keep current streak
+    if (lastReferenceDate) {
+      const lastActive = new Date(lastReferenceDate)
+      lastActive.setHours(0, 0, 0, 0)
+      const daysSinceLastActive = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24))
+
+      if (daysSinceLastActive === 0) {
+        // Same day activity/sign-in - keep current streak
         newStreak = user.currentStreak || 1
-      } else if (daysSinceLastLogin === 1) {
+      } else if (daysSinceLastActive === 1) {
         // Consecutive day - increment streak
         newStreak = (user.currentStreak || 0) + 1
       } else {
@@ -151,7 +155,7 @@ export const authOptions: NextAuthOptions = {
       }
       
       // Update streak on sign in or if token doesn't have streak yet
-      if (trigger === 'signIn' || !extendedToken.currentStreak) {
+      if (trigger === 'signIn' || extendedToken.currentStreak === undefined) {
         const streakData = await updateUserStreak(extendedToken.id as string)
         if (streakData) {
           extendedToken.currentStreak = streakData.currentStreak ?? 0

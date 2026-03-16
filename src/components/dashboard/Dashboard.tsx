@@ -35,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
 import { formatWatchTime } from '@/lib/utils'
 import type { Video, Note, Folder, Playlist } from '@prisma/client'
@@ -294,83 +295,87 @@ export function Dashboard() {
               <CardTitle className="text-lg">Notes</CardTitle>
               <Button variant="ghost" size="sm" onClick={() => router.push('/notes')}>View All</Button>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {notes.slice(0, 4).map((note) => (
-                <div
-                  key={note.id}
-                  className={`group p-3 rounded-lg border cursor-pointer ${note.isImportant ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/50'}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p 
-                      className="text-sm line-clamp-2 flex-1"
-                      onClick={() => handleNoteClick(note)}
+            <CardContent>
+              <ScrollArea className="max-h-[320px] pr-4 text-left">
+                <div className="space-y-3">
+                  {notes.map((note) => (
+                    <div
+                      key={note.id}
+                      className={`group p-3 rounded-lg border cursor-pointer ${note.isImportant ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/50'}`}
                     >
-                      {note.content}
+                      <div className="flex items-start justify-between gap-2">
+                        <p 
+                          className="text-sm line-clamp-2 flex-1"
+                          onClick={() => handleNoteClick(note)}
+                        >
+                          {note.content}
+                        </p>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleNoteImportant(note)
+                              }}
+                            >
+                              <Star className={`mr-2 h-4 w-4 ${note.isImportant ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+                              {note.isImportant ? 'Remove from important' : 'Mark as important'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push('/notes')
+                              }}
+                            >
+                              <Edit3 className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteNote(note.id)
+                              }}
+                              className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {note.isImportant && (
+                          <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {note.youtubeId ? (
+                            <>
+                              {Math.floor((note.timestampSeconds || 0) / 60)}:{((note.timestampSeconds || 0) % 60).toString().padStart(2, '0')}
+                            </>
+                          ) : (
+                            new Date(note.createdAt).toLocaleDateString()
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {notes.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No notes yet
                     </p>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleToggleNoteImportant(note)
-                          }}
-                        >
-                          <Star className={`mr-2 h-4 w-4 ${note.isImportant ? 'fill-yellow-500 text-yellow-500' : ''}`} />
-                          {note.isImportant ? 'Remove from important' : 'Mark as important'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push('/notes')
-                          }}
-                        >
-                          <Edit3 className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteNote(note.id)
-                          }}
-                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {note.isImportant && (
-                      <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {note.youtubeId ? (
-                        <>
-                          {Math.floor((note.timestampSeconds || 0) / 60)}:{((note.timestampSeconds || 0) % 60).toString().padStart(2, '0')}
-                        </>
-                      ) : (
-                        new Date(note.createdAt).toLocaleDateString()
-                      )}
-                    </p>
-                  </div>
+                  )}
                 </div>
-              ))}
-              {notes.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No notes yet
-                </p>
-              )}
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>

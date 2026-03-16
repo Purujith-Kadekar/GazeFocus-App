@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { FolderCard } from '@/components/folders/FolderCard'
 import { useUIStore } from '@/store/useStore'
 import type { Folder } from '@prisma/client'
@@ -58,11 +59,13 @@ export function RecentFolders({ folders }: RecentFoldersProps) {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {folders.slice(0, 6).map((folder) => (
-            <FolderCard key={folder.id} folder={folder} onClick={() => handleFolderClick(folder)} />
-          ))}
-        </div>
+        <ScrollArea className="max-h-[400px] pr-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {folders.map((folder) => (
+              <FolderCard key={folder.id} folder={folder} onClick={() => handleFolderClick(folder)} />
+            ))}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   )

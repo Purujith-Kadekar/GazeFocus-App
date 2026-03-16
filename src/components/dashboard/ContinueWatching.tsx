@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import type { Video, Folder } from '@prisma/client'
 
 interface ContinueWatchingProps {
@@ -120,98 +121,102 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
           View All
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {localVideos.slice(0, 4).map((video) => {
-            const isCompleted = completedVideos.has(video.youtubeId)
-            return (
-            <div
-              key={video.id}
-              className="group flex gap-3 cursor-pointer"
-              onClick={() => onVideoClick(video)}
-            >
-              <div className="relative w-32 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
-                {video.thumbnail ? (
-                  <img
-                    src={video.thumbnail}
-                    alt={video.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Play className="h-8 w-8 text-muted-foreground/50" />
-                  </div>
-                )}
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-center">
-                  <Play className="h-8 w-8 text-white" />
-                </div>
-
-                <Badge className="absolute bottom-1 right-1 text-[10px] px-1" variant="secondary">
-                  {formatDuration(video.duration)}
-                </Badge>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <h4 className="font-medium line-clamp-2 flex items-start gap-2">
-                  {video.title}
-                  {isCompleted && <CheckCircle className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
-                </h4>
-                {video.description && (
-                  <p className="text-sm text-muted-foreground truncate mt-0.5">
-                    {video.description}
-                  </p>
-                )}
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="opacity-0 group-hover:opacity-100 shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
-                    {isCompleted ? (
-                      <>
-                        <Circle className="h-4 w-4 mr-2" />
-                        Mark as incomplete
-                      </>
+      <CardContent>
+        <ScrollArea className="max-h-[400px] pr-4">
+          <div className="space-y-4">
+            {localVideos.map((video) => {
+                const isCompleted = completedVideos.has(video.youtubeId)
+                return (
+                <div
+                  key={video.id}
+                  className="group flex gap-3 cursor-pointer"
+                  onClick={() => onVideoClick(video)}
+                >
+                  <div className="relative w-32 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
+                    {video.thumbnail ? (
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Mark as complete
-                      </>
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Play className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
                     )}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {folders.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
-                      {folders.map(folder => (
-                        <DropdownMenuItem key={folder.id} onClick={(e) => handleMoveToFolder(video.id, video.youtubeId, folder.id, e)}>
-                          <FolderInput className="h-4 w-4 mr-2" />
-                          {folder.title}
-                        </DropdownMenuItem>
-                      ))}
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-center">
+                      <Play className="h-8 w-8 text-white" />
+                    </div>
+
+                    <Badge className="absolute bottom-1 right-1 text-[10px] px-1" variant="secondary">
+                      {formatDuration(video.duration)}
+                    </Badge>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium line-clamp-2 flex items-start gap-2">
+                      {video.title}
+                      {isCompleted && <CheckCircle className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
+                    </h4>
+                    {video.description && (
+                      <p className="text-sm text-muted-foreground truncate mt-0.5">
+                        {video.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
+                        {isCompleted ? (
+                          <>
+                            <Circle className="h-4 w-4 mr-2" />
+                            Mark as incomplete
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Mark as complete
+                          </>
+                        )}
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuItem
-                    className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
-                    onClick={(e) => handleRemove(video.id, e)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Remove from history
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )})}
+                      {folders.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
+                          {folders.map(folder => (
+                            <DropdownMenuItem key={folder.id} onClick={(e) => handleMoveToFolder(video.id, video.youtubeId, folder.id, e)}>
+                              <FolderInput className="h-4 w-4 mr-2" />
+                              {folder.title}
+                            </DropdownMenuItem>
+                          ))}
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      <DropdownMenuItem
+                        className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
+                        onClick={(e) => handleRemove(video.id, e)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Remove from history
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )})}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   )

@@ -51,15 +51,15 @@ export function RecentFolders({ folders }: RecentFoldersProps) {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Your Folders</CardTitle>
         <Button variant="ghost" size="sm" onClick={() => router.push('/folders')}>
           View All
         </Button>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="max-h-[400px] pr-4">
+      <CardContent className="overflow-hidden">
+        <ScrollArea className="h-[400px] pr-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {folders.map((folder) => (
               <FolderCard key={folder.id} folder={folder} onClick={() => handleFolderClick(folder)} />

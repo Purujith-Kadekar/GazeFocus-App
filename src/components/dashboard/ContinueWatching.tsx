@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Play, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
   const router = useRouter()
   const [localVideos, setLocalVideos] = useState(videos)
   const [folders, setFolders] = useState<Folder[]>([])
+  const [videoFolderMap, setVideoFolderMap] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     setLocalVideos(videos)
@@ -38,6 +39,28 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
   useEffect(() => {
     setFolders(propFolders)
   }, [propFolders])
+
+  const refreshFolderMap = useCallback(async () => {
+    try {
+      const res = await fetch('/api/library-items')
+      if (res.ok) {
+        const items = await res.json() as Array<{ type: string; externalId: string; folderId: string | null }>
+        const map: Record<string, string | null> = {}
+        items
+          .filter((item) => item.type === 'VIDEO')
+          .forEach((item) => {
+            map[item.externalId] = item.folderId ?? null
+          })
+        setVideoFolderMap(map)
+      }
+    } catch (error) {
+      console.error('Failed to refresh folder map:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshFolderMap()
+  }, [refreshFolderMap])
 
   const handleRemove = async (videoId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -65,10 +88,37 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
           title: localVideos.find(v => v.id === videoId)?.title || '',
         }),
       })
-      // Dispatch event to refresh playlists/videos in folders
+      setVideoFolderMap(prev => ({ ...prev, [youtubeId]: folderId }))
+      refreshFolderMap()
+      // Dispatch events to refresh UI state after folder move
       window.dispatchEvent(new CustomEvent('refresh-playlists'))
+      window.dispatchEvent(new CustomEvent('refresh-videos'))
+      window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
       console.error('Failed to move video to folder:', error)
+    }
+  }
+
+  const handleRemoveFromFolder = async (videoId: string, youtubeId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await fetch('/api/library-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'VIDEO',
+          externalId: youtubeId,
+          folderId: null,
+          title: localVideos.find(v => v.id === videoId)?.title || '',
+        }),
+      })
+      setVideoFolderMap(prev => ({ ...prev, [youtubeId]: null }))
+      refreshFolderMap()
+      window.dispatchEvent(new CustomEvent('refresh-playlists'))
+      window.dispatchEvent(new CustomEvent('refresh-videos'))
+      window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+    } catch (error) {
+      console.error('Failed to remove video from folder:', error)
     }
   }
 
@@ -114,18 +164,19 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Videos</CardTitle>
         <Button variant="ghost" size="sm" onClick={() => router.push('/videos')}>
           View All
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-hidden">
         <ScrollArea className="max-h-[400px] pr-4">
           <div className="space-y-4">
             {localVideos.map((video) => {
                 const isCompleted = completedVideos.has(video.youtubeId)
+                const isInFolder = videoFolderMap[video.youtubeId] !== undefined && videoFolderMap[video.youtubeId] !== null
                 return (
                 <div
                   key={video.id}
@@ -149,6 +200,63 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
                       <Play className="h-8 w-8 text-white" />
                     </div>
 
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-1 right-1 h-7 w-7 bg-black/50 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
+                          {isCompleted ? (
+                            <>
+                              <Circle className="h-4 w-4 mr-2" />
+                              Mark as incomplete
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Mark as complete
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {isInFolder && (
+                          <>
+                            <DropdownMenuItem onClick={(e) => handleRemoveFromFolder(video.id, video.youtubeId, e)}>
+                              <FolderInput className="h-4 w-4 mr-2" />
+                              Remove from folder
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        {folders.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-sm text-muted-foreground font-semibold">Move to Folder</div>
+                            {folders.map(folder => (
+                              <DropdownMenuItem key={folder.id} onClick={(e) => handleMoveToFolder(video.id, video.youtubeId, folder.id, e)}>
+                                <FolderInput className="h-4 w-4 mr-2" />
+                                {folder.title}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
+                          onClick={(e) => handleRemove(video.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remove from history
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
                     <Badge className="absolute bottom-1 right-1 text-[10px] px-1" variant="secondary">
                       {formatDuration(video.duration)}
                     </Badge>
@@ -165,54 +273,6 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
                       </p>
                     )}
                   </div>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
-                        {isCompleted ? (
-                          <>
-                            <Circle className="h-4 w-4 mr-2" />
-                            Mark as incomplete
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Mark as complete
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {folders.length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
-                          {folders.map(folder => (
-                            <DropdownMenuItem key={folder.id} onClick={(e) => handleMoveToFolder(video.id, video.youtubeId, folder.id, e)}>
-                              <FolderInput className="h-4 w-4 mr-2" />
-                              {folder.title}
-                            </DropdownMenuItem>
-                          ))}
-                          <DropdownMenuSeparator />
-                        </>
-                      )}
-                      <DropdownMenuItem
-                        className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
-                        onClick={(e) => handleRemove(video.id, e)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Remove from history
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               )})}
           </div>

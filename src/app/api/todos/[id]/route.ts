@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { TodoType } from '@/types'
 
 export async function PUT(
   request: NextRequest,
@@ -14,7 +15,7 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { text, completed, reminderAt } = body
+    const { text, completed, reminderAt, type } = body
 
     let parsedReminderAt: Date | null | undefined
     if (reminderAt !== undefined) {
@@ -29,15 +30,37 @@ export async function PUT(
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 })
     }
 
-    const todo = await db.todo.update({
-      where: { id },
-      data: {
-        ...(text !== undefined && { text }),
-        ...(completed !== undefined && { completed }),
-        ...(reminderAt !== undefined && {
-          reminderAt: parsedReminderAt,
-        }),
-      },
+    // Use raw query to bypass client-side validation
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    if (text !== undefined) {
+      updates.push(`text = $${paramIndex++}`)
+      values.push(text)
+    }
+    if (completed !== undefined) {
+      updates.push(`completed = $${paramIndex++}`)
+      values.push(completed)
+    }
+    if (type !== undefined) {
+      updates.push(`type = $${paramIndex++}::"TodoType"`)
+      values.push(type as TodoType)
+    }
+    if (reminderAt !== undefined) {
+      updates.push(`"reminderAt" = $${paramIndex++}::timestamp`)
+      values.push(parsedReminderAt ? parsedReminderAt.toISOString() : null)
+    }
+
+    if (updates.length > 0) {
+      updates.push(`"updatedAt" = NOW()`)
+      values.push(id)
+      const query = `UPDATE "Todo" SET ${updates.join(', ')} WHERE id = $${paramIndex}`
+      await db.$executeRawUnsafe(query, ...values)
+    }
+
+    const todo = await db.todo.findUnique({
+      where: { id }
     })
 
     return NextResponse.json(todo)

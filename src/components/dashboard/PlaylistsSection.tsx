@@ -187,15 +187,15 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Playlists</CardTitle>
         <Button variant="ghost" size="sm" onClick={() => router.push('/playlists')}>
           View All
         </Button>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="max-h-[500px] pr-4">
+      <CardContent className="overflow-hidden flex flex-col">
+        <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-3">
             {playlists.map((playlist) => {
               const isCompleted = completedPlaylists.has(playlist.id)

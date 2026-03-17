@@ -46,6 +46,12 @@ export type FolderWithPlaylists = Folder & {
   }
 }
 
+export enum TodoType {
+  TASK = 'TASK',
+  PLAN = 'PLAN',
+  EVENT = 'EVENT'
+}
+
 // YouTube API types
 export interface YouTubeSearchResult {
   id: string

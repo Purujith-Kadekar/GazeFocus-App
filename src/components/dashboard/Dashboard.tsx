@@ -127,8 +127,7 @@ export function Dashboard() {
   }, [fetchDashboardData])
 
   const handleVideoClick = (video: Video) => {
-    useVideoStore.getState().setCurrentVideo(video)
-    setCurrentView('video')
+    router.push(`/video/${video.youtubeId}`)
   }
 
   const handleDeleteNote = async (noteId: string) => {
@@ -200,12 +199,11 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Stats + Todo Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-        {/* Stats on the left */}
+      {/* Row 1: Stats + TodoList */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Combined Stats Card */}
-          <Card className="flex items-center">
+          <Card className="flex items-center h-[280px]">
             <CardContent className="p-5 space-y-3 w-full">
               <div className="flex items-center gap-3">
                 <div className="rounded-full p-1.5 bg-blue-500">
@@ -238,8 +236,8 @@ export function Dashboard() {
           </Card>
 
           {/* Watch Time + Weekly Goal Card */}
-          <Card className="flex items-center">
-            <CardContent className="p-5 flex flex-col gap-5 w-full">
+          <Card className="flex items-center h-[280px]">
+            <CardContent className="p-5 flex flex-col gap-4 w-full h-full">
               <div className="flex items-center gap-3">
                 <div className="rounded-full p-1.5 bg-orange-500">
                   <Clock className="h-4 w-4 text-white" />
@@ -249,7 +247,7 @@ export function Dashboard() {
                   <p className="text-sm text-muted-foreground">Total Watch Time</p>
                 </div>
               </div>
-              <div>
+              <div className="mt-[2.7rem]">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1.5">
                     <Target className="h-4 w-4 text-primary" />
@@ -268,15 +266,13 @@ export function Dashboard() {
           </Card>
         </div>
 
-        {/* Todo List on the right */}
-        <div className="min-h-0">
+        <div className="lg:col-span-1">
           <TodoList />
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Videos - Takes 2 columns */}
+      {/* Row 2: Videos + Notes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6">
         <div className="lg:col-span-2">
           <ContinueWatching 
             videos={videos} 
@@ -288,24 +284,27 @@ export function Dashboard() {
           />
         </div>
 
-        {/* Notes & Todos */}
-        <div>
-          <Card className="h-full">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Notes</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => router.push('/notes')}>View All</Button>
+        <div className="lg:col-span-1">
+          <Card className="h-[280px] flex flex-col overflow-hidden shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between py-1 px-4 shrink-0 bg-muted/5">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2 leading-tight">
+                <FileText className="h-4 w-4 text-primary" />
+                Recent Notes
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 px-3 text-sm" onClick={() => router.push('/notes')}>View All</Button>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="max-h-[320px] pr-4 text-left">
-                <div className="space-y-3">
+            <CardContent className="p-0 flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="p-2 space-y-1.5">
+
                   {notes.map((note) => (
                     <div
                       key={note.id}
-                      className={`group p-3 rounded-lg border cursor-pointer ${note.isImportant ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/50'}`}
+                      className={`group p-2 rounded-lg border cursor-pointer ${note.isImportant ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/50'}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p 
-                          className="text-sm line-clamp-2 flex-1"
+                          className="text-sm font-medium line-clamp-2 flex-1 text-foreground"
                           onClick={() => handleNoteClick(note)}
                         >
                           {note.content}
@@ -370,9 +369,10 @@ export function Dashboard() {
                     </div>
                   ))}
                   {notes.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No notes yet
-                    </p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center opacity-50">
+                      <FileText className="h-8 w-8 mb-2" />
+                      <p className="text-sm">No notes yet</p>
+                    </div>
                   )}
                 </div>
               </ScrollArea>

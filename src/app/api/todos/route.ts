@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { TodoType } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { text, reminderAt } = body
+    const { text, reminderAt, type } = body
 
     if (!text || !text.trim()) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
@@ -40,12 +41,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid reminder date' }, { status: 400 })
     }
 
-    const todo = await db.todo.create({
-      data: {
-        text: text.trim(),
-        userId: user.id,
-        ...(parsedReminderAt && { reminderAt: parsedReminderAt }),
-      },
+    // Use raw query to bypass client-side validation since prisma generate is failing on Windows
+    const textTrimmed = text.trim()
+    const todoType = (type as TodoType) || TodoType.TASK
+    const reminderIso = parsedReminderAt ? parsedReminderAt.toISOString() : null
+
+    // We use a transaction or just run the raw insert and then select
+    const todoId = require('crypto').randomUUID()
+    
+    await db.$executeRawUnsafe(
+      `INSERT INTO "Todo" (id, text, "userId", type, "reminderAt", "updatedAt") 
+       VALUES ($1, $2, $3, $4::"TodoType", $5::timestamp, NOW())`,
+      todoId, 
+      textTrimmed, 
+      user.id, 
+      todoType, 
+      reminderIso
+    )
+
+    const todo = await db.todo.findUnique({
+      where: { id: todoId }
     })
 
     return NextResponse.json(todo, { status: 201 })

@@ -22,6 +22,7 @@ import {
   GripVertical,
   Eye,
   EyeOff,
+  Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore, useFolderStore, useAuthStore, useEyeTrackingStore, usePlaylistStore } from '@/store/useStore'
@@ -332,11 +333,20 @@ export function Sidebar({ className }: SidebarProps) {
                 href="/search"
               />
               <NavItem
+                id="onboarding-calendar"
+                icon={Calendar}
+                label="Calendar"
+                collapsed={!isSidebarOpen}
+                href="/calendar"
+                active={pathname === '/calendar'}
+              />
+              <NavItem
                 id="onboarding-videos"
                 icon={Film}
                 label="Videos"
                 collapsed={!isSidebarOpen}
                 href="/videos"
+                active={pathname === '/videos'}
               />
               <NavItem
                 id="onboarding-playlists"
@@ -344,6 +354,7 @@ export function Sidebar({ className }: SidebarProps) {
                 label="Playlists"
                 collapsed={!isSidebarOpen}
                 href="/playlists"
+                active={pathname === '/playlists'}
               />
               <NavItem
                 id="onboarding-notes"
@@ -351,6 +362,7 @@ export function Sidebar({ className }: SidebarProps) {
                 label="Notes"
                 collapsed={!isSidebarOpen}
                 href="/notes"
+                active={pathname === '/notes'}
               />
             </nav>
 

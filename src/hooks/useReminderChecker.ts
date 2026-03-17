@@ -20,7 +20,9 @@ export function useReminderChecker() {
       if (!todo.reminderAt || todo.completed || shownRef.current.has(todo.id)) {
         continue
       }
-      if (isPast(new Date(todo.reminderAt))) {
+      
+      const reminderTime = new Date(todo.reminderAt)
+      if (isPast(reminderTime)) {
         newlyDue.push(todo)
         shownRef.current.add(todo.id)
       }
@@ -54,12 +56,15 @@ export function useReminderChecker() {
 
   const dismissReminder = useCallback((todoId: string) => {
     setDueTodos(prev => prev.filter(t => t.id !== todoId))
+    // Already in shownRef.current from the check loop
   }, [])
 
   const dismissAll = useCallback(() => {
+    // Make sure all current ones are added to shownRef so they don't pop up again next interval
+    dueTodos.forEach(t => shownRef.current.add(t.id))
     setDueTodos([])
     setDialogOpen(false)
-  }, [])
+  }, [dueTodos])
 
   return { dueTodos, dialogOpen, setDialogOpen, dismissReminder, dismissAll }
 }

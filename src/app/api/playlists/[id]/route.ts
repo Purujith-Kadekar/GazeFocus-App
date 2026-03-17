@@ -33,6 +33,40 @@ export async function GET(
   }
 }
 
+// PUT /api/playlists/[id] - Update a playlist
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+    const body = await request.json()
+    const { scheduledAt, title, description } = body
+
+    const playlist = await db.playlist.update({
+      where: { id, userId: user.id },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
+      },
+    })
+
+    return NextResponse.json(playlist)
+  } catch (error) {
+    console.error('Error updating playlist:', error)
+    return NextResponse.json(
+      { error: 'Failed to update playlist' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE /api/playlists/[id] - Delete a playlist
 export async function DELETE(
   request: NextRequest,

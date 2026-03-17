@@ -51,13 +51,14 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { lastPosition, duration } = body
+    const { lastPosition, duration, scheduledAt } = body
 
     const video = await db.video.update({
       where: { id, userId: user.id },
       data: {
         ...(lastPosition !== undefined && { position: lastPosition }),
         ...(duration !== undefined && { duration }),
+        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
       },
     })
 

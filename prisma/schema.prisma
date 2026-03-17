@@ -182,6 +182,7 @@ model Playlist {
   channelName      String?
   totalDuration    Int        @default(0)
   userId           String
+  scheduledAt      DateTime?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   
@@ -201,6 +202,7 @@ model Video {
   position      Int        @default(0)
   userId        String
   playlistId    String?
+  scheduledAt   DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   
@@ -251,11 +253,18 @@ model Notification {
   @@index([global])
 }
 
+enum TodoType {
+  TASK
+  PLAN
+  EVENT
+}
+
 model Todo {
   id        String   @id @default(cuid())
   userId    String
   text      String
   completed  Boolean   @default(false)
+  type       TodoType  @default(TASK)
   reminderAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt DateTime @updatedAt

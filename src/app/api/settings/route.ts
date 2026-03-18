@@ -44,7 +44,8 @@ export async function PUT(request: NextRequest) {
     const userId = user.id
     const body = await request.json()
     const { 
-      eyeTrackingEnabled, 
+      eyeTrackingEnabled,
+      sensitivityMode,
       inactivityTimeout, 
       soundAlerts, 
       theme, 
@@ -57,6 +58,7 @@ export async function PUT(request: NextRequest) {
 
     const data = {
       ...(eyeTrackingEnabled !== undefined && { eyeTrackingEnabled }),
+      ...(sensitivityMode !== undefined && { sensitivityMode }),
       ...(inactivityTimeout !== undefined && { inactivityTimeout }),
       ...(soundAlerts !== undefined && { soundAlerts }),
       ...(theme !== undefined && { theme }),

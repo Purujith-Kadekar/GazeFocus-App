@@ -14,6 +14,7 @@ export function useFocusEngine(isActive: boolean = true) {
     thresholdSeconds,
     setCameraStream,
     incrementDistractionCount,
+    sensitivityMode,
   } = useEyeTrackingStore()
 
   const { isPlaying } = usePlayerStore()
@@ -132,7 +133,8 @@ export function useFocusEngine(isActive: boolean = true) {
 
       // 3. Init engine
       const engine = new GazeEngine({
-        unfocusPauseDelay: thresholdSeconds * 1000
+        unfocusPauseDelay: thresholdSeconds * 1000,
+        sensitivityMode: sensitivityMode,
       })
       await engine.initialize()
       engineRef.current = engine
@@ -214,7 +216,7 @@ export function useFocusEngine(isActive: boolean = true) {
       // Still allow camera preview to work even if eye tracking fails
       // The user can still watch videos, just without smart pause
     }
-  }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
+  }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking, sensitivityMode])
 
   useEffect(() => {
     const shouldBeTracking = isEnabled && isActive
@@ -223,12 +225,15 @@ export function useFocusEngine(isActive: boolean = true) {
       startTracking()
     } else if (!shouldBeTracking && isTrackingRef.current) {
       stopTracking()
+    } else if (isTrackingRef.current && shouldBeTracking) {
+      stopTracking()
+      startTracking()
     }
 
     return () => {
       if (isTrackingRef.current) stopTracking()
     }
-  }, [isEnabled, isActive, startTracking, stopTracking])
+  }, [isEnabled, isActive, startTracking, stopTracking, sensitivityMode])
 
   return { stream: streamRef.current, error }
 }

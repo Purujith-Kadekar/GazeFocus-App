@@ -209,6 +209,8 @@ export const usePlayerStore = create<PlayerStateStore>((set) => ({
 }))
 
 // Eye Tracking Store
+type SensitivityMode = 'strict' | 'moderate' | 'light';
+
 interface EyeTrackingStateStore {
   isEnabled: boolean
   isCalibrated: boolean
@@ -222,6 +224,7 @@ interface EyeTrackingStateStore {
   isFaceDetected: boolean
   isFaceFront: boolean
   cameraStream: MediaStream | null
+  sensitivityMode: SensitivityMode
   setEnabled: (enabled: boolean) => void
   setCalibrated: (calibrated: boolean) => void
   setTracking: (tracking: boolean) => void
@@ -235,6 +238,7 @@ interface EyeTrackingStateStore {
   setIsFaceDetected: (detected: boolean) => void
   setIsFaceFront: (front: boolean) => void
   setCameraStream: (stream: MediaStream | null) => void
+  setSensitivityMode: (mode: SensitivityMode) => void
 }
 
 export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
@@ -250,6 +254,7 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
   isFaceDetected: false,
   isFaceFront: true,
   cameraStream: null,
+  sensitivityMode: 'moderate',
   setEnabled: (enabled) => set({ isEnabled: enabled }),
   setCalibrated: (calibrated) => set({ isCalibrated: calibrated }),
   setTracking: (tracking) => set({ isTracking: tracking }),
@@ -263,6 +268,7 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
   setIsFaceDetected: (detected) => set({ isFaceDetected: detected }),
   setIsFaceFront: (front) => set({ isFaceFront: front }),
   setCameraStream: (stream) => set({ cameraStream: stream }),
+  setSensitivityMode: (mode) => set({ sensitivityMode: mode }),
 }))
 
 // Inactivity Store

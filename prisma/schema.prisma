@@ -217,6 +217,7 @@ model Video {
 model UserSettings {
   id                   String   @id @default(cuid())
   eyeTrackingEnabled   Boolean  @default(true)
+  sensitivityMode      String   @default("moderate")
   inactivityTimeout    Int      @default(30)
   soundAlerts          Boolean  @default(true)
   theme                String   @default("system")

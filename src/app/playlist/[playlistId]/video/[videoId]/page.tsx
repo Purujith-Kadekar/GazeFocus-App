@@ -23,6 +23,7 @@ export default function PlaylistVideoPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [initialTime, setInitialTime] = useState(0)
   
   const playlistId = params.playlistId as string
   const videoId = params.videoId as string
@@ -59,11 +60,17 @@ export default function PlaylistVideoPage() {
           }
         }
 
-        // Fetch completion status
-        const progressRes = await fetch(`/api/progress?youtubeId=${videoId}`)
+        // Fetch completion and progress status
+        const [progressRes] = await Promise.all([
+          fetch(`/api/progress?youtubeId=${videoId}`)
+        ])
+        
         if (progressRes.ok) {
           const progressData = await progressRes.json()
-          setIsCompleted(progressData?.completed || false)
+          if (progressData.progress) {
+            setInitialTime(progressData.progress.secondsWatched || 0)
+            setIsCompleted(progressData.progress.completed || false)
+          }
         }
       } catch (error) {
         console.error('Failed to load video:', error)
@@ -178,6 +185,7 @@ export default function PlaylistVideoPage() {
           videoId={video.youtubeId}
           title={video.title}
           thumbnail={video.thumbnail || undefined}
+          initialTime={initialTime}
           isCompleted={isCompleted}
           onMarkComplete={handleMarkComplete}
           onProgress={(currentTime, duration) => {

@@ -245,7 +245,7 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
   lastPosition: null,
   calibrationProgress: 0,
   distractionCount: 0,
-  thresholdSeconds: 0,
+  thresholdSeconds: 3,
   noFaceDetectedTime: 0,
   isFaceDetected: false,
   isFaceFront: true,

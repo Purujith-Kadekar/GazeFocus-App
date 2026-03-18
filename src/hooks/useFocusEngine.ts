@@ -26,6 +26,7 @@ export function useFocusEngine(isActive: boolean = true) {
   const rafRef = useRef<number | null>(null)
   const isTrackingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
+  const settingsLoadedRef = useRef(false)
   
   // MediaPipe strict timestamp management
   const lastTimestampRef = useRef<number>(-1)
@@ -81,7 +82,21 @@ export function useFocusEngine(isActive: boolean = true) {
     try {
       console.log('Initializing Gaze Focus Engine...')
       
-      // 1. Setup hidden video
+      // 1. Load settings from DB and sync to store
+      if (!settingsLoadedRef.current) {
+        try {
+          const res = await fetch('/api/settings')
+          if (res.ok) {
+            const data = await res.json()
+            useEyeTrackingStore.getState().setEnabled(data.eyeTrackingEnabled ?? true)
+            useEyeTrackingStore.getState().setThresholdSeconds(data.eyeTrackingThreshold ?? 3)
+            useEyeTrackingStore.getState().setSensitivityMode(data.sensitivityMode ?? 'moderate')
+          }
+        } catch {}
+        settingsLoadedRef.current = true
+      }
+      
+      // 2. Setup hidden video
       const video = document.createElement('video')
       video.muted = true
       video.playsInline = true
@@ -216,7 +231,7 @@ export function useFocusEngine(isActive: boolean = true) {
       // Still allow camera preview to work even if eye tracking fails
       // The user can still watch videos, just without smart pause
     }
-  }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking, sensitivityMode])
+  }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 
   useEffect(() => {
     const shouldBeTracking = isEnabled && isActive
@@ -225,15 +240,12 @@ export function useFocusEngine(isActive: boolean = true) {
       startTracking()
     } else if (!shouldBeTracking && isTrackingRef.current) {
       stopTracking()
-    } else if (isTrackingRef.current && shouldBeTracking) {
-      stopTracking()
-      startTracking()
     }
 
     return () => {
       if (isTrackingRef.current) stopTracking()
     }
-  }, [isEnabled, isActive, startTracking, stopTracking, sensitivityMode])
+  }, [isEnabled, isActive, startTracking, stopTracking])
 
   return { stream: streamRef.current, error }
 }

@@ -7,7 +7,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    value: "camera=(self), microphone=(), geolocation=()",
   },
   {
     key: "Strict-Transport-Security",
@@ -19,11 +19,12 @@ const securityHeaders = [
       "default-src 'self'",
       // 'unsafe-inline' is required by Next.js App Router for its inline style/script
       // hydration chunks. Nonce-based CSP would need custom server infrastructure.
-      "script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com",
+      // 'wasm-unsafe-eval' is required by MediaPipe for WebAssembly compilation.
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.youtube.com https://s.ytimg.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://i.ytimg.com https://lh3.googleusercontent.com https://yt3.ggpht.com",
       "font-src 'self'",
-      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com",
+      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://storage.googleapis.com",
       "frame-src https://www.youtube.com https://youtube.com",
       "object-src 'none'",
       "base-uri 'self'",

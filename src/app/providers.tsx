@@ -23,26 +23,6 @@ function ThemeManager() {
   return null
 }
 
-// Initialize the playlist sync scheduler on app startup
-function SchedulerInitializer() {
-  useEffect(() => {
-    const initScheduler = async () => {
-      try {
-        const res = await fetch('/api/cron/init')
-        if (res.ok) {
-          console.log('Playlist sync scheduler initialized')
-        }
-      } catch (error) {
-        console.error('Failed to initialize playlist sync scheduler:', error)
-      }
-    }
-
-    initScheduler()
-  }, [])
-
-  return null
-}
-
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -60,7 +40,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeManager />
-        <SchedulerInitializer />
         {children}
       </QueryClientProvider>
     </SessionProvider>

@@ -162,3 +162,21 @@ This scaffold includes a comprehensive set of modern web development tools:
 ---
 
 Built with ❤️ for the developer community. Supercharged by [Z.ai](https://chat.z.ai) 🚀
+
+## 🔄 Playlist Auto-Sync
+
+Playlists can now sync newly added YouTube videos automatically and manually:
+
+- **Automatic sync (scheduled):** `POST /api/playlists/sync` via cron.
+- **Manual sync (safety button):** available on the playlist detail page.
+
+### Cron setup
+
+- `vercel.json` is configured to trigger `/api/playlists/sync` every 30 minutes.
+- Set `CRON_SECRET` in your deployment environment.
+- Vercel Cron will send `Authorization: Bearer <CRON_SECRET>` automatically.
+
+Required environment variables:
+
+- `YOUTUBE_API_KEY`
+- `CRON_SECRET`

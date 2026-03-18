@@ -1,58 +1,41 @@
-# 🚀 Welcome to Z.ai Code Scaffold
+# 👁️ GazeFocus App
 
-A modern, production-ready web application scaffold powered by cutting-edge technologies, designed to accelerate your development with [Z.ai](https://chat.z.ai)'s AI-powered coding assistance.
+A smart YouTube learning platform that uses **real-time eye tracking** to keep you focused. When you look away from the screen, the video automatically pauses — and resumes the moment you look back.
 
-## ✨ Technology Stack
+---
 
-This scaffold provides a robust foundation built with:
+## ✨ Features
 
-### 🎯 Core Framework
-- **⚡ Next.js 16** - The React framework for production with App Router
-- **📘 TypeScript 5** - Type-safe JavaScript for better developer experience
-- **🎨 Tailwind CSS 4** - Utility-first CSS framework for rapid UI development
+### 👁️ Eye Tracking & Smart Pause
+- **Real-time gaze detection** using your webcam and MediaPipe Face Landmarker
+- **Smart Pause** — video automatically pauses when you look away and resumes when you look back
+- **Configurable pause threshold** (1–10 seconds) to control how quickly the video pauses
+- **Calibration wizard** to optimize tracking accuracy for your setup
+- **Focus state indicator** showing whether you are currently focused or distracted
+- **Distraction counter** to track how many times you looked away per session
 
-### 🧩 UI Components & Styling
-- **🧩 shadcn/ui** - High-quality, accessible components built on Radix UI
-- **🎯 Lucide React** - Beautiful & consistent icon library
-- **🌈 Framer Motion** - Production-ready motion library for React
-- **🎨 Next Themes** - Perfect dark mode in 2 lines of code
+### 📚 Learning Management
+- **Folders** to organize your playlists and learning paths
+- **Playlists** imported directly from YouTube — full playlist sync supported
+- **Video player** with playback speed control, progress tracking, and completion marking
+- **Notes** — timestamped notes attached to specific videos
+- **Todo list** to track learning tasks
 
-### 📋 Forms & Validation
-- **🎣 React Hook Form** - Performant forms with easy validation
-- **✅ Zod** - TypeScript-first schema validation
+### 🔄 Playlist Auto-Sync
+- Playlists automatically sync new YouTube videos every **30 minutes** using a background scheduler
+- Manual sync available via the "Refresh" button on any playlist page
+- Requires a `YOUTUBE_API_KEY` to fetch data from YouTube
 
-### 🔄 State Management & Data Fetching
-- **🐻 Zustand** - Simple, scalable state management
-- **🔄 TanStack Query** - Powerful data synchronization for React
-- **🌐 Fetch** - Promise-based HTTP request
+### 🔐 Authentication & Admin
+- Google OAuth and credential-based sign-in via NextAuth.js
+- Protected admin portal at `/admin` for managing content
 
-### 🗄️ Database & Backend
-- **🗄️ Prisma** - Next-generation TypeScript ORM
-- **🔐 NextAuth.js** - Complete open-source authentication solution
+### 🎨 UI & Experience
+- Clean, responsive design built with **shadcn/ui** and **Tailwind CSS**
+- Dark / light / system theme support
+- Onboarding tour for new users
 
-### 🎨 Advanced UI Features
-- **📊 TanStack Table** - Headless UI for building tables and datagrids
-- **🖱️ DND Kit** - Modern drag and drop toolkit for React
-- **📊 Recharts** - Redefined chart library built with React and D3
-- **🖼️ Sharp** - High performance image processing
-
-### 🌍 Internationalization & Utilities
-- **🌍 Next Intl** - Internationalization library for Next.js
-- **📅 Date-fns** - Modern JavaScript date utility library
-- **🪝 ReactUse** - Collection of essential React hooks for modern development
-
-## 🎯 Why This Scaffold?
-
-- **🏎️ Fast Development** - Pre-configured tooling and best practices
-- **🎨 Beautiful UI** - Complete shadcn/ui component library with advanced interactions
-- **🔒 Type Safety** - Full TypeScript configuration with Zod validation
-- **📱 Responsive** - Mobile-first design principles with smooth animations
-- **🗄️ Database Ready** - Prisma ORM configured for rapid backend development
-- **🔐 Auth Included** - NextAuth.js for secure authentication flows
-- **📊 Data Visualization** - Charts, tables, and drag-and-drop functionality
-- **🌍 i18n Ready** - Multi-language support with Next Intl
-- **🚀 Production Ready** - Optimized build and deployment settings
-- **🤖 AI-Friendly** - Structured codebase perfect for AI assistance
+---
 
 ## 🚀 Quick Start
 
@@ -73,113 +56,86 @@ bun run build
 bun start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your application running.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+---
 
 ## 🔑 Environment Variables
 
-Copy `.env.example` to `.env.local` (for local development) and set the values:
+Copy `.env.example` to `.env.local` and configure the following:
 
 | Variable | Required | Description |
 |---|---|---|
+| `NEXTAUTH_SECRET` | ✅ | Secret for signing NextAuth session tokens — generate with `openssl rand -base64 32` |
 | `ADMIN_USERNAME` | ✅ | Username for the `/admin` portal |
 | `ADMIN_PASSWORD` | ✅ | Password for the `/admin` portal |
-| `ADMIN_SECRET` | ✅* | Secret for signing admin session JWTs – generate with `openssl rand -base64 32`. Falls back to `NEXTAUTH_SECRET` if not set. |
-| `NEXTAUTH_SECRET` | ✅* | Secret for signing NextAuth session tokens – generate with `openssl rand -base64 32`. Required if `ADMIN_SECRET` is not set. |
-
-> \* At least one of `ADMIN_SECRET` or `NEXTAUTH_SECRET` must be set for the admin portal to work.
-| `AUTH_GOOGLE_ID` | Optional | Google OAuth client ID (only if Google sign-in is used) |
-| `AUTH_GOOGLE_SECRET` | Optional | Google OAuth client secret (only if Google sign-in is used) |
+| `ADMIN_SECRET` | ✅* | Secret for signing admin session JWTs — generate with `openssl rand -base64 32`. Falls back to `NEXTAUTH_SECRET` if not set. |
+| `DATABASE_URL` | ✅ | PostgreSQL connection string for Prisma |
+| `AUTH_GOOGLE_ID` | Optional | Google OAuth client ID (required for Google sign-in) |
+| `AUTH_GOOGLE_SECRET` | Optional | Google OAuth client secret (required for Google sign-in) |
 | `NEXT_PUBLIC_URL` | Optional | Public base URL of the app (default: `http://localhost:3000`) |
-| `YOUTUBE_API_KEY` | Optional | YouTube Data API key |
+| `YOUTUBE_API_KEY` | Optional | YouTube Data API v3 key for importing and syncing playlists |
 | `CRON_SECRET` | Optional | Secret to authenticate internal cron-job endpoints |
 
-> **Admin login:** Navigate to `/admin/login` and sign in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD` values you configured in `.env.local`.
+> \* At least one of `ADMIN_SECRET` or `NEXTAUTH_SECRET` must be set for the admin portal to work.
 
-## 🤖 Powered by Z.ai
+> **Admin login:** Navigate to `/admin/login` and sign in with the credentials you configured above.
 
-This scaffold is optimized for use with [Z.ai](https://chat.z.ai) - your AI assistant for:
-
-- **💻 Code Generation** - Generate components, pages, and features instantly
-- **🎨 UI Development** - Create beautiful interfaces with AI assistance  
-- **🔧 Bug Fixing** - Identify and resolve issues with intelligent suggestions
-- **📝 Documentation** - Auto-generate comprehensive documentation
-- **🚀 Optimization** - Performance improvements and best practices
-
-Ready to build something amazing? Start chatting with Z.ai at [chat.z.ai](https://chat.z.ai) and experience the future of AI-powered development!
+---
 
 ## 📁 Project Structure
 
 ```
 src/
-├── app/                 # Next.js App Router pages
+├── app/                 # Next.js App Router pages & API routes
 ├── components/          # Reusable React components
-│   └── ui/             # shadcn/ui components
-├── hooks/              # Custom React hooks
-└── lib/                # Utility functions and configurations
+│   ├── player/          # Video player, eye tracker, notes panel
+│   ├── layout/          # Header, sidebar, navigation
+│   └── ui/              # shadcn/ui base components
+├── hooks/               # Custom React hooks (useFocusEngine, etc.)
+├── lib/
+│   └── eye-tracking/    # GazeEngine — MediaPipe face landmark detection
+└── store/               # Zustand global state stores
 ```
-
-## 🎨 Available Features & Components
-
-This scaffold includes a comprehensive set of modern web development tools:
-
-### 🧩 UI Components (shadcn/ui)
-- **Layout**: Card, Separator, Aspect Ratio, Resizable Panels
-- **Forms**: Input, Textarea, Select, Checkbox, Radio Group, Switch
-- **Feedback**: Alert, Toast (Sonner), Progress, Skeleton
-- **Navigation**: Breadcrumb, Menubar, Navigation Menu, Pagination
-- **Overlay**: Dialog, Sheet, Popover, Tooltip, Hover Card
-- **Data Display**: Badge, Avatar, Calendar
-
-### 📊 Advanced Data Features
-- **Tables**: Powerful data tables with sorting, filtering, pagination (TanStack Table)
-- **Charts**: Beautiful visualizations with Recharts
-- **Forms**: Type-safe forms with React Hook Form + Zod validation
-
-### 🎨 Interactive Features
-- **Animations**: Smooth micro-interactions with Framer Motion
-- **Drag & Drop**: Modern drag-and-drop functionality with DND Kit
-- **Theme Switching**: Built-in dark/light mode support
-
-### 🔐 Backend Integration
-- **Authentication**: Ready-to-use auth flows with NextAuth.js
-- **Database**: Type-safe database operations with Prisma
-- **API Client**: HTTP requests with Fetch + TanStack Query
-- **State Management**: Simple and scalable with Zustand
-
-### 🌍 Production Features
-- **Internationalization**: Multi-language support with Next Intl
-- **Image Optimization**: Automatic image processing with Sharp
-- **Type Safety**: End-to-end TypeScript with Zod validation
-- **Essential Hooks**: 100+ useful React hooks with ReactUse for common patterns
-
-## 🤝 Get Started with Z.ai
-
-1. **Clone this scaffold** to jumpstart your project
-2. **Visit [chat.z.ai](https://chat.z.ai)** to access your AI coding assistant
-3. **Start building** with intelligent code generation and assistance
-4. **Deploy with confidence** using the production-ready setup
 
 ---
 
-Built with ❤️ for the developer community. Supercharged by [Z.ai](https://chat.z.ai) 🚀
+## 🧠 How Eye Tracking Works
 
-## 🔄 Playlist Auto-Sync
+1. **Camera access** is requested when you open a video
+2. **MediaPipe Face Landmarker** runs locally in your browser — no data leaves your device
+3. The engine analyzes **head pose** (yaw/pitch) and **iris position** every frame
+4. If you look away for longer than your configured threshold, the video **pauses automatically**
+5. When you look back at the screen, the video **resumes** instantly
+6. Use the **Calibration wizard** in Settings → Eye Tracking for best accuracy
 
-Playlists can now sync newly added YouTube videos automatically:
+> Eye tracking runs entirely on-device using WebAssembly. No video or camera data is ever sent to a server.
 
-- **Automatic sync (scheduled):** Runs every 30 minutes in the background using `node-cron`.
-- **Manual sync (safety button):** Available on the playlist detail page.
+---
 
-### How It Works
+## 🛠️ Tech Stack
 
-- On app startup, `/api/cron/init` is called automatically to initialize the scheduler.
-- The scheduler runs every 30 minutes to sync all playlists for new videos from YouTube.
-- An initial sync also runs 2 seconds after app startup.
-- Manual user-triggered syncs are available via the "Refresh" button on each playlist page.
-- All syncs only fetch from YouTube if the `YOUTUBE_API_KEY` is configured.
+| Layer | Technology |
+|---|---|
+| Framework | Next.js (App Router) + TypeScript |
+| Styling | Tailwind CSS + shadcn/ui |
+| Eye Tracking | MediaPipe Tasks Vision (Face Landmarker) |
+| State | Zustand |
+| Database | PostgreSQL + Prisma ORM |
+| Auth | NextAuth.js (Google OAuth + Credentials) |
+| Video | YouTube IFrame API |
+| Data Fetching | TanStack Query + Fetch |
 
-### Required Environment Variables
+---
 
-- `YOUTUBE_API_KEY` - YouTube Data API key for fetching playlist videos
+## 🔄 Playlist Auto-Sync Details
 
-**No Vercel subscription required** — the scheduler runs directly in your Node.js process.
+- On app startup, `/api/cron/init` is called to initialize the background scheduler
+- The scheduler runs every 30 minutes and syncs all playlists for new YouTube videos
+- An initial sync also runs 2 seconds after startup
+- Manual sync is available via the **Refresh** button on each playlist page
+- Syncs only run if `YOUTUBE_API_KEY` is configured
+
+---
+
+Built with ❤️ for focused, distraction-free learning.

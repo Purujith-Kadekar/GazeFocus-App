@@ -1,5 +1,5 @@
 import type { EyeTrackingConfig, GazeResult } from './types';
-import { DEFAULT_CONFIG } from './types';
+import { DEFAULT_CONFIG, SENSITIVITY_THRESHOLDS } from './types';
 
 // Utility to temporarily suppress console output (Support both Sync and Async)
 const withSuppressedLogs = <T>(fn: () => T): T => {
@@ -137,9 +137,10 @@ export class GazeEngine {
       // 1. Analyze Head Pose
       const headPose = this.analyzeHeadPose(landmarks);
       
-      // 2. Analyze Iris
+      // 2. Analyze Iris only if mode allows and landmarks available
+      const t = SENSITIVITY_THRESHOLDS[this.config.sensitivityMode];
       let irisResult = { isLookingAtScreen: true, confidence: 1.0 };
-      if (landmarks.length >= 478) {
+      if (t.useEyeTracking && landmarks.length >= 478) {
         irisResult = this.analyzeIris(landmarks);
       }
 
@@ -148,7 +149,7 @@ export class GazeEngine {
       return {
         isLookingAtScreen: isLooking,
         isFaceDetected: true,
-        trackingMode: landmarks.length >= 478 ? 'eye' : 'face',
+        trackingMode: t.useEyeTracking && landmarks.length >= 478 ? 'eye' : 'face',
         confidence: Math.max(headPose.confidence, irisResult.confidence),
         timestamp: timestampMs,
       };
@@ -158,6 +159,8 @@ export class GazeEngine {
   }
 
   private analyzeHeadPose(landmarks: any[]): { isFront: boolean; confidence: number } {
+    const t = SENSITIVITY_THRESHOLDS[this.config.sensitivityMode];
+
     const NOSE = 1;
     const LEFT_CHEEK = 234;
     const RIGHT_CHEEK = 454;
@@ -175,12 +178,12 @@ export class GazeEngine {
     const yawDev = Math.abs(yawRatio - 0.5);
     const pitchDev = Math.abs(pitchRatio - 0.5);
 
-    const isLookingRight = yawRatio > 0.55;
-    const isLookingUp = pitchRatio < 0.42;
-    const isLookingDown = pitchRatio > 0.58;
+    const isLookingRight = yawRatio > t.sideThreshold;
+    const isLookingUp = pitchRatio < t.upThreshold;
+    const isLookingDown = pitchRatio > t.downThreshold;
     const isFront = (isLookingRight || isLookingUp || isLookingDown)
-      ? yawDev < 0.12 && pitchDev < 0.12
-      : yawDev < 0.30 && pitchDev < 0.22;
+      ? yawDev < t.headYawSide && pitchDev < t.headPitchSide
+      : yawDev < t.headYawNormal && pitchDev < t.headPitchNormal;
     
     const confidence = 1 - (yawDev + pitchDev);
 
@@ -212,7 +215,8 @@ export class GazeEngine {
     const rightYRatio = (landmarks[RIGHT_IRIS].y - landmarks[RIGHT_EYE_TOP].y) / rightHeight;
     const yDev = Math.abs(((leftYRatio + rightYRatio) / 2) - 0.5);
 
-    const isLooking = xDev < 0.35 && yDev < 0.38; 
+    const t = SENSITIVITY_THRESHOLDS[this.config.sensitivityMode];
+    const isLooking = xDev < t.irisXDev && yDev < t.irisYDev;
     const confidence = 1 - (xDev + yDev);
 
     return { isLookingAtScreen: isLooking, confidence };

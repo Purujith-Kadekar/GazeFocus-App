@@ -50,6 +50,8 @@ export function SettingsPage() {
   const setThresholdSeconds = useEyeTrackingStore((state) => state.setThresholdSeconds)
   const trackingEnabled = useEyeTrackingStore((state) => state.isEnabled)
   const setTrackingEnabled = useEyeTrackingStore((state) => state.setEnabled)
+  const sensitivityMode = useEyeTrackingStore((state) => state.sensitivityMode)
+  const setSensitivityMode = useEyeTrackingStore((state) => state.setSensitivityMode)
   
   const playbackSpeed = usePlayerStore((state) => state.playbackSpeed)
   const setPlaybackSpeed = usePlayerStore((state) => state.setPlaybackSpeed)
@@ -69,6 +71,7 @@ export function SettingsPage() {
   const [localSettings, setLocalSettings] = useState({
     theme: storedTheme,
     eyeTrackingEnabled: trackingEnabled,
+    sensitivityMode: sensitivityMode,
     inactivityTimeout: timeoutSeconds,
     soundAlerts: alertsEnabled,
     defaultPlaybackSpeed: playbackSpeed,
@@ -98,6 +101,7 @@ export function SettingsPage() {
           const settings = {
             theme: currentTheme,
             eyeTrackingEnabled: data.eyeTrackingEnabled ?? true,
+            sensitivityMode: data.sensitivityMode ?? 'moderate',
             inactivityTimeout: data.inactivityTimeout ?? 30,
             soundAlerts: data.soundAlerts ?? true,
             autoPlayNext: data.autoPlayNext ?? true,
@@ -115,6 +119,7 @@ export function SettingsPage() {
           setTrackingEnabled(settings.eyeTrackingEnabled)
           setThresholdSeconds(settings.eyeTrackingThreshold)
           setPlaybackSpeed(settings.defaultPlaybackSpeed)
+          setSensitivityMode(settings.sensitivityMode)
 
           // If the DB theme differs from local, push local theme to DB to keep them in sync
           if (data.theme !== currentTheme) {
@@ -134,7 +139,7 @@ export function SettingsPage() {
     }
 
     loadSettings()
-  }, [setTimeoutSeconds, setAlertsEnabled, setTrackingEnabled, setThresholdSeconds, setPlaybackSpeed])
+  }, [setTimeoutSeconds, setAlertsEnabled, setTrackingEnabled, setThresholdSeconds, setPlaybackSpeed, setSensitivityMode])
 
   // Save a setting to the DB immediately (keepalive survives page unload)
   const saveToDb = (payload: Record<string, any>) => {
@@ -175,6 +180,8 @@ export function SettingsPage() {
       setTrackingEnabled(value)
     } else if (key === 'eyeTrackingThreshold') {
       setThresholdSeconds(value)
+    } else if (key === 'sensitivityMode') {
+      setSensitivityMode(value)
     } else if (key === 'defaultPlaybackSpeed') {
       setPlaybackSpeed(value)
     }
@@ -195,6 +202,7 @@ export function SettingsPage() {
       const defaultValues = {
         theme: 'system' as const,
         eyeTrackingEnabled: true,
+        sensitivityMode: 'moderate' as const,
         inactivityTimeout: 30,
         soundAlerts: true,
         autoPlayNext: true,
@@ -217,6 +225,7 @@ export function SettingsPage() {
         setAlertsEnabled(true)
         setTrackingEnabled(true)
         setThresholdSeconds(0)
+        setSensitivityMode('moderate')
         setPlaybackSpeed(1.0)
         
         toast({
@@ -446,6 +455,41 @@ export function SettingsPage() {
                   checked={localSettings.eyeTrackingEnabled}
                   onCheckedChange={(val) => handleChange('eyeTrackingEnabled', val)}
                 />
+              </div>
+              <Separator className="bg-border/50 border" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-base font-semibold">Sensitivity Mode</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Controls how strictly gaze is tracked</p>
+                </div>
+                <Select
+                  value={localSettings.sensitivityMode}
+                  onValueChange={(val) => handleChange('sensitivityMode', val)}
+                >
+                  <SelectTrigger className="w-36 rounded-full border-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="strict">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-3 w-3 text-red-500" />
+                        Strict
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="moderate">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-3 w-3 text-yellow-500" />
+                        Moderate
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="light">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-3 w-3 text-green-500" />
+                        Light
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Separator className="bg-border/50 border" />
               <div className="space-y-4">

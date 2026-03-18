@@ -45,6 +45,8 @@ export function VideoPlayer({
   const onProgressRef = useRef(onProgress)
   const onCompleteRef = useRef(onComplete)
   const initialTimeRef = useRef(initialTime)
+  const playbackSpeedRef = useRef(1)
+  const isPlayerReadyRef = useRef(false)
 
   useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
@@ -71,6 +73,9 @@ export function VideoPlayer({
   } = useEyeTrackingStore()
 
   // Load default playback speed from settings on mount
+  useEffect(() => { playbackSpeedRef.current = playbackSpeed }, [playbackSpeed])
+  useEffect(() => { isPlayerReadyRef.current = isPlayerReady }, [isPlayerReady])
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -107,10 +112,12 @@ export function VideoPlayer({
       events: {
         onReady: (event: any) => {
           setIsPlayerReady(true)
+          isPlayerReadyRef.current = true
           setDuration(event.target.getDuration())
           // Apply initial playback speed
-          if (playbackSpeed !== 1) {
-            event.target.setPlaybackRate(playbackSpeed)
+          const speed = playbackSpeedRef.current
+          if (speed !== 1) {
+            event.target.setPlaybackRate(speed)
           }
           if (initialTimeRef.current > 0) {
             event.target.seekTo(initialTimeRef.current, true)
@@ -129,7 +136,7 @@ export function VideoPlayer({
         }
       }
     })
-  }, [videoId, setIsPlaying, setPausedByEyeTracking, playbackSpeed])
+  }, [videoId, setIsPlaying, setPausedByEyeTracking])
 
   // Apply playback speed changes when player is ready
   useEffect(() => {
@@ -140,18 +147,27 @@ export function VideoPlayer({
 
   // Handle Script and Instance Lifecycle
   useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement('script')
-      tag.src = "https://www.youtube.com/iframe_api"
-      const firstScriptTag = document.getElementsByTagName('script')[0]
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+    if (!window.YT || !window.YT.Player) {
+      // Only inject the script tag once across all renders
+      const scriptSrc = "https://www.youtube.com/iframe_api"
+      if (!document.querySelector(`script[src="${scriptSrc}"]`)) {
+        const tag = document.createElement('script')
+        tag.src = scriptSrc
+        const firstScriptTag = document.getElementsByTagName('script')[0]
+        if (firstScriptTag && firstScriptTag.parentNode) {
+          firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
+        } else {
+          document.head.appendChild(tag)
+        }
+      }
+      // Always update the callback so the latest initPlayer closure is used
       window.onYouTubeIframeAPIReady = initPlayer
     } else {
       initPlayer()
     }
 
     const progressInterval = setInterval(() => {
-      if (playerRef.current && isPlayerReady && typeof playerRef.current.getCurrentTime === 'function') {
+      if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.getCurrentTime === 'function') {
         try {
           const time = playerRef.current.getCurrentTime()
           const dur = playerRef.current.getDuration()
@@ -165,7 +181,7 @@ export function VideoPlayer({
     return () => {
       clearInterval(progressInterval)
     }
-  }, [videoId, initPlayer, isPlayerReady])
+  }, [videoId, initPlayer])
 
   // Cleanup player only when videoId changes or component unmounts
   useEffect(() => {
@@ -176,6 +192,7 @@ export function VideoPlayer({
         } catch (e) {}
         playerRef.current = null
         setIsPlayerReady(false)
+        isPlayerReadyRef.current = false
       }
     }
   }, [videoId])

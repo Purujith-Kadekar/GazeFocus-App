@@ -57,3 +57,5 @@ db/
 electron-dist/
 electron-builder.yml
 electron/
+
+GazeFocus-App.code-workspace

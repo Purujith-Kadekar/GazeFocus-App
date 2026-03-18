@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, RefreshCw } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,7 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
   const [playlistId, setPlaylistId] = useState<string>('')
   const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
   const [isPlaylistCompleted, setIsPlaylistCompleted] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   useEffect(() => {
     params.then(p => setPlaylistId(p.playlistId))
@@ -68,47 +69,71 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
     loadCompletedVideos()
   }, [status])
 
-  useEffect(() => {
-    async function loadPlaylist() {
-      if (!playlistId || status !== 'authenticated') return
-      
-      try {
-        const res = await fetch(`/api/playlists/${playlistId}`)
-        if (res.status === 404) {
-          setPlaylist(null)
-          setIsLoading(false)
-          return
-        }
-        if (res.ok) {
-          const data = await res.json()
-          setPlaylist(data)
-        } else {
-          console.error('Failed to fetch playlist')
-        }
+  const loadPlaylist = useCallback(async () => {
+    if (!playlistId || status !== 'authenticated') return
 
-        const foldersRes = await fetch('/api/folders')
-        if (foldersRes.ok) {
-          const foldersData = await foldersRes.json()
-          setFolders(foldersData)
-        }
-
-        const completedRes = await fetch(`/api/playlists/complete?playlistId=${playlistId}`)
-        if (completedRes.ok) {
-          const completedData = await completedRes.json()
-          setIsPlaylistCompleted(completedData.completed || false)
-        }
-      } catch (error) {
-        console.error('Failed to load playlist:', error)
+    try {
+      const res = await fetch(`/api/playlists/${playlistId}`)
+      if (res.status === 404) {
         setPlaylist(null)
-      } finally {
         setIsLoading(false)
+        return
       }
-    }
+      if (res.ok) {
+        const data = await res.json()
+        setPlaylist(data)
+      } else {
+        console.error('Failed to fetch playlist')
+      }
 
+      const foldersRes = await fetch('/api/folders')
+      if (foldersRes.ok) {
+        const foldersData = await foldersRes.json()
+        setFolders(foldersData)
+      }
+
+      const completedRes = await fetch(`/api/playlists/complete?playlistId=${playlistId}`)
+      if (completedRes.ok) {
+        const completedData = await completedRes.json()
+        setIsPlaylistCompleted(completedData.completed || false)
+      }
+    } catch (error) {
+      console.error('Failed to load playlist:', error)
+      setPlaylist(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [playlistId, status])
+
+  useEffect(() => {
     if (playlistId) {
       loadPlaylist()
     }
-  }, [playlistId, status])
+  }, [playlistId, loadPlaylist])
+
+  const handleManualSync = async () => {
+    if (!playlistId) return
+
+    setIsSyncing(true)
+    try {
+      const res = await fetch('/api/playlists/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlistId }),
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to sync playlist')
+      }
+
+      await loadPlaylist()
+      window.dispatchEvent(new CustomEvent('refresh-playlists'))
+    } catch (error) {
+      console.error('Failed to sync playlist:', error)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   const handleDeletePlaylist = async () => {
     if (!playlistId) return
@@ -233,33 +258,40 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
             </div>
           </div>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleTogglePlaylistComplete}>
-                {isPlaylistCompleted ? (
-                  <>
-                    <Circle className="mr-2 h-4 w-4" />
-                    Mark as incomplete
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Mark as complete
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDeletePlaylist} className="bg-destructive text-white focus:bg-destructive/80 focus:text-white">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Playlist
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleManualSync} disabled={isSyncing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleTogglePlaylistComplete}>
+                  {isPlaylistCompleted ? (
+                    <>
+                      <Circle className="mr-2 h-4 w-4" />
+                      Mark as incomplete
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Mark as complete
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDeletePlaylist} className="bg-destructive text-white focus:bg-destructive/80 focus:text-white">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Playlist
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Playlist Info */}

@@ -5,16 +5,25 @@ import { NextRequest } from 'next/server'
 const ADMIN_COOKIE = 'admin_session'
 
 function getSecret(): Uint8Array {
-  const s = process.env.NEXTAUTH_SECRET
+  // Prefer a dedicated ADMIN_SECRET so the admin portal works even when
+  // NEXTAUTH_SECRET is not configured (e.g. projects that only use the
+  // admin portal without full NextAuth integration).
+  const s = process.env.ADMIN_SECRET ?? process.env.NEXTAUTH_SECRET
   if (!s) {
-    throw new Error('NEXTAUTH_SECRET environment variable is not set')
+    throw new Error(
+      'Neither ADMIN_SECRET nor NEXTAUTH_SECRET environment variable is set. ' +
+      'Set ADMIN_SECRET (or NEXTAUTH_SECRET) to enable admin authentication.'
+    )
   }
   return new TextEncoder().encode(s)
 }
 
 export function getAdminCredentials() {
-  const username = process.env.ADMIN_USERNAME
-  const password = process.env.ADMIN_PASSWORD
+  // Trim to guard against accidental leading/trailing whitespace in env values.
+  // A value that is all whitespace becomes "" after trim, which is falsy,
+  // so the null-guard below correctly rejects it.
+  const username = process.env.ADMIN_USERNAME?.trim()
+  const password = process.env.ADMIN_PASSWORD?.trim()
   if (!username || !password) return null
   return { username, password }
 }

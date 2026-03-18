@@ -175,8 +175,12 @@ export class GazeEngine {
     const yawDev = Math.abs(yawRatio - 0.5);
     const pitchDev = Math.abs(pitchRatio - 0.5);
 
-    // RESTORED STABLE THRESHOLDS
-    const isFront = yawDev < 0.30 && pitchDev < 0.22;
+    const isLookingRight = yawRatio > 0.55;
+    const isLookingUp = pitchRatio < 0.42;
+    const isLookingDown = pitchRatio > 0.58;
+    const isFront = (isLookingRight || isLookingUp || isLookingDown)
+      ? yawDev < 0.12 && pitchDev < 0.12
+      : yawDev < 0.30 && pitchDev < 0.22;
     
     const confidence = 1 - (yawDev + pitchDev);
 

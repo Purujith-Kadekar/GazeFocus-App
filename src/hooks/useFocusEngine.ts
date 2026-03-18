@@ -37,6 +37,7 @@ export function useFocusEngine(isActive: boolean = true) {
     isTrackingRef.current = false
     setTracking(false)
     setLookingAtScreen(true)
+    setIsFaceDetected(false)
     setCameraStream(null)
     
     if (rafRef.current) {
@@ -50,8 +51,16 @@ export function useFocusEngine(isActive: boolean = true) {
     }
 
     if (videoRef.current) {
-      videoRef.current.pause()
-      videoRef.current.srcObject = null
+      try {
+        videoRef.current.pause()
+        videoRef.current.srcObject = null
+        // Remove from DOM
+        if (videoRef.current.parentNode) {
+          videoRef.current.parentNode.removeChild(videoRef.current)
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
       videoRef.current = null
     }
 
@@ -60,7 +69,9 @@ export function useFocusEngine(isActive: boolean = true) {
       engineRef.current = null
     }
     lastTimestampRef.current = -1
-  }, [setTracking, setLookingAtScreen, setCameraStream])
+    unfocusStartRef.current = null
+    lastLookingStateRef.current = true
+  }, [setTracking, setLookingAtScreen, setIsFaceDetected, setCameraStream])
 
   const startTracking = useCallback(async () => {
     if (isTrackingRef.current) return
@@ -73,8 +84,11 @@ export function useFocusEngine(isActive: boolean = true) {
       const video = document.createElement('video')
       video.muted = true
       video.playsInline = true
+      video.autoplay = true
       video.width = 640
       video.height = 480
+      video.style.display = 'none'
+      document.body.appendChild(video)
       videoRef.current = video
 
       // 2. Get stream
@@ -91,11 +105,30 @@ export function useFocusEngine(isActive: boolean = true) {
       setCameraStream(mediaStream)
       video.srcObject = mediaStream
       
-      // Wait for video to be ready
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => resolve(true)
+      // Wait for video to be ready with timeout
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Video metadata timeout')), 10000)
+        video.onloadedmetadata = () => {
+          clearTimeout(timeout)
+          resolve(true)
+        }
+        video.onerror = () => {
+          clearTimeout(timeout)
+          reject(new Error('Video load error'))
+        }
       })
-      await video.play()
+      
+      // Ensure video is playing
+      if (video.paused) {
+        await video.play().catch(() => {
+          console.warn('Video autoplay failed, continuing anyway')
+        })
+      }
+
+      // Verify video is actually ready
+      if (video.readyState < 2) {
+        throw new Error('Video not ready - readyState: ' + video.readyState)
+      }
 
       // 3. Init engine
       const engine = new GazeEngine({
@@ -111,47 +144,57 @@ export function useFocusEngine(isActive: boolean = true) {
       const loop = (time: number) => {
         if (!isTrackingRef.current || !videoRef.current || !engineRef.current) return
 
+        // Check if video is ready for processing
+        if (!videoRef.current || videoRef.current.readyState < 2) {
+          rafRef.current = requestAnimationFrame(loop)
+          return
+        }
+
         let timestamp = performance.now()
         if (timestamp <= lastTimestampRef.current) {
-          timestamp = lastTimestampRef.current + 1
+          timestamp = lastTimestampRef.current + 16 // Minimum frame time ~60fps
         }
         lastTimestampRef.current = timestamp
 
-        const result = engineRef.current.detect(videoRef.current, timestamp)
-        
-        setIsFaceDetected(result.isFaceDetected)
-        
-        const isLooking = result.isLookingAtScreen && result.isFaceDetected
+        try {
+          const result = engineRef.current.detect(videoRef.current, timestamp)
+          
+          setIsFaceDetected(result.isFaceDetected)
+          
+          const isLooking = result.isLookingAtScreen && result.isFaceDetected
 
-        if (isLooking) {
-          unfocusStartRef.current = null
-          if (!lastLookingStateRef.current) {
-            setLookingAtScreen(true)
-            lastLookingStateRef.current = true
-          }
-        } else {
-          // IMMEDIATE RESPONSE if threshold is 0
-          if (thresholdSeconds === 0) {
-            if (lastLookingStateRef.current) {
-              setLookingAtScreen(false)
-              lastLookingStateRef.current = false
-              incrementDistractionCount()
+          if (isLooking) {
+            unfocusStartRef.current = null
+            if (!lastLookingStateRef.current) {
+              setLookingAtScreen(true)
+              lastLookingStateRef.current = true
             }
           } else {
-            // Otherwise use buffered logic
-            if (unfocusStartRef.current === null) {
-              unfocusStartRef.current = timestamp
-            }
-
-            const elapsed = timestamp - unfocusStartRef.current
-            if (elapsed >= (thresholdSeconds * 1000)) {
+            // IMMEDIATE RESPONSE if threshold is 0
+            if (thresholdSeconds === 0) {
               if (lastLookingStateRef.current) {
                 setLookingAtScreen(false)
                 lastLookingStateRef.current = false
                 incrementDistractionCount()
               }
+            } else {
+              // Otherwise use buffered logic
+              if (unfocusStartRef.current === null) {
+                unfocusStartRef.current = timestamp
+              }
+
+              const elapsed = timestamp - unfocusStartRef.current
+              if (elapsed >= (thresholdSeconds * 1000)) {
+                if (lastLookingStateRef.current) {
+                  setLookingAtScreen(false)
+                  lastLookingStateRef.current = false
+                  incrementDistractionCount()
+                }
+              }
             }
           }
+        } catch (detectError) {
+          console.warn('Detection error, continuing:', detectError)
         }
 
         rafRef.current = requestAnimationFrame(loop)
@@ -159,9 +202,17 @@ export function useFocusEngine(isActive: boolean = true) {
 
       rafRef.current = requestAnimationFrame(loop)
     } catch (err: any) {
-      console.error('Focus Engine Error:', err)
-      setError(err.message || 'Failed to start eye tracking')
-      stopTracking()
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start eye tracking'
+      console.error('Focus Engine Error:', errorMessage)
+      setError(errorMessage)
+      
+      // Don't completely stop - allow video to work without eye tracking
+      // But set to disabled state
+      setTracking(false)
+      setLookingAtScreen(true)
+      
+      // Still allow camera preview to work even if eye tracking fails
+      // The user can still watch videos, just without smart pause
     }
   }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 

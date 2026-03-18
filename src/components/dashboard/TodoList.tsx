@@ -369,7 +369,6 @@ function UnifiedTodoItem({
     return (
       <div className="p-2 rounded-lg border bg-accent/50 space-y-2 animate-in fade-in duration-200">
         <Input 
-          size="sm" 
           value={editText} 
           onChange={(e) => setEditText(e.target.value)}
           className="h-7 text-xs"

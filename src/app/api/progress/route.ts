@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     let weeklyVideosWatched = userData?.weeklyVideosWatched || 0
     let lastWeeklyReset = userData?.lastWeeklyReset
 
-    if (isNewWeek(lastWeeklyReset)) {
+    if (isNewWeek(lastWeeklyReset ?? null)) {
       weeklyVideosWatched = 0
       lastWeeklyReset = getMondayDate()
     }
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
 
     let weeklyVideosWatched = userData?.weeklyVideosWatched || 0
     
-    if (isNewWeek(userData?.lastWeeklyReset)) {
+    if (isNewWeek(userData?.lastWeeklyReset ?? null)) {
       weeklyVideosWatched = 0
       await db.user.update({
         where: { id: userId },

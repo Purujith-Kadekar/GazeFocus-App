@@ -212,7 +212,6 @@ export function VideoPlayer({
       cancelled = true
       clearInterval(progressInterval)
     }
-  }, [videoId, initPlayer])
   }, [videoId, initPlayer, isPlayerReady, ensureYouTubeApiReady])
 
   // Cleanup player only when videoId changes or component unmounts

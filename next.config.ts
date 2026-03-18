@@ -20,12 +20,13 @@ const securityHeaders = [
       // 'unsafe-inline' is required by Next.js App Router for its inline style/script
       // hydration chunks. Nonce-based CSP would need custom server infrastructure.
       // 'wasm-unsafe-eval' is required by MediaPipe for WebAssembly compilation.
-      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.youtube.com https://s.ytimg.com",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://storage.googleapis.com https://www.gstatic.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://i.ytimg.com https://lh3.googleusercontent.com https://yt3.ggpht.com",
       "font-src 'self'",
-      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://storage.googleapis.com",
+      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://storage.googleapis.com https://www.gstatic.com",
       "frame-src https://www.youtube.com https://youtube.com",
+      "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

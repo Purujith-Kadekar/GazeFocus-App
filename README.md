@@ -165,18 +165,21 @@ Built with ❤️ for the developer community. Supercharged by [Z.ai](https://ch
 
 ## 🔄 Playlist Auto-Sync
 
-Playlists can now sync newly added YouTube videos automatically and manually:
+Playlists can now sync newly added YouTube videos automatically:
 
-- **Automatic sync (scheduled):** `POST /api/playlists/sync` via cron.
-- **Manual sync (safety button):** available on the playlist detail page.
+- **Automatic sync (scheduled):** Runs every 30 minutes in the background using `node-cron`.
+- **Manual sync (safety button):** Available on the playlist detail page.
 
-### Cron setup
+### How It Works
 
-- `vercel.json` is configured to trigger `/api/playlists/sync` every 30 minutes.
-- Set `CRON_SECRET` in your deployment environment.
-- Vercel Cron will send `Authorization: Bearer <CRON_SECRET>` automatically.
+- On app startup, `/api/cron/init` is called automatically to initialize the scheduler.
+- The scheduler runs every 30 minutes to sync all playlists for new videos from YouTube.
+- An initial sync also runs 2 seconds after app startup.
+- Manual user-triggered syncs are available via the "Refresh" button on each playlist page.
+- All syncs only fetch from YouTube if the `YOUTUBE_API_KEY` is configured.
 
-Required environment variables:
+### Required Environment Variables
 
-- `YOUTUBE_API_KEY`
-- `CRON_SECRET`
+- `YOUTUBE_API_KEY` - YouTube Data API key for fetching playlist videos
+
+**No Vercel subscription required** — the scheduler runs directly in your Node.js process.

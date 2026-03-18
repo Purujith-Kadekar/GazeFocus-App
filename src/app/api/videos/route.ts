@@ -131,6 +131,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate YouTube video ID format (11 alphanumeric/-/_ characters)
+    const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/
+    if (!YOUTUBE_ID_RE.test(youtubeId)) {
+      return NextResponse.json(
+        { error: 'Invalid YouTube ID' },
+        { status: 400 }
+      )
+    }
+
     // Check if video already exists for this user
     const existing = await db.video.findFirst({
       where: { youtubeId, userId },

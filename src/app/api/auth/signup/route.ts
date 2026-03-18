@@ -31,6 +31,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (password.length > 128) {
+      return NextResponse.json(
+        { error: 'Password must be at most 128 characters long' },
+        { status: 400 }
+      )
+    }
+
+    const hasUppercase = /[A-Z]/.test(password)
+    const hasLowercase = /[a-z]/.test(password)
+    const hasDigit = /[0-9]/.test(password)
+    const hasSpecial = /[^A-Za-z0-9]/.test(password)
+    if (!hasUppercase || !hasLowercase || !hasDigit || !hasSpecial) {
+      return NextResponse.json(
+        {
+          error:
+            'Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character',
+        },
+        { status: 400 }
+      )
+    }
+
     // Check if user already exists
     const existingUser = await db.user.findUnique({
       where: { email },

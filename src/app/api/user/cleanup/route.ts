@@ -8,8 +8,14 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
 
-    // Allow if called internally or with correct secret
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // CRON_SECRET must always be set; refuse to run without it to prevent
+    // unauthenticated mass-deletion if the env var is accidentally unset.
+    if (!cronSecret) {
+      console.error('CRON_SECRET is not configured – cleanup endpoint disabled')
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminCredentials, createAdminToken } from '@/lib/admin-auth'
+import { getAdminCredentials, verifyAdminCredentials, createAdminToken } from '@/lib/admin-auth'
 
 const ADMIN_COOKIE = 'admin_session'
 
@@ -16,11 +16,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Constant-time-ish comparison to prevent timing attacks
-    const usernameMatch = username === creds.username
-    const passwordMatch = password === creds.password
+    // Constant-time comparison to prevent timing attacks
+    const isValid = verifyAdminCredentials(username ?? '', password ?? '')
 
-    if (!usernameMatch || !passwordMatch) {
+    if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -33,8 +32,8 @@ export async function POST(request: NextRequest) {
     response.cookies.set(ADMIN_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 hours
+      sameSite: 'strict',
+      maxAge: 60 * 60, // 1 hour
       path: '/',
     })
 
@@ -54,7 +53,7 @@ export async function DELETE() {
   response.cookies.set(ADMIN_COOKIE, '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     maxAge: 0,
     path: '/',
   })

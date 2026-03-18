@@ -36,6 +36,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
     }
 
+    if (typeof text !== 'string' || text.trim().length > 500) {
+      return NextResponse.json({ error: 'Todo text must be 500 characters or fewer' }, { status: 400 })
+    }
+
     const parsedReminderAt = reminderAt ? new Date(reminderAt) : null
     if (reminderAt && Number.isNaN(parsedReminderAt?.getTime())) {
       return NextResponse.json({ error: 'Invalid reminder date' }, { status: 400 })
@@ -46,18 +50,12 @@ export async function POST(request: NextRequest) {
     const todoType = (type as TodoType) || TodoType.TASK
     const reminderIso = parsedReminderAt ? parsedReminderAt.toISOString() : null
 
-    // We use a transaction or just run the raw insert and then select
-    const todoId = require('crypto').randomUUID()
-    
-    await db.$executeRawUnsafe(
-      `INSERT INTO "Todo" (id, text, "userId", type, "reminderAt", "updatedAt") 
-       VALUES ($1, $2, $3, $4::"TodoType", $5::timestamp, NOW())`,
-      todoId, 
-      textTrimmed, 
-      user.id, 
-      todoType, 
-      reminderIso
-    )
+    const { randomUUID } = await import('crypto')
+    const todoId = randomUUID()
+
+    await db.$executeRaw`
+      INSERT INTO "Todo" (id, text, "userId", type, "reminderAt", "updatedAt")
+      VALUES (${todoId}, ${textTrimmed}, ${user.id}, ${todoType}::"TodoType", ${reminderIso}::timestamp, NOW())`
 
     const todo = await db.todo.findUnique({
       where: { id: todoId }

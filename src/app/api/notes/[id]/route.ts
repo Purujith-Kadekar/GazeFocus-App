@@ -17,6 +17,10 @@ export async function PUT(
     const body = await request.json()
     const { content, isImportant, timestamp } = body
 
+    if (content !== undefined && (typeof content !== 'string' || content.length > 10000)) {
+      return NextResponse.json({ error: 'Note content must be 10,000 characters or fewer' }, { status: 400 })
+    }
+
     // Verify the note belongs to this user
     const existing = await db.note.findFirst({ where: { id, userId: user.id } })
     if (!existing) {

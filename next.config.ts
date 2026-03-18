@@ -19,11 +19,11 @@ const securityHeaders = [
       "default-src 'self'",
       // 'unsafe-inline' is required by Next.js App Router for its inline style/script
       // hydration chunks. Nonce-based CSP would need custom server infrastructure.
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://i.ytimg.com https://lh3.googleusercontent.com https://yt3.ggpht.com",
       "font-src 'self'",
-      "connect-src 'self' https://www.googleapis.com",
+      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com",
       "frame-src https://www.youtube.com https://youtube.com",
       "object-src 'none'",
       "base-uri 'self'",

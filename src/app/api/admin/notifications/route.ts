@@ -55,6 +55,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and message are required' }, { status: 400 })
     }
 
+    if (typeof title !== 'string' || title.length > 200) {
+      return NextResponse.json({ error: 'Title must be 200 characters or fewer' }, { status: 400 })
+    }
+
+    if (typeof message !== 'string' || message.length > 2000) {
+      return NextResponse.json({ error: 'Message must be 2,000 characters or fewer' }, { status: 400 })
+    }
+
     if (userId) {
       // Send to specific user
       const notification = await db.notification.create({

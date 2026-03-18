@@ -60,6 +60,9 @@ This scaffold provides a robust foundation built with:
 # Install dependencies
 bun install
 
+# Copy the environment template and fill in your values
+cp .env.example .env.local
+
 # Start development server
 bun run dev
 
@@ -71,6 +74,23 @@ bun start
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see your application running.
+
+## 🔑 Environment Variables
+
+Copy `.env.example` to `.env.local` (for local development) and set the values:
+
+| Variable | Required | Description |
+|---|---|---|
+| `ADMIN_USERNAME` | ✅ | Username for the `/admin` portal |
+| `ADMIN_PASSWORD` | ✅ | Password for the `/admin` portal |
+| `NEXTAUTH_SECRET` | ✅ | Secret for signing session tokens – generate with `openssl rand -base64 32` |
+| `AUTH_GOOGLE_ID` | Optional | Google OAuth client ID (only if Google sign-in is used) |
+| `AUTH_GOOGLE_SECRET` | Optional | Google OAuth client secret (only if Google sign-in is used) |
+| `NEXT_PUBLIC_URL` | Optional | Public base URL of the app (default: `http://localhost:3000`) |
+| `YOUTUBE_API_KEY` | Optional | YouTube Data API key |
+| `CRON_SECRET` | Optional | Secret to authenticate internal cron-job endpoints |
+
+> **Admin login:** Navigate to `/admin/login` and sign in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD` values you configured in `.env.local`.
 
 ## 🤖 Powered by Z.ai
 

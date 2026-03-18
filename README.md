@@ -83,7 +83,10 @@ Copy `.env.example` to `.env.local` (for local development) and set the values:
 |---|---|---|
 | `ADMIN_USERNAME` | ✅ | Username for the `/admin` portal |
 | `ADMIN_PASSWORD` | ✅ | Password for the `/admin` portal |
-| `NEXTAUTH_SECRET` | ✅ | Secret for signing session tokens – generate with `openssl rand -base64 32` |
+| `ADMIN_SECRET` | ✅* | Secret for signing admin session JWTs – generate with `openssl rand -base64 32`. Falls back to `NEXTAUTH_SECRET` if not set. |
+| `NEXTAUTH_SECRET` | ✅* | Secret for signing NextAuth session tokens – generate with `openssl rand -base64 32`. Required if `ADMIN_SECRET` is not set. |
+
+> \* At least one of `ADMIN_SECRET` or `NEXTAUTH_SECRET` must be set for the admin portal to work.
 | `AUTH_GOOGLE_ID` | Optional | Google OAuth client ID (only if Google sign-in is used) |
 | `AUTH_GOOGLE_SECRET` | Optional | Google OAuth client secret (only if Google sign-in is used) |
 | `NEXT_PUBLIC_URL` | Optional | Public base URL of the app (default: `http://localhost:3000`) |

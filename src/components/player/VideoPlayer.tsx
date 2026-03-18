@@ -138,6 +138,29 @@ export function VideoPlayer({
     })
   }, [videoId, setIsPlaying, setPausedByEyeTracking])
 
+  const ensureYouTubeApiReady = useCallback((): Promise<void> => {
+    if (window.YT?.Player) {
+      return Promise.resolve()
+    }
+
+    return new Promise((resolve) => {
+      const previousReady = window.onYouTubeIframeAPIReady
+
+      window.onYouTubeIframeAPIReady = () => {
+        previousReady?.()
+        resolve()
+      }
+
+      const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]')
+      if (!existingScript) {
+        const tag = document.createElement('script')
+        tag.src = 'https://www.youtube.com/iframe_api'
+        const firstScriptTag = document.getElementsByTagName('script')[0]
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+      }
+    })
+  }, [])
+
   // Apply playback speed changes when player is ready
   useEffect(() => {
     if (isPlayerReady && playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
@@ -165,6 +188,13 @@ export function VideoPlayer({
     } else {
       initPlayer()
     }
+    let cancelled = false
+
+    ensureYouTubeApiReady().then(() => {
+      if (!cancelled) {
+        initPlayer()
+      }
+    })
 
     const progressInterval = setInterval(() => {
       if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.getCurrentTime === 'function') {
@@ -179,9 +209,11 @@ export function VideoPlayer({
     }, 1000)
 
     return () => {
+      cancelled = true
       clearInterval(progressInterval)
     }
   }, [videoId, initPlayer])
+  }, [videoId, initPlayer, isPlayerReady, ensureYouTubeApiReady])
 
   // Cleanup player only when videoId changes or component unmounts
   useEffect(() => {

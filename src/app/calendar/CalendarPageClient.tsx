@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft,
@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Pencil,
   Check,
+  Play,
 } from 'lucide-react'
 import {
   format,
@@ -248,7 +249,7 @@ export default function CalendarPageClient() {
   }
 
   const renderDays = () => {
-    const days = []
+    const days: React.ReactElement[] = []
     const date = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     for (let i = 0; i < 7; i++) {
@@ -268,8 +269,8 @@ export default function CalendarPageClient() {
     const startDate = startOfWeek(monthStart)
     const endDate = endOfWeek(monthEnd)
 
-    const rows = []
-    let days = []
+    const rows: React.ReactElement[] = []
+    let days: React.ReactElement[] = []
     let day = startDate
     let formattedDate = ''
 

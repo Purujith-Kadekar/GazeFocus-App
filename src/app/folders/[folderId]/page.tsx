@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 import FolderDetailClient from './FolderDetailClient'
-import { LibraryItemType } from '@prisma/client'
+import { LibraryItemType, Prisma } from '@prisma/client'
 
 interface FolderItemWithDetails {
   id: string
@@ -13,7 +13,7 @@ interface FolderItemWithDetails {
   title: string
   folderId: string | null
   thumbnail?: string | null
-  metadata?: unknown
+  metadata: Prisma.JsonValue
   userId: string
   position: number
   createdAt: Date
@@ -101,7 +101,7 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
       : (videoMap.get(item.externalId) ?? null),
   }))
 
-  const completedSet = new Set(completedData.completedPlaylists || [])
+  const completedSet = new Set<string>((completedData.completedPlaylists as string[]) || [])
 
   return (
     <FolderDetailClient 

@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
-import { useSettingsStore, useInactivityStore, useEyeTrackingStore, usePlayerStore } from '@/store/useStore'
+import { useEyeTrackingStore, useSettingsStore, useInactivityStore, usePlayerStore } from '@/store/useStore'
 
 export function SettingsPage() {
   const { toast } = useToast()

@@ -55,6 +55,7 @@ export class GazeEngine {
   private faceLandmarker: any = null;
   private config: EyeTrackingConfig;
   private initialized = false;
+  private static readonly MEDIAPIPE_TASKS_VERSION = '0.10.32';
 
   constructor(config: Partial<EyeTrackingConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -67,9 +68,28 @@ export class GazeEngine {
       const vision = await import('@mediapipe/tasks-vision');
       const { FaceLandmarker, FilesetResolver } = vision;
 
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      );
+      const resolverCandidates = [
+        `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${GazeEngine.MEDIAPIPE_TASKS_VERSION}/wasm`,
+        `https://unpkg.com/@mediapipe/tasks-vision@${GazeEngine.MEDIAPIPE_TASKS_VERSION}/wasm`,
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+      ];
+
+      let filesetResolver: any = null;
+      let resolverError: unknown = null;
+
+      for (const wasmBaseUrl of resolverCandidates) {
+        try {
+          filesetResolver = await FilesetResolver.forVisionTasks(wasmBaseUrl);
+          resolverError = null;
+          break;
+        } catch (err) {
+          resolverError = err;
+        }
+      }
+
+      if (!filesetResolver) {
+        throw resolverError ?? new Error('Failed to load MediaPipe WASM runtime');
+      }
 
       this.faceLandmarker = await withSuppressedLogsAsync(async () => {
         return await FaceLandmarker.createFromOptions(filesetResolver, {

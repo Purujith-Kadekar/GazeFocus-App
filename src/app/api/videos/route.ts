@@ -86,13 +86,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const playlistId = searchParams.get('playlistId')
     const youtubeId = searchParams.get('youtubeId')
+    const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
+
+    // Build the where clause
+    const where: any = { userId }
+
+    // If playlistId is explicitly requested in query, use it
+    if (playlistId !== null && playlistId !== undefined) {
+      where.playlistId = playlistId
+    } else if (standaloneOnly && !youtubeId) {
+      // Explicit standalone-only mode for dashboard use
+      where.playlistId = null
+    }
+
+    // If youtubeId is specified, add it to the filter
+    if (youtubeId) {
+      where.youtubeId = youtubeId
+    }
 
     const videos = await db.video.findMany({
-      where: {
-        userId,
-        ...(youtubeId ? { youtubeId } : {}),
-        ...(playlistId !== null ? { playlistId } : (youtubeId ? {} : { playlistId: null })),
-      },
+      where,
       include: {
         playlist: true,
       },

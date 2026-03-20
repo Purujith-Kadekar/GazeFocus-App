@@ -197,7 +197,11 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
   }
 
   if (status === 'unauthenticated') {
-    return null
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-muted-foreground">Redirecting to login...</p>
+      </div>
+    )
   }
 
   return (

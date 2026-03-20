@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore, useEyeTrackingStore } from '@/store/useStore'
@@ -25,6 +26,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarOpen } = useUIStore()
+  const pathname = usePathname()
   const { setFolders } = useFolderStore()
   const { setUser } = useAuthStore()
   const {
@@ -39,7 +41,16 @@ export function MainLayout({ children }: MainLayoutProps) {
     setTimeoutSeconds,
   } = useInactivityStore()
   const { isPlaying } = usePlayerStore()
-  const { setEnabled: setEyeTrackingEnabled, setThresholdSeconds } = useEyeTrackingStore()
+  const {
+    isEnabled: eyeTrackingEnabled,
+    cameraStream,
+    setEnabled: setEyeTrackingEnabled,
+    setThresholdSeconds,
+    setTracking,
+    setLookingAtScreen,
+    setIsFaceDetected,
+    setCameraStream,
+  } = useEyeTrackingStore()
   const [mounted, setMounted] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const [settingsHydrated, setSettingsHydrated] = useState(false)
@@ -168,6 +179,25 @@ export function MainLayout({ children }: MainLayoutProps) {
       clearInterval(interval)
     }
   }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled, sessionReady, settingsHydrated])
+
+  useEffect(() => {
+    const isVideoPlayerRoute =
+      pathname?.startsWith('/video/') ||
+      /^\/playlist\/[^/]+\/video\/[^/]+$/.test(pathname || '')
+
+    if (isVideoPlayerRoute && eyeTrackingEnabled) {
+      return
+    }
+
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop())
+    }
+
+    setCameraStream(null)
+    setTracking(false)
+    setLookingAtScreen(true)
+    setIsFaceDetected(false)
+  }, [pathname, eyeTrackingEnabled, cameraStream, setCameraStream, setTracking, setLookingAtScreen, setIsFaceDetected])
 
   return (
     <div className="min-h-screen bg-background">

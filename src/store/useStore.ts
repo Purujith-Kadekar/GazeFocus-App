@@ -241,7 +241,7 @@ interface EyeTrackingStateStore {
   setSensitivityMode: (mode: SensitivityMode) => void
 }
 
-export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
+export const useEyeTrackingStore = create<EyeTrackingStateStore>((set, get) => ({
   isEnabled: true,
   isCalibrated: false,
   isTracking: false,
@@ -255,7 +255,23 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
   isFaceFront: true,
   cameraStream: null,
   sensitivityMode: 'moderate',
-  setEnabled: (enabled) => set({ isEnabled: enabled }),
+  setEnabled: (enabled) => {
+    if (!enabled) {
+      const stream = get().cameraStream
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+      }
+      set({
+        isEnabled: false,
+        isTracking: false,
+        isLookingAtScreen: true,
+        isFaceDetected: false,
+        cameraStream: null,
+      })
+      return
+    }
+    set({ isEnabled: true })
+  },
   setCalibrated: (calibrated) => set({ isCalibrated: calibrated }),
   setTracking: (tracking) => set({ isTracking: tracking }),
   setLookingAtScreen: (looking) => set({ isLookingAtScreen: looking }),
@@ -267,7 +283,13 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set) => ({
   setNoFaceDetectedTime: (time) => set({ noFaceDetectedTime: time }),
   setIsFaceDetected: (detected) => set({ isFaceDetected: detected }),
   setIsFaceFront: (front) => set({ isFaceFront: front }),
-  setCameraStream: (stream) => set({ cameraStream: stream }),
+  setCameraStream: (stream) => {
+    const previousStream = get().cameraStream
+    if (previousStream && previousStream !== stream) {
+      previousStream.getTracks().forEach((track) => track.stop())
+    }
+    set({ cameraStream: stream })
+  },
   setSensitivityMode: (mode) => set({ sensitivityMode: mode }),
 }))
 

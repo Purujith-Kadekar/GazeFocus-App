@@ -11,7 +11,12 @@ export const createClient = (request: NextRequest) => {
     },
   })
 
-  createServerClient(supabaseUrl!, supabaseKey!, {
+  if (!supabaseUrl || !supabaseKey) {
+    return supabaseResponse
+  }
+
+  try {
+    createServerClient(supabaseUrl, supabaseKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll()
@@ -26,7 +31,10 @@ export const createClient = (request: NextRequest) => {
         )
       },
     },
-  })
+    })
+  } catch {
+    return supabaseResponse
+  }
 
   return supabaseResponse
 }

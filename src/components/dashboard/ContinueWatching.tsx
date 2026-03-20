@@ -164,15 +164,15 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="h-[500px] flex flex-col overflow-hidden shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Videos</CardTitle>
         <Button variant="ghost" size="sm" onClick={() => router.push('/videos')}>
           View All
         </Button>
       </CardHeader>
-      <CardContent className="overflow-hidden">
-        <ScrollArea className="max-h-[400px] pr-4">
+      <CardContent className="flex-1 min-h-0 overflow-hidden">
+        <ScrollArea className="h-full pr-4">
           <div className="space-y-4">
             {localVideos.map((video) => {
                 const isCompleted = completedVideos.has(video.youtubeId)

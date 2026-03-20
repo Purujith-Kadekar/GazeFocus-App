@@ -1,0 +1,244 @@
+{
+  "generatedAt": "2026-03-20T18:45:58.664Z",
+  "sourceDir": "c:\\Users\\puru2\\Desktop\\Projects\\GitHub\\PRISMA",
+  "filesScanned": [
+    "Prisma Console.html",
+    "Prisma Console1.html",
+    "Prisma Console2.html",
+    "Prisma Console3.html",
+    "Prisma Console4.html",
+    "Prisma Console5.html",
+    "Prisma Console7.html",
+    "Prisma Console8.html",
+    "Prisma Console9.html",
+    "Prisma Console10.html",
+    "Prisma Console11.html",
+    "Prisma Console12.html",
+    "Prisma Console13.html",
+    "Prisma Console14.html",
+    "Prisma Console15.html",
+    "Prisma Console17.html",
+    "Prisma Console18.html",
+    "Prisma Console19.html"
+  ],
+  "tables": [
+    {
+      "table": "Account",
+      "columns": [
+        "id",
+        "access_token",
+        "expires_at",
+        "id_token",
+        "provider",
+        "providerAccountId",
+        "refresh_token",
+        "scope",
+        "session_state",
+        "token_type",
+        "type",
+        "userId"
+      ],
+      "rowCount": 2
+    },
+    {
+      "table": "Folder",
+      "columns": [
+        "id",
+        "createdAt",
+        "description",
+        "parentId",
+        "position",
+        "title",
+        "updatedAt",
+        "userId"
+      ],
+      "rowCount": 5
+    },
+    {
+      "table": "LibraryItem",
+      "columns": [
+        "id",
+        "createdAt",
+        "externalId",
+        "folderId",
+        "metadata",
+        "position",
+        "title",
+        "type",
+        "updatedAt",
+        "userId"
+      ],
+      "rowCount": 17
+    },
+    {
+      "table": "Note",
+      "columns": [
+        "id",
+        "userId",
+        "youtubeId",
+        "videoId",
+        "timestampSeconds",
+        "content",
+        "isImportant",
+        "createdAt",
+        "updatedAt"
+      ],
+      "rowCount": 0
+    },
+    {
+      "table": "Notification",
+      "columns": [
+        "id",
+        "createdAt",
+        "global",
+        "message",
+        "read",
+        "title",
+        "userId"
+      ],
+      "rowCount": 1
+    },
+    {
+      "table": "Playlist",
+      "columns": [
+        "id",
+        "channelId",
+        "channelName",
+        "createdAt",
+        "description",
+        "scheduledAt",
+        "thumbnail",
+        "title",
+        "totalDuration",
+        "updatedAt",
+        "userId",
+        "youtubeId"
+      ],
+      "rowCount": 14
+    },
+    {
+      "table": "Session",
+      "columns": [
+        "id",
+        "sessionToken",
+        "userId",
+        "expires"
+      ],
+      "rowCount": 0
+    },
+    {
+      "table": "SiteSettings",
+      "columns": [
+        "id",
+        "signupEnabled",
+        "updatedAt"
+      ],
+      "rowCount": 1
+    },
+    {
+      "table": "Todo",
+      "columns": [
+        "id",
+        "userId",
+        "text",
+        "completed",
+        "type",
+        "reminderAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "rowCount": 0
+    },
+    {
+      "table": "User",
+      "columns": [
+        "id",
+        "createdAt",
+        "currentStreak",
+        "deletionScheduledAt",
+        "email",
+        "emailVerified",
+        "image",
+        "isBlocked",
+        "lastActiveDate"
+      ],
+      "rowCount": 3
+    },
+    {
+      "table": "UserSettings",
+      "columns": [
+        "id",
+        "autoPlayNext",
+        "createdAt",
+        "defaultPlaybackSpeed",
+        "eyeTrackingEnabled",
+        "eyeTrackingThreshold",
+        "inactivityTimeout",
+        "onboardingCompleted",
+        "sensitivityMode",
+        "soundAlerts",
+        "theme",
+        "updatedAt",
+        "userId",
+        "weeklyGoal"
+      ],
+      "rowCount": 3
+    },
+    {
+      "table": "VerificationToken",
+      "columns": [
+        "identifier",
+        "token",
+        "expires"
+      ],
+      "rowCount": 0
+    },
+    {
+      "table": "Video",
+      "columns": [
+        "id",
+        "createdAt",
+        "description",
+        "duration",
+        "playlistId",
+        "position",
+        "scheduledAt",
+        "thumbnail",
+        "title",
+        "updatedAt",
+        "userId",
+        "youtubeId"
+      ],
+      "rowCount": 25
+    },
+    {
+      "table": "VideoProgress",
+      "columns": [
+        "id",
+        "completed",
+        "completedAt",
+        "createdAt",
+        "durationSeconds",
+        "secondsWatched",
+        "updatedAt",
+        "userId",
+        "youtubeId"
+      ],
+      "rowCount": 25
+    },
+    {
+      "table": "_prisma_migrations",
+      "columns": [
+        "id",
+        "applied_steps_count",
+        "checksum",
+        "finished_at",
+        "logs",
+        "migration_name",
+        "rolled_back_at",
+        "started_at"
+      ],
+      "rowCount": 2
+    }
+  ]
+}

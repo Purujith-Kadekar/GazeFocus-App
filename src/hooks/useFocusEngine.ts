@@ -52,6 +52,12 @@ export function useFocusEngine(isActive: boolean = true) {
       streamRef.current = null
     }
 
+    const globalStream = useEyeTrackingStore.getState().cameraStream
+    if (globalStream) {
+      globalStream.getTracks().forEach(t => t.stop())
+      useEyeTrackingStore.getState().setCameraStream(null)
+    }
+
     if (videoRef.current) {
       try {
         videoRef.current.pause()
@@ -222,14 +228,8 @@ export function useFocusEngine(isActive: boolean = true) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start eye tracking'
       console.error('Focus Engine Error:', errorMessage)
       setError(errorMessage)
-      
-      // Don't completely stop - allow video to work without eye tracking
-      // But set to disabled state
-      setTracking(false)
-      setLookingAtScreen(true)
-      
-      // Still allow camera preview to work even if eye tracking fails
-      // The user can still watch videos, just without smart pause
+
+      stopTracking()
     }
   }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 
@@ -238,12 +238,12 @@ export function useFocusEngine(isActive: boolean = true) {
 
     if (shouldBeTracking && !isTrackingRef.current) {
       startTracking()
-    } else if (!shouldBeTracking && isTrackingRef.current) {
+    } else if (!shouldBeTracking) {
       stopTracking()
     }
 
     return () => {
-      if (isTrackingRef.current) stopTracking()
+      stopTracking()
     }
   }, [isEnabled, isActive, startTracking, stopTracking])
 

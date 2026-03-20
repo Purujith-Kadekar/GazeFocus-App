@@ -144,7 +144,11 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
   }
 
   if (status === 'unauthenticated') {
-    return null
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-muted-foreground">Redirecting to login...</p>
+      </div>
+    )
   }
 
   return (

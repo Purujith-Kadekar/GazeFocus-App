@@ -79,7 +79,7 @@ export function Dashboard() {
         body: JSON.stringify({ type: 'daily_checkin' }),
       }).then(r => r?.ok ? r.json() : null).catch(() => null),
       fetch('/api/folders').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/videos').then(r => r?.ok ? r.json() : []).catch(() => []),
+      fetch('/api/videos?standaloneOnly=true').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/notes').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => {}),
       fetch('/api/progress/complete').then(r => r?.ok ? r.json() : { completedVideos: [] }).catch(() => ({ completedVideos: [] })),
@@ -285,7 +285,7 @@ export function Dashboard() {
         </div>
 
         <div className="lg:col-span-1">
-          <Card className="h-[280px] flex flex-col overflow-hidden shadow-sm">
+          <Card className="h-[500px] flex flex-col overflow-hidden shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between py-1 px-4 shrink-0 bg-muted/5">
               <CardTitle className="text-lg font-semibold flex items-center gap-2 leading-tight">
                 <FileText className="h-4 w-4 text-primary" />

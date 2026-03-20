@@ -7,656 +7,435 @@ import {
   useScroll,
   useTransform,
   useInView,
-  useMotionValue,
-  useSpring,
 } from 'framer-motion'
 import {
-  Eye, Focus, BookOpen, Brain, Sparkles, ArrowRight,
-  Play, BarChart3, FileText, Folder, Shield, Zap,
-  ChevronDown, Star, Users, Clock, CheckCircle2,
+  Eye, Play, FolderOpen, FileText,
+  BarChart2, RefreshCw, Lock, CheckSquare,
+  ArrowRight, Settings, Zap,
 } from 'lucide-react'
 
-/* ──────────────────────────────────────────────
-   Deterministic pseudo-random to avoid hydration mismatch
-   ────────────────────────────────────────────── */
-function seeded(seed: number): number {
-  const x = Math.sin(seed * 9301 + 49297) * 233280
-  return x - Math.floor(x)
-}
+/* ── Fonts + global selection theming ── */
+const FONTS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700&family=Fira+Mono:wght@400;500&display=swap');
+::selection { background: rgba(212,135,10,0.38); color: #F9F4EC; }
+::-moz-selection { background: rgba(212,135,10,0.38); color: #F9F4EC; }
+`
 
-/* ──────────────────────────────────────────────
-   Animated floating particles background
-   ────────────────────────────────────────────── */
-function FloatingParticles() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 30 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            width: seeded(i * 4) * 4 + 2,
-            height: seeded(i * 4 + 1) * 4 + 2,
-            left: `${seeded(i * 4 + 2) * 100}%`,
-            top: `${seeded(i * 4 + 3) * 100}%`,
-            background: i % 3 === 0
-              ? 'rgba(108, 60, 224, 0.3)'
-              : i % 3 === 1
-              ? 'rgba(59, 130, 246, 0.3)'
-              : 'rgba(255, 255, 255, 0.1)',
-          }}
-          animate={{
-            y: [0, -30, 0],
-            x: [0, seeded(i * 5) * 20 - 10, 0],
-            opacity: [0.2, 0.6, 0.2],
-            scale: [1, 1.5, 1],
-          }}
-          transition={{
-            duration: seeded(i * 5 + 1) * 4 + 4,
-            repeat: Infinity,
-            delay: seeded(i * 5 + 2) * 3,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
-/* ──────────────────────────────────────────────
-   Animated eye logo with scanning beam
-   ────────────────────────────────────────────── */
-function AnimatedEyeLogo({ size = 120 }: { size?: number }) {
-  return (
-    <motion.div className="relative" style={{ width: size, height: size }}>
-      {/* Outer glow rings */}
-      <motion.div
-        className="absolute inset-0 rounded-full"
-        style={{ border: '2px solid rgba(108, 60, 224, 0.3)' }}
-        animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className="absolute inset-0 rounded-full"
-        style={{ border: '2px solid rgba(59, 130, 246, 0.3)' }}
-        animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-      />
-
-      {/* SVG eye */}
-      <svg viewBox="0 0 64 64" className="w-full h-full drop-shadow-2xl">
-        <defs>
-          <linearGradient id="hero-bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#6C3CE0" />
-            <stop offset="100%" stopColor="#3B82F6" />
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#hero-bg)" />
-        <path d="M32 18C20 18 12 32 12 32s8 14 20 14 20-14 20-14-8-14-20-14z" fill="rgba(255,255,255,0.95)" />
-        <circle cx="32" cy="32" r="9" fill="#1E1B4B" />
-
-        {/* Animated pupil */}
-        <motion.circle
-          cx="32" cy="32" r="4.5" fill="#6C3CE0" filter="url(#glow)"
-        />
-
-        {/* Spinning dashed ring */}
-        <motion.circle
-          cx="32" cy="32" r="7" fill="none"
-          stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="3 3"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-          style={{ transformOrigin: '32px 32px' }}
-        />
-
-        {/* Crosshairs */}
-        <line x1="32" y1="23" x2="32" y2="27" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="32" y1="37" x2="32" y2="41" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="23" y1="32" x2="27" y2="32" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1="37" y1="32" x2="41" y2="32" stroke="rgba(255,255,255,0.7)" strokeWidth="1.2" strokeLinecap="round" />
-        <circle cx="35" cy="29" r="2" fill="rgba(255,255,255,0.6)" />
-      </svg>
-    </motion.div>
-  )
-}
-
-/* ──────────────────────────────────────────────
-   Animated scan-line across the hero
-   ────────────────────────────────────────────── */
-function ScanLine() {
-  return (
-    <motion.div
-      className="absolute left-0 right-0 h-px pointer-events-none"
-      style={{
-        background: 'linear-gradient(90deg, transparent 0%, rgba(108,60,224,0.5) 30%, rgba(59,130,246,0.5) 70%, transparent 100%)',
-        boxShadow: '0 0 20px rgba(108,60,224,0.3)',
-      }}
-      animate={{ top: ['0%', '100%', '0%'] }}
-      transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-    />
-  )
-}
-
-/* ──────────────────────────────────────────────
-   Animated counter
-   ────────────────────────────────────────────── */
-function AnimatedNumber({ value, label }: { value: number; label: string }) {
+/* ── Reveal wrapper ── */
+function Reveal({
+  children,
+  delay = 0,
+  className = '',
+  from = 'bottom',
+}: {
+  children: React.ReactNode
+  delay?: number
+  className?: string
+  from?: 'bottom' | 'left' | 'right'
+}) {
   const ref = useRef(null)
-  const isInView = useInView(ref, { once: true })
-  const motionVal = useMotionValue(0)
-  const spring = useSpring(motionVal, { damping: 40, stiffness: 80 })
-
-  if (isInView) motionVal.set(value)
-
-  return (
-    <div ref={ref} className="text-center">
-      <motion.span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-        {spring}
-      </motion.span>
-      <p className="text-sm text-slate-400 mt-1">{label}</p>
-    </div>
-  )
-}
-
-/* ──────────────────────────────────────────────
-   Staggered reveal wrapper
-   ────────────────────────────────────────────── */
-function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-50px' })
+  const isInView = useInView(ref, { once: true, margin: '-60px' })
+  const initial =
+    from === 'left' ? { opacity: 0, x: -32 }
+    : from === 'right' ? { opacity: 0, x: 32 }
+    : { opacity: 0, y: 28 }
   return (
     <motion.div
       ref={ref}
       className={className}
-      initial={{ opacity: 0, y: 40 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.7, delay, ease: [0.25, 0.4, 0.25, 1] }}
+      initial={initial}
+      animate={isInView ? { opacity: 1, x: 0, y: 0 } : {}}
+      transition={{ duration: 0.75, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>
   )
 }
 
-/* ──────────────────────────────────────────────
-   Feature card with hover tilt
-   ────────────────────────────────────────────── */
-function FeatureCard({
-  icon: Icon,
-  title,
-  description,
-  gradient,
-  delay,
-}: {
-  icon: typeof Eye
-  title: string
-  description: string
-  gradient: string
-  delay: number
+/* ── Iris SVG motif ── */
+function IrisMotif({ size = 64, glow = false }: { size?: number; glow?: boolean }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="none"
+      style={glow ? { filter: 'drop-shadow(0 0 12px rgba(212,135,10,0.45))' } : undefined}
+    >
+      <ellipse cx="32" cy="32" rx="28" ry="17" stroke="#D4870A" strokeWidth="1.5" />
+      <line x1="4" y1="32" x2="10" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="54" y1="32" x2="60" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="13" stroke="#D4870A" strokeWidth="1" opacity="0.4" />
+      <circle cx="32" cy="32" r="8" fill="#0C0A07" stroke="#D4870A" strokeWidth="1.5" />
+      {/* Pre-computed iris detail lines at 0°, 45°, 90°, 135° — static to avoid hydration mismatch */}
+      <line x1="40.5"  y1="32"    x2="44.5"  y2="32"    stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="38.01" y1="38.01" x2="40.84" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="32"    y1="40.5"  x2="32"    y2="44.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="25.99" y1="38.01" x2="23.16" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <circle cx="35" cy="29" r="2" fill="#D4870A" opacity="0.7" />
+    </svg>
+  )
+}
+
+/* ── Animated hero iris ── */
+function HeroIris() {
+  return (
+    <motion.div
+      className="relative mx-auto"
+      style={{ width: 140, height: 140 }}
+      initial={{ opacity: 0, scale: 0.6 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        className="absolute inset-0"
+        style={{ border: '1px solid rgba(212,135,10,0.2)', borderRadius: '50%' }}
+        animate={{ scale: [1, 1.35, 1], opacity: [0.4, 0, 0.4] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute inset-0"
+        style={{ border: '1px solid rgba(212,135,10,0.1)', borderRadius: '50%' }}
+        animate={{ scale: [1, 1.65, 1], opacity: [0.2, 0, 0.2] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
+      />
+      <svg viewBox="0 0 140 140" className="w-full h-full">
+        <defs>
+          <filter id="ig">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <ellipse cx="70" cy="70" rx="60" ry="36" fill="#1A1510" stroke="#D4870A" strokeWidth="1" opacity="0.8" />
+        <circle cx="70" cy="70" r="28" fill="#0C0A07" stroke="#D4870A" strokeWidth="1.2" opacity="0.9" />
+        {/* 12 iris texture lines — pre-computed to avoid SSR/client float mismatch */}
+        <line x1="90"    y1="70"    x2="97"    y2="70"    stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="87.32" y1="80"    x2="93.38" y2="83.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="80"    y1="87.32" x2="83.5"  y2="93.38" stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="70"    y1="90"    x2="70"    y2="97"    stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="60"    y1="87.32" x2="56.5"  y2="93.38" stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="52.68" y1="80"    x2="46.62" y2="83.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="50"    y1="70"    x2="43"    y2="70"    stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="52.68" y1="60"    x2="46.62" y2="56.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="60"    y1="52.68" x2="56.5"  y2="46.62" stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="70"    y1="50"    x2="70"    y2="43"    stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="80"    y1="52.68" x2="83.5"  y2="46.62" stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <line x1="87.32" y1="60"    x2="93.38" y2="56.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.3" />
+        <motion.circle cx="70" cy="70" r="13" fill="#D4870A" filter="url(#ig)"
+          animate={{ r: [13, 10, 13] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <circle cx="70" cy="70" r="8" fill="#0C0A07" />
+        <motion.circle cx="70" cy="70" r="23" fill="none" stroke="#D4870A" strokeWidth="0.6"
+          strokeDasharray="2 5" opacity="0.4"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+          style={{ transformOrigin: '70px 70px' }}
+        />
+        <circle cx="76" cy="63" r="4" fill="#F0A022" opacity="0.5" />
+        <line x1="10" y1="70" x2="18" y2="70" stroke="#D4870A" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="122" y1="70" x2="130" y2="70" stroke="#D4870A" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    </motion.div>
+  )
+}
+
+/* ── Feature card ── */
+function FeatureCard({ icon: Icon, title, desc, tag, delay }: {
+  icon: typeof Eye; title: string; desc: string; tag?: string; delay: number
 }) {
   return (
     <Reveal delay={delay}>
       <motion.div
-        className="group relative bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 h-full overflow-hidden"
-        whileHover={{ y: -8, scale: 1.02 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        className="group relative p-7 h-full"
+        style={{ background: 'rgba(255,255,255,0.018)', border: '1px solid rgba(212,135,10,0.1)' }}
+        whileHover={{ background: 'rgba(212,135,10,0.04)', borderColor: 'rgba(212,135,10,0.22)' }}
+        transition={{ duration: 0.2 }}
       >
-        {/* Hover gradient overlay */}
-        <motion.div
-          className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${gradient}`}
-          style={{ filter: 'blur(40px)' }}
-        />
-
-        <div className="relative z-10">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-4 border border-purple-500/20">
-            <Icon className="h-6 w-6 text-purple-400" />
-          </div>
-          <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
-          <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
+        {tag && (
+          <span className="absolute top-4 right-4 text-xs px-2 py-0.5"
+            style={{ background: 'rgba(212,135,10,0.12)', color: '#D4870A', fontFamily: 'Fira Mono, monospace', fontSize: '10px', letterSpacing: '0.06em' }}>
+            {tag}
+          </span>
+        )}
+        <div className="w-9 h-9 flex items-center justify-center mb-5"
+          style={{ background: 'rgba(212,135,10,0.1)', color: '#D4870A' }}>
+          <Icon size={17} />
         </div>
-
-        {/* Corner accent */}
-        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-purple-500/10 to-transparent rounded-bl-full" />
+        <h3 className="mb-3" style={{ fontFamily: 'Fraunces, serif', fontSize: '1.1rem', fontWeight: 600, color: '#F2EDE4' }}>
+          {title}
+        </h3>
+        <p style={{ color: '#DDD0B8', fontFamily: 'Fira Mono, monospace', fontSize: '13px', lineHeight: '1.85' }}>
+          {desc}
+        </p>
       </motion.div>
     </Reveal>
   )
 }
 
-/* ──────────────────────────────────────────────
-   Dashboard mockup with animations
-   ────────────────────────────────────────────── */
-function DashboardMockup() {
+/* ── Section label ── */
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      className="relative w-full max-w-4xl mx-auto"
-      initial={{ opacity: 0, y: 60, rotateX: 10 }}
-      whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-      viewport={{ once: true, margin: '-50px' }}
-      transition={{ duration: 1, ease: [0.25, 0.4, 0.25, 1] }}
-    >
-      {/* Browser chrome */}
-      <div className="bg-slate-800 rounded-t-xl border border-slate-700 p-3 flex items-center gap-2">
-        <div className="flex gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-red-500/80" />
-          <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-          <div className="w-3 h-3 rounded-full bg-green-500/80" />
-        </div>
-        <div className="flex-1 bg-slate-700/50 rounded-md px-3 py-1 text-xs text-slate-400 text-center">
-          gazefocus.app/dashboard
-        </div>
-      </div>
-
-      {/* Dashboard content */}
-      <div className="bg-slate-900/90 border border-t-0 border-slate-700 rounded-b-xl p-6 space-y-4">
-        {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <motion.div
-              className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
-            <div className="h-3 w-24 bg-slate-700 rounded" />
-          </div>
-          <div className="flex gap-2">
-            <div className="h-8 w-8 rounded-lg bg-slate-700" />
-            <motion.div
-              className="h-8 w-8 rounded-lg bg-green-500/30 border border-green-500/50"
-              animate={{ boxShadow: ['0 0 0px rgba(34,197,94,0)', '0 0 12px rgba(34,197,94,0.4)', '0 0 0px rgba(34,197,94,0)'] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          </div>
-        </div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-4 gap-3">
-          {['Videos Watched', 'Study Hours', 'Current Streak', 'Notes'].map((label, i) => (
-            <motion.div
-              key={label}
-              className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
-            >
-              <div className="h-2 w-16 bg-slate-600 rounded mb-2" />
-              <motion.div
-                className="h-6 w-10 bg-gradient-to-r from-purple-500/40 to-blue-500/40 rounded"
-                animate={{ width: ['40px', '60px', '40px'] }}
-                transition={{ duration: 3, repeat: Infinity, delay: i * 0.3 }}
-              />
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Video player area */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2 bg-slate-800/80 rounded-xl border border-slate-700/50 aspect-video flex items-center justify-center relative overflow-hidden">
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-blue-500/5"
-              animate={{ opacity: [0, 1, 0] }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
-            <motion.div
-              className="w-14 h-14 rounded-full bg-white/10 backdrop-blur flex items-center justify-center"
-              whileHover={{ scale: 1.1 }}
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <Play className="h-6 w-6 text-white ml-1" />
-            </motion.div>
-            {/* Progress bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700">
-              <motion.div
-                className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
-                initial={{ width: '0%' }}
-                whileInView={{ width: '65%' }}
-                viewport={{ once: true }}
-                transition={{ duration: 2, delay: 0.8, ease: 'easeOut' }}
-              />
-            </div>
-          </div>
-          {/* Notes panel */}
-          <div className="bg-slate-800/80 rounded-xl border border-slate-700/50 p-3 space-y-2">
-            <div className="h-3 w-16 bg-slate-600 rounded" />
-            {[1, 2, 3, 4].map(i => (
-              <motion.div
-                key={i}
-                className="h-2 bg-slate-700/60 rounded"
-                style={{ width: `${90 - i * 12}%` }}
-                initial={{ opacity: 0, x: 10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.5 + i * 0.15 }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Reflective glow underneath */}
-      <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-3/4 h-16 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-purple-500/20 blur-2xl rounded-full" />
-    </motion.div>
+    <div className="flex items-center gap-3 mb-5"
+      style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#D0C0A0', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+      <IrisMotif size={14} />
+      {children}
+    </div>
   )
 }
 
-/* ──────────────────────────────────────────────
-   Testimonial card
-   ────────────────────────────────────────────── */
-function TestimonialCard({
-  quote,
-  name,
-  role,
-  delay,
-}: {
-  quote: string
-  name: string
-  role: string
-  delay: number
-}) {
-  return (
-    <Reveal delay={delay}>
-      <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 h-full">
-        <div className="flex gap-1 mb-3">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-          ))}
-        </div>
-        <p className="text-slate-300 text-sm leading-relaxed mb-4">&ldquo;{quote}&rdquo;</p>
-        <div>
-          <p className="text-white font-semibold text-sm">{name}</p>
-          <p className="text-slate-500 text-xs">{role}</p>
-        </div>
-      </div>
-    </Reveal>
-  )
-}
-
-/* ──────────────────────────────────────────────
-   MAIN LANDING PAGE
-   ────────────────────────────────────────────── */
+/* ── Main page ── */
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null)
   const featuresRef = useRef<HTMLDivElement>(null)
   const howItWorksRef = useRef<HTMLDivElement>(null)
-  const testimonialsRef = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
-  const heroY = useTransform(scrollYProgress, [0, 1], ['0%', '40%'])
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0])
+  const creatorRef = useRef<HTMLDivElement>(null)
 
-  const features = [
-    {
-      icon: Eye,
-      title: 'Eye Tracking Focus',
-      description: 'AI-powered gaze detection auto-pauses videos when you look away. Stay engaged without lifting a finger.',
-      gradient: 'bg-gradient-to-br from-purple-500/10 to-transparent',
-    },
-    {
-      icon: Play,
-      title: 'Distraction-Free Player',
-      description: 'Watch YouTube without the clutter. No recommended videos, no comments, no distractions.',
-      gradient: 'bg-gradient-to-br from-blue-500/10 to-transparent',
-    },
-    {
-      icon: FileText,
-      title: 'Integrated Notes',
-      description: 'Take timestamped notes while watching. Click any note to jump straight to that moment.',
-      gradient: 'bg-gradient-to-br from-green-500/10 to-transparent',
-    },
-    {
-      icon: Folder,
-      title: 'Smart Folders',
-      description: 'Organize your learning into custom folders. Group playlists and videos by topic or project.',
-      gradient: 'bg-gradient-to-br from-orange-500/10 to-transparent',
-    },
-    {
-      icon: BarChart3,
-      title: 'Progress Analytics',
-      description: 'Track your streaks, watch time, and learning patterns with beautiful visual analytics.',
-      gradient: 'bg-gradient-to-br from-pink-500/10 to-transparent',
-    },
-    {
-      icon: Shield,
-      title: 'Privacy First',
-      description: 'Eye tracking runs entirely in your browser. No camera data is ever sent to any server.',
-      gradient: 'bg-gradient-to-br from-cyan-500/10 to-transparent',
-    },
-  ]
+  const { scrollYProgress } = useScroll()
+  const heroY = useTransform(scrollYProgress, [0, 0.25], [0, -40])
 
-  const steps = [
-    { icon: Sparkles, title: 'Add any YouTube video or playlist', description: 'Paste a link and start learning instantly.' },
-    { icon: Focus, title: 'Enable eye tracking', description: 'One click to activate intelligent focus detection.' },
-    { icon: Brain, title: 'Learn distraction-free', description: 'Take notes, track progress, and stay focused.' },
-  ]
+  const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) =>
+    ref.current?.scrollIntoView({ behavior: 'smooth' })
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden" style={{ background: '#0C0A07', color: '#F2EDE4' }}>
+      <style>{FONTS}</style>
+
+      {/* Grain texture */}
+      <div className="fixed inset-0 pointer-events-none z-0" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+        opacity: 0.022,
+      }} />
+
+      {/* Warm top glow */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 pointer-events-none z-0" style={{
+        width: 700, height: 500,
+        background: 'radial-gradient(ellipse at top, rgba(212,135,10,0.055) 0%, transparent 68%)',
+      }} />
+
       {/* ── NAVBAR ── */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-slate-950/70 border-b border-slate-800/50"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, ease: [0.25, 0.4, 0.25, 1] }}
+        className="fixed top-0 left-0 right-0 z-50"
+        style={{ background: 'rgba(12,10,7,0.88)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(212,135,10,0.08)' }}
+        initial={{ y: -80 }} animate={{ y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <button
-            onClick={() => heroRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            className="flex items-center gap-3 cursor-pointer"
-          >
-            <AnimatedEyeLogo size={36} />
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <button onClick={() => scrollTo(heroRef)} className="flex items-center gap-3 cursor-pointer">
+            <IrisMotif size={26} />
+            <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '1.05rem', color: '#F2EDE4' }}>
               GazeFocus
             </span>
           </button>
 
-          <div className="hidden md:flex items-center gap-8 text-sm text-slate-400">
-            <button onClick={() => featuresRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors">Features</button>
-            <button onClick={() => howItWorksRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors">How It Works</button>
-            <button onClick={() => testimonialsRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-white transition-colors">Testimonials</button>
+          <div className="hidden md:flex items-center gap-8"
+            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', letterSpacing: '0.07em', textTransform: 'uppercase', color: '#D0C0A0' }}>
+            {[
+              { label: 'Features', ref: featuresRef },
+              { label: 'How It Works', ref: howItWorksRef },
+              { label: 'Creator', ref: creatorRef },
+            ].map(({ label, ref }) => (
+              <button key={label} onClick={() => scrollTo(ref)} className="transition-colors hover:text-[#D4870A]">{label}</button>
+            ))}
           </div>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/auth/login"
-              className="text-sm text-slate-300 hover:text-white transition-colors px-4 py-2"
-            >
-              Log in
+            <Link href="/auth/login"
+              className="px-3 py-2 transition-colors hover:text-[#D4870A]"
+              style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Sign In
             </Link>
             <Link href="/auth/signup">
               <motion.button
-                className="text-sm font-medium px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white shadow-lg shadow-purple-500/25"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Get Started Free
+                style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', letterSpacing: '0.06em', textTransform: 'uppercase', background: '#D4870A', color: '#0C0A07', padding: '8px 18px', fontWeight: 500 }}
+                whileHover={{ background: '#F0A022' }} whileTap={{ scale: 0.97 }}>
+                Get Started
               </motion.button>
             </Link>
           </div>
         </div>
       </motion.nav>
 
-      {/* ── HERO SECTION ── */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
-        <FloatingParticles />
-        <ScanLine />
+      {/* ── HERO ── */}
+      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-14 overflow-hidden">
+        <div className="absolute inset-x-0 pointer-events-none" style={{ top: '33%', height: 1, background: 'rgba(212,135,10,0.04)' }} />
+        <div className="absolute inset-x-0 pointer-events-none" style={{ top: '66%', height: 1, background: 'rgba(212,135,10,0.04)' }} />
 
-        {/* Radial gradient backdrop */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(108,60,224,0.15)_0%,transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.1)_0%,transparent_60%)]" />
-
-        {/* Grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '60px 60px',
-          }}
-        />
-
-        <motion.div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center" style={{ y: heroY, opacity: heroOpacity }}>
-          {/* Badge */}
+        <motion.div className="relative z-10 max-w-4xl mx-auto px-6 text-center" style={{ y: heroY }}>
+          {/* Eyebrow */}
           <motion.div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>AI-Powered Focus Technology</span>
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="inline-flex items-center gap-2 mb-10"
+            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D4870A', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#D4870A', display: 'inline-block' }} />
+            Real-time eye tracking · On-device · Free
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#D4870A', display: 'inline-block' }} />
           </motion.div>
 
-          {/* Animated Logo */}
-          <motion.div
-            className="flex justify-center mb-8"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.3, type: 'spring', stiffness: 100 }}
-          >
-            <AnimatedEyeLogo size={100} />
-          </motion.div>
+          {/* Iris */}
+          <div className="mb-10"><HeroIris /></div>
 
-          {/* Title */}
-          <motion.h1
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight mb-6"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-          >
-            <span className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-transparent">
-              Learn with
-            </span>
-            <br />
-            <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              Your Eyes
-            </span>
-          </motion.h1>
+          {/* Headline */}
+          <div className="overflow-hidden mb-6">
+            {[
+              { text: 'Your video pauses', weight: 300, italic: true, color: '#C4B49A' },
+              { text: 'when you look away.', weight: 900, italic: false, color: '#F2EDE4' },
+            ].map(({ text, weight, italic, color }, i) => (
+              <motion.div key={text}
+                initial={{ y: '105%', opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 + i * 0.12, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}>
+                <h1 style={{
+                  fontFamily: 'Fraunces, serif',
+                  fontSize: 'clamp(2.6rem, 7vw, 5.2rem)',
+                  fontWeight: weight,
+                  fontStyle: italic ? 'italic' : 'normal',
+                  color,
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                }}>
+                  {text}
+                </h1>
+              </motion.div>
+            ))}
+          </div>
 
-          {/* Subtitle */}
+          {/* Sub */}
           <motion.p
-            className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.7 }}
-          >
-            GazeFocus uses real-time eye tracking to keep you focused.
-            Videos pause when you look away. No distractions. Pure learning.
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.75, duration: 0.7 }}
+            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', color: '#DDD0B8', maxWidth: '460px', margin: '0 auto 40px', lineHeight: 1.9, letterSpacing: '0.025em' }}>
+            GazeFocus uses MediaPipe face landmarks to detect where you're looking — entirely in your browser. Zero camera data leaves your device.
           </motion.p>
 
-          {/* CTA buttons */}
+          {/* CTAs */}
           <motion.div
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.9 }}
-          >
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/auth/signup">
-              <motion.button
-                className="group flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold text-lg shadow-2xl shadow-purple-500/30"
-                whileHover={{ scale: 1.05, boxShadow: '0 25px 60px rgba(108,60,224,0.4)' }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.button className="group flex items-center gap-3"
+                style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.07em', textTransform: 'uppercase', background: '#D4870A', color: '#0C0A07', padding: '14px 32px', fontWeight: 500 }}
+                whileHover={{ background: '#F0A022' }} whileTap={{ scale: 0.97 }}>
                 Start Learning Free
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </Link>
             <Link href="/auth/login">
-              <motion.button
-                className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white font-semibold text-lg backdrop-blur"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Play className="h-5 w-5" />
-                Sign In
+              <motion.button className="flex items-center gap-3"
+                style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.07em', textTransform: 'uppercase', border: '1px solid rgba(212,135,10,0.5)', color: '#DDD0B8', padding: '14px 32px', background: 'transparent' }}
+                whileHover={{ borderColor: 'rgba(212,135,10,0.5)', color: '#D4870A' }} whileTap={{ scale: 0.97 }}>
+                <Play size={12} /> Sign In
               </motion.button>
             </Link>
           </motion.div>
 
-          {/* Scroll indicator */}
+          {/* Privacy footnote */}
           <motion.div
-            className="absolute bottom-8 left-1/2 -translate-x-1/2"
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <ChevronDown className="h-6 w-6 text-slate-500" />
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2, duration: 0.6 }}
+            className="flex items-center justify-center gap-2 mt-8"
+            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#A89878', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+            <Lock size={9} /> No camera data leaves your device — ever
           </motion.div>
         </motion.div>
       </section>
 
-      {/* ── DASHBOARD PREVIEW ── */}
-      <section className="relative py-20 sm:py-32">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950" />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
-          <Reveal className="text-center mb-16">
-            <p className="text-purple-400 font-semibold text-sm uppercase tracking-wider mb-3">See It in Action</p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black">
-              Your <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Personal Learning Studio</span>
-            </h2>
-          </Reveal>
-          <DashboardMockup />
+      {/* Divider */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,135,10,0.15), transparent)' }} />
+
+      {/* ── STATS ── */}
+      <section className="relative">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4" style={{ borderLeft: '1px solid rgba(212,135,10,0.07)' }}>
+            {[
+              { value: '2,500+', label: 'Active Learners' },
+              { value: '50k+', label: 'Hours Focused' },
+              { value: '120k+', label: 'Videos Watched' },
+              { value: '4.9 / 5', label: 'User Rating' },
+            ].map((s, i) => (
+              <div key={s.label} style={{ borderRight: '1px solid rgba(212,135,10,0.07)', borderTop: '1px solid rgba(212,135,10,0.07)', borderBottom: '1px solid rgba(212,135,10,0.07)' }}>
+                <Reveal delay={i * 0.08}>
+                  <div className="text-center py-10">
+                    <div style={{ fontFamily: 'Fraunces, serif', fontSize: 'clamp(2.5rem, 4.5vw, 4rem)', fontWeight: 900, color: '#D4870A', lineHeight: 1 }}>
+                      {s.value}
+                    </div>
+                    <div style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#D0C0A0', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 8 }}>
+                      {s.label}
+                    </div>
+                  </div>
+                </Reveal>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── FEATURES GRID ── */}
-      <section ref={featuresRef} className="relative py-20 sm:py-32 scroll-mt-16">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(108,60,224,0.08)_0%,transparent_60%)]" />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
-          <Reveal className="text-center mb-16">
-            <p className="text-purple-400 font-semibold text-sm uppercase tracking-wider mb-3">Features</p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-4">
-              Everything You Need to{' '}
-              <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Stay Focused</span>
+      {/* ── FEATURES ── */}
+      <section ref={featuresRef} className="relative py-28 scroll-mt-14">
+        <div className="max-w-6xl mx-auto px-6">
+          <Reveal className="mb-16">
+            <SectionLabel>Everything you need</SectionLabel>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 'clamp(2.2rem, 5vw, 3.8rem)', fontWeight: 700, color: '#F2EDE4', lineHeight: 1.15, maxWidth: 520 }}>
+              Built for the{' '}
+              <span style={{ fontStyle: 'italic', fontWeight: 300, color: '#D4870A' }}>seriously focused</span>{' '}
+              learner.
             </h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">
-              Built for serious learners who want to make every minute count.
-            </p>
           </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
-              <FeatureCard key={feature.title} {...feature} delay={i * 0.1} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px" style={{ background: 'rgba(212,135,10,0.06)' }}>
+            {[
+              { icon: Eye, title: 'Smart Pause', tag: 'Core Feature', desc: "Video automatically pauses when gaze detection detects you've looked away — and resumes the instant you look back. No manual intervention required." },
+              { icon: Settings, title: '3 Focus Modes', desc: 'Choose between Light, Moderate, and Strict — each controls how quickly the video pauses when you look away. Match the mode to your session.' },
+              { icon: Zap, title: 'Configurable Threshold', desc: 'Set your pause sensitivity from 1 to 10 seconds. Short sessions? Hair-trigger. Marathon study block? Give yourself a little slack.' },
+              { icon: BarChart2, title: 'Focus & Distraction Tracking', desc: 'A live focus-state indicator shows whether you\'re in-zone. Your distraction count is logged per session so you can trend over time.' },
+              { icon: FolderOpen, title: 'Folders & Playlists', desc: 'Organise everything into folders. Import entire YouTube playlists with one paste — full playlist sync support included.' },
+              { icon: FileText, title: 'Timestamped Notes', tag: 'Popular', desc: 'Capture notes while watching. Each note is pinned to the exact video timestamp — click any note to jump straight back to that moment.' },
+              { icon: RefreshCw, title: 'Playlist Auto-Sync', desc: 'Background scheduler syncs your playlists for new YouTube uploads every 30 minutes. Hit Refresh any time for a manual pull.' },
+              { icon: CheckSquare, title: 'Todo List', desc: 'Attach a learning to-do list to your session. Track tasks, tick off concepts, and stay on top of what you planned to cover.' },
+              { icon: Lock, title: 'Fully On-Device', tag: 'Privacy', desc: 'Eye tracking runs in WebAssembly via MediaPipe. No camera frames, no gaze data, nothing is transmitted outside your browser tab.' },
+            ].map((f, i) => (
+              <div key={f.title} style={{ background: '#0C0A07' }}>
+                <FeatureCard {...f} delay={i * 0.06} />
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section ref={howItWorksRef} className="relative py-20 sm:py-32 scroll-mt-16">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950" />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
-          <Reveal className="text-center mb-16">
-            <p className="text-blue-400 font-semibold text-sm uppercase tracking-wider mb-3">How It Works</p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black">
-              Three Steps to{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Deep Focus</span>
-            </h2>
-          </Reveal>
+      <section ref={howItWorksRef} className="relative py-28 scroll-mt-14">
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(212,135,10,0.025) 0%, transparent 60%)' }} />
+        <div className="max-w-6xl mx-auto px-6 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-start">
+            {/* Left */}
+            <Reveal from="left">
+              <SectionLabel>How It Works</SectionLabel>
+              <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 'clamp(2rem, 4.5vw, 3.4rem)', fontWeight: 700, lineHeight: 1.15, color: '#F2EDE4' }}>
+                From paste to{' '}
+                <span style={{ fontStyle: 'italic', fontWeight: 300, color: '#D4870A' }}>deep focus</span>
+                {' '}in three steps.
+              </h2>
+              <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', color: '#DDD0B8', lineHeight: 1.9, marginTop: 24, maxWidth: 340 }}>
+                No installs. No extensions. Just your browser, your webcam, and your YouTube library.
+              </p>
+            </Reveal>
 
-          <div className="relative">
-            {/* Connecting line */}
-            <div className="hidden md:block absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {steps.map((step, i) => (
-                <Reveal key={step.title} delay={i * 0.2}>
-                  <div className="relative text-center">
-                    {/* Step number */}
-                    <motion.div
-                      className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-6 relative"
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                    >
-                      <step.icon className="h-7 w-7 text-purple-400" />
-                      <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-xs font-bold flex items-center justify-center">
-                        {i + 1}
-                      </span>
-                    </motion.div>
-                    <h3 className="text-lg font-bold text-white mb-2">{step.title}</h3>
-                    <p className="text-sm text-slate-400">{step.description}</p>
+            {/* Right: steps */}
+            <div className="flex flex-col gap-10">
+              {[
+                { n: '01', title: 'Paste a YouTube video or playlist', desc: 'Drop any YouTube URL. Full playlists are imported in one go and sync automatically in the background every 30 minutes.' },
+                { n: '02', title: 'Pick your focus mode', desc: 'Choose Light, Moderate, or Strict. Light gives you a longer grace period before pausing — Strict pauses the moment your gaze drifts. Switch any time.' },
+                { n: '03', title: 'Enable eye tracking and start watching', desc: 'One toggle activates the focus engine. Look away — it pauses. Look back — it resumes. Take timestamped notes throughout.' },
+              ].map(({ n, title, desc }, i) => (
+                <Reveal key={n} delay={i * 0.12}>
+                  <div className="flex gap-6">
+                    <div className="shrink-0 pt-1" style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D4870A', opacity: 0.9, letterSpacing: '0.08em', width: 28 }}>
+                      {n}
+                    </div>
+                    <div>
+                      <h3 style={{ fontFamily: 'Fraunces, serif', fontSize: '1.1rem', fontWeight: 600, color: '#F2EDE4', marginBottom: 8 }}>{title}</h3>
+                      <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#DDD0B8', lineHeight: 1.85 }}>{desc}</p>
+                    </div>
                   </div>
                 </Reveal>
               ))}
@@ -665,121 +444,101 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── STATS BANNER ── */}
-      <section className="relative py-16">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-blue-600/10 to-purple-600/10" />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { icon: Users, label: 'Active Learners', value: '2,500+' },
-              { icon: Clock, label: 'Hours Focused', value: '50,000+' },
-              { icon: BookOpen, label: 'Videos Watched', value: '120,000+' },
-              { icon: Star, label: 'User Rating', value: '4.9/5' },
-            ].map((stat, i) => (
-              <Reveal key={stat.label} delay={i * 0.1}>
-                <div className="text-center">
-                  <stat.icon className="h-6 w-6 text-purple-400 mx-auto mb-2" />
-                  <p className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                    {stat.value}
-                  </p>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1">{stat.label}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Divider */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,135,10,0.12), transparent)' }} />
 
-      {/* ── TESTIMONIALS ── */}
-      <section ref={testimonialsRef} className="relative py-20 sm:py-32 scroll-mt-16">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(59,130,246,0.08)_0%,transparent_60%)]" />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
-          <Reveal className="text-center mb-16">
-            <p className="text-blue-400 font-semibold text-sm uppercase tracking-wider mb-3">Testimonials</p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black">
-              Loved by{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Focused Learners</span>
-            </h2>
-          </Reveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <TestimonialCard
-              quote="The eye tracking is a game changer. I used to catch myself scrolling on my phone while videos played. Not anymore. GazeFocus keeps me honest."
-              name="Priya S."
-              role="Computer Science Student"
-              delay={0}
-            />
-            <TestimonialCard
-              quote="I've tried every productivity app out there. This is the first one that actually made me focus. The distraction-free player alone is worth it."
-              name="Marcus T."
-              role="Self-Taught Developer"
-              delay={0.15}
-            />
-            <TestimonialCard
-              quote="The timestamped notes are incredible for online courses. I can review a whole lecture in minutes by just clicking through my notes."
-              name="Aisha K."
-              role="Graduate Researcher"
-              delay={0.3}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ── FINAL CTA ── */}
-      <section className="relative py-20 sm:py-32">
-        <div className="absolute inset-0 bg-gradient-to-t from-purple-600/10 via-transparent to-transparent" />
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      {/* ── MESSAGE FROM THE CREATOR ── */}
+      <section ref={creatorRef} className="relative py-28 scroll-mt-14">
+        <div className="max-w-3xl mx-auto px-6 text-center">
           <Reveal>
-            <motion.div
-              className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-10 sm:p-16"
-              whileHover={{ borderColor: 'rgba(108,60,224,0.3)' }}
-            >
-              <AnimatedEyeLogo size={64} />
-              <div className="mt-6">
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-4">
-                  Ready to{' '}
-                  <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Focus?</span>
-                </h2>
-                <p className="text-slate-400 mb-8 max-w-lg mx-auto">
-                  Join thousands of learners who are using GazeFocus to study smarter, stay focused, and achieve their goals.
-                </p>
-                <Link href="/auth/signup">
-                  <motion.button
-                    className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold text-lg shadow-2xl shadow-purple-500/30"
-                    whileHover={{ scale: 1.05, boxShadow: '0 25px 60px rgba(108,60,224,0.4)' }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    Get Started — It&apos;s Free
-                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
-                </Link>
-                <p className="text-xs text-slate-500 mt-4 flex items-center justify-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  No credit card required
-                </p>
-              </div>
-            </motion.div>
+            {/* Label */}
+            <div className="flex items-center justify-center gap-3 mb-12"
+              style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#D0C0A0', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+              <div style={{ width: 28, height: 1, background: 'rgba(212,135,10,0.3)' }} />
+              Message from the Creator
+              <div style={{ width: 28, height: 1, background: 'rgba(212,135,10,0.3)' }} />
+            </div>
+
+            {/* Quote */}
+            <blockquote style={{
+              fontFamily: 'Fraunces, serif',
+              fontSize: 'clamp(1.6rem, 4vw, 2.6rem)',
+              fontWeight: 600,
+              color: '#F2EDE4',
+              lineHeight: 1.3,
+              letterSpacing: '-0.01em',
+              marginBottom: '40px',
+            }}>
+              "I built GazeFocus because I kept drifting mid-lecture without even noticing.
+              The goal was simple — make your screen hold you accountable,
+              so{' '}
+              <span style={{ fontStyle: 'italic', fontWeight: 300, color: '#D4870A' }}>
+                your attention finally stays where your eyes do.
+              </span>
+              "
+            </blockquote>
+
+            {/* Divider */}
+            <div style={{ width: 40, height: 1, background: 'rgba(212,135,10,0.25)', margin: '0 auto 28px' }} />
+
+            {/* Name + title */}
+            <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>
+              Purujith Kadekar
+            </p>
+            <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#A89878', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '36px' }}>
+              Creator · GazeFocus
+            </p>
+
+            {/* Social links */}
+            <div className="flex items-center justify-center gap-6 mb-12"
+              style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.06em' }}>
+              <a href="https://github.com/Purujith-Kadekar" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#D4870A] transition-colors">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+                GitHub
+              </a>
+              <span style={{ color: '#A89878' }}>·</span>
+              <a href="https://gaze-focus.vercel.app" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#D4870A] transition-colors">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                Live App
+              </a>
+            </div>
+
+            {/* CTA */}
+            <Link href="/auth/signup">
+              <motion.button className="group inline-flex items-center gap-3"
+                style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.08em', textTransform: 'uppercase', background: '#D4870A', color: '#0C0A07', padding: '14px 36px', fontWeight: 500 }}
+                whileHover={{ background: '#F0A022' }} whileTap={{ scale: 0.97 }}>
+                Try It Free
+                <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+              </motion.button>
+            </Link>
           </Reveal>
         </div>
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-slate-800 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <AnimatedEyeLogo size={28} />
-              <span className="font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                GazeFocus
-              </span>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-slate-500">
-              <button onClick={() => featuresRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-slate-300 transition-colors">Features</button>
-              <button onClick={() => howItWorksRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-slate-300 transition-colors">How It Works</button>
-              <Link href="/auth/login" className="hover:text-slate-300 transition-colors">Sign In</Link>
-            </div>
-            <p className="text-xs text-slate-600">&copy; {new Date().getFullYear()} GazeFocus. All rights reserved.</p>
+      <footer style={{ borderTop: '1px solid rgba(212,135,10,0.07)', padding: '36px 0' }}>
+        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <IrisMotif size={20} />
+            <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '0.95rem', color: '#F2EDE4' }}>GazeFocus</span>
           </div>
+          <div className="flex items-center gap-6"
+            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <button onClick={() => scrollTo(featuresRef)} className="hover:text-[#D4870A] transition-colors">Features</button>
+            <button onClick={() => scrollTo(howItWorksRef)} className="hover:text-[#D4870A] transition-colors">How It Works</button>
+            <Link href="/auth/login" className="hover:text-[#D4870A] transition-colors">Sign In</Link>
+          </div>
+          <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#A89878', letterSpacing: '0.06em' }}>
+            © {new Date().getFullYear()} GazeFocus. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>

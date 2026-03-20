@@ -57,7 +57,7 @@ export default function SignupPage() {
       })
 
       if (result?.ok) {
-        router.push('/')
+        router.push('/dashboard')
         router.refresh()
       }
     } catch (err) {
@@ -68,7 +68,7 @@ export default function SignupPage() {
   }
 
   const handleGoogleSignup = () => {
-    signIn('google', { callbackUrl: '/' })
+    signIn('google', { callbackUrl: '/dashboard' })
   }
 
   return (

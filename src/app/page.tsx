@@ -7,24 +7,16 @@ import LandingPage from '@/components/landing/LandingPage'
 import { Loader2 } from 'lucide-react'
 
 export default function Page() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
+    if (status === 'authenticated') {
       router.push('/dashboard')
     }
-  }, [status, session, router])
+  }, [status, router])
 
-  if (status === 'loading') {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (status === 'authenticated') {
+  if (status === 'loading' || status === 'authenticated') {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

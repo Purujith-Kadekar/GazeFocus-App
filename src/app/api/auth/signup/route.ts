@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
 
-// POST /api/auth/signup - Register a new user
 export async function POST(request: NextRequest) {
   try {
-    // Check if signups are enabled
-    const settings = await db.siteSettings.findUnique({ where: { id: 'global' } })
-    if (settings && !settings.signupEnabled) {
+    const settingsResult = await db.from('SiteSettings').select('signupEnabled').eq('id', 'global').single()
+    if (settingsResult.data && !settingsResult.data.signupEnabled) {
       return NextResponse.json(
         { error: 'New signups are currently disabled' },
         { status: 403 }
@@ -52,41 +50,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email },
-    })
-
-    if (existingUser) {
+    const existingUserResult = await db.from('User').select('id').eq('email', email).maybeSingle()
+    if (existingUserResult.data) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 400 }
       )
     }
 
-    // Hash password
     const hashedPassword = await hashPassword(password)
 
-    // Create user
-    const user = await db.user.create({
-      data: {
-        email,
-        passwordHash: hashedPassword,
-        name: name || email.split('@')[0],
-      },
-    })
+    const userResult = await db.from('User').insert({
+      email,
+      passwordHash: hashedPassword,
+      name: name || email.split('@')[0],
+    }).select('id, email, name').single()
 
-    // Create default settings
-    await db.userSettings.create({
-      data: { userId: user.id },
-    })
+    const user = userResult.data
+
+    await db.from('UserSettings').insert({ userId: user!.id })
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: user!.id,
+        email: user!.email,
+        name: user!.name,
       },
     }, { status: 201 })
   } catch (error) {

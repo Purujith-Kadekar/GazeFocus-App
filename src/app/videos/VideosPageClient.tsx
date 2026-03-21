@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
-import type { Video, Playlist, Folder } from '@prisma/client'
+import type { Video, Playlist, Folder } from '@/types'
 import type React from 'react'
 
 interface VideoWithPlaylist extends Video {

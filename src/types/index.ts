@@ -1,6 +1,21 @@
-import { Folder, Playlist } from '@prisma/client'
+import type { Database } from './supabase'
 
-// Auth types
+export type Folder = Database['public']['Tables']['Folder']['Row']
+export type Playlist = Database['public']['Tables']['Playlist']['Row']
+export type Video = Database['public']['Tables']['Video']['Row']
+export type Note = Database['public']['Tables']['Note']['Row']
+export type Todo = Database['public']['Tables']['Todo']['Row']
+export type LibraryItem = Database['public']['Tables']['LibraryItem']['Row']
+export type UserSettings = Database['public']['Tables']['UserSettings']['Row']
+export type SiteSettings = Database['public']['Tables']['SiteSettings']['Row']
+export type Notification = Database['public']['Tables']['Notification']['Row']
+export type VideoProgress = Database['public']['Tables']['VideoProgress']['Row']
+export type PlaylistMark = Database['public']['Tables']['PlaylistMark']['Row']
+export type User = Database['public']['Tables']['User']['Row']
+
+export type LibraryItemType = 'PLAYLIST' | 'VIDEO'
+export type TodoType = 'TASK' | 'PLAN' | 'EVENT'
+
 export interface AuthUser {
   id: string
   email: string
@@ -12,7 +27,6 @@ export interface AuthUser {
   lastActiveDate?: Date | null
 }
 
-// Extend NextAuth types
 declare module 'next-auth' {
   interface Session {
     user: AuthUser
@@ -38,7 +52,6 @@ declare module 'next-auth/jwt' {
   }
 }
 
-// Database types with relations
 export type FolderWithPlaylists = Folder & {
   playlists: Playlist[]
   _count?: {
@@ -46,13 +59,6 @@ export type FolderWithPlaylists = Folder & {
   }
 }
 
-export enum TodoType {
-  TASK = 'TASK',
-  PLAN = 'PLAN',
-  EVENT = 'EVENT'
-}
-
-// YouTube API types
 export interface YouTubeSearchResult {
   id: string
   type: 'video' | 'playlist' | 'channel'
@@ -76,7 +82,6 @@ export interface YouTubeVideoDetails {
   channelName: string
 }
 
-// Dashboard stats
 export interface DashboardStats {
   totalPlaylists: number
   completedPlaylists: number

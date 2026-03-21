@@ -38,7 +38,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
 import { formatWatchTime } from '@/lib/utils'
-import type { Video, Note, Folder, Playlist } from '@prisma/client'
+import type { Video, Note, Folder, Playlist } from '@/types'
 
 type PlaylistWithFolder = Playlist & { folderId: string | null }
 

@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Folder } from '@prisma/client'
+import type { Folder } from '@/types'
 
 interface FoldersPageClientProps {
   initialFolders: Folder[]

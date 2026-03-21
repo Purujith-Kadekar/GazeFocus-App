@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-function isNewWeek(lastResetDate: Date | null): boolean {
+function isNewWeek(lastResetDate: string | null): boolean {
   const now = new Date()
   const currentDayOfWeek = now.getDay()
   const mondayOffset = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek
@@ -19,17 +19,16 @@ function isNewWeek(lastResetDate: Date | null): boolean {
   return lastReset < currentMonday
 }
 
-function getMondayDate(): Date {
+function getMondayDate(): string {
   const now = new Date()
   const dayOfWeek = now.getDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
   const monday = new Date(now)
   monday.setDate(now.getDate() + mondayOffset)
   monday.setHours(0, 0, 0, 0)
-  return monday
+  return monday.toISOString()
 }
 
-// POST /api/progress - Update video progress
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -48,62 +47,53 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Determine completion: either explicitly passed or calculated
     const isCompleted = completed ?? (duration && currentTime >= duration - 10)
 
-    const userData = await db.user.findUnique({
-      where: { id: userId },
-      select: { weeklyVideosWatched: true, lastWeeklyReset: true },
-    })
+    const userDataResult = await db.from('User').select('weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
+    const userData = userDataResult.data
 
     let weeklyVideosWatched = userData?.weeklyVideosWatched || 0
     let lastWeeklyReset = userData?.lastWeeklyReset
 
-    if (isNewWeek(lastWeeklyReset ?? null)) {
+    if (isNewWeek(lastWeeklyReset)) {
       weeklyVideosWatched = 0
       lastWeeklyReset = getMondayDate()
     }
 
-    // Only increment weekly count if it's newly completed
     if (isCompleted) {
-      const existingProgress = await db.videoProgress.findUnique({
-        where: { userId_youtubeId: { userId, youtubeId } }
-      })
-      if (!existingProgress?.completed) {
+      const existingResult = await db.from('VideoProgress').select('completed').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
+      if (!existingResult.data?.completed) {
         weeklyVideosWatched += 1
       }
     }
 
-    const progress = await db.videoProgress.upsert({
-      where: {
-        userId_youtubeId: {
-          userId,
-          youtubeId,
-        },
-      },
-      update: {
-        secondsWatched: currentTime !== undefined ? currentTime : undefined,
-        durationSeconds: duration !== undefined ? duration : undefined,
+    const existingProgressResult = await db.from('VideoProgress').select('id').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
+
+    let progress
+    if (existingProgressResult.data) {
+      const updateResult = await db.from('VideoProgress').update({
+        secondsWatched: currentTime,
+        durationSeconds: duration,
         completed: isCompleted,
-        completedAt: isCompleted ? new Date() : null,
-      },
-      create: {
+        completedAt: isCompleted ? new Date().toISOString() : null,
+      }).eq('id', existingProgressResult.data.id).select().single()
+      progress = updateResult.data
+    } else {
+      const insertResult = await db.from('VideoProgress').insert({
         userId,
         youtubeId,
         secondsWatched: currentTime || 0,
         durationSeconds: duration || 0,
         completed: isCompleted || false,
-        completedAt: isCompleted ? new Date() : null,
-      },
-    })
+        completedAt: isCompleted ? new Date().toISOString() : null,
+      }).select().single()
+      progress = insertResult.data
+    }
 
-    await db.user.update({
-      where: { id: userId },
-      data: {
-        weeklyVideosWatched,
-        lastWeeklyReset: lastWeeklyReset || getMondayDate(),
-      },
-    })
+    await db.from('User').update({
+      weeklyVideosWatched,
+      lastWeeklyReset: lastWeeklyReset || getMondayDate(),
+    }).eq('id', userId)
 
     return NextResponse.json({ success: true, progress })
   } catch (error) {
@@ -115,7 +105,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/progress - Get user's learning progress stats or specific video progress
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -127,59 +116,42 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const youtubeId = searchParams.get('youtubeId')
 
-    // If youtubeId is provided, return specific video progress
     if (youtubeId) {
-      const progress = await db.videoProgress.findUnique({
-        where: {
-          userId_youtubeId: {
-            userId,
-            youtubeId,
-          },
-        },
-      })
-      return NextResponse.json({ progress })
+      const progressResult = await db.from('VideoProgress').select('*').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
+      return NextResponse.json({ progress: progressResult.data })
     }
 
-    // Otherwise return global stats
-    const userData = await db.user.findUnique({
-      where: { id: userId },
-      select: { 
-        currentStreak: true, 
-        longestStreak: true,
-        weeklyVideosWatched: true,
-        lastWeeklyReset: true,
-      },
-    })
+    const userDataResult = await db.from('User').select('currentStreak, longestStreak, weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
+    const userData = userDataResult.data
 
     let weeklyVideosWatched = userData?.weeklyVideosWatched || 0
     
-    if (isNewWeek(userData?.lastWeeklyReset ?? null)) {
+    if (isNewWeek(userData?.lastWeeklyReset)) {
       weeklyVideosWatched = 0
-      await db.user.update({
-        where: { id: userId },
-        data: {
-          weeklyVideosWatched: 0,
-          lastWeeklyReset: getMondayDate(),
-        },
-      })
+      await db.from('User').update({
+        weeklyVideosWatched: 0,
+        lastWeeklyReset: getMondayDate(),
+      }).eq('id', userId)
     }
 
-    const [totalVideos, watchedVideos, totalPlaylists, completedPlaylists, notes, importantNotes] = await Promise.all([
-      db.video.count({ where: { userId } }),
-      db.videoProgress.count({ where: { userId, completed: true } }),
-      db.playlist.count({ where: { userId } }),
-      db.playlistMark.count({ where: { userId, finished: true } }),
-      db.note.count({ where: { userId } }),
-      db.note.count({ where: { userId, isImportant: true } }),
+    const [totalVideosResult, watchedVideosResult, totalPlaylistsResult, completedPlaylistsResult, notesResult, importantNotesResult] = await Promise.all([
+      db.from('Video').select('id', { count: 'exact', head: true }).eq('userId', userId),
+      db.from('VideoProgress').select('id', { count: 'exact', head: true }).eq('userId', userId).eq('completed', true),
+      db.from('Playlist').select('id', { count: 'exact', head: true }).eq('userId', userId),
+      db.from('PlaylistMark').select('id', { count: 'exact', head: true }).eq('userId', userId).eq('finished', true),
+      db.from('Note').select('id', { count: 'exact', head: true }).eq('userId', userId),
+      db.from('Note').select('id', { count: 'exact', head: true }).eq('userId', userId).eq('isImportant', true),
     ])
 
-    const watchTimeAggregation = await db.videoProgress.aggregate({
-      where: { userId },
-      _sum: {
-        secondsWatched: true,
-      },
-    })
-    const totalWatchTime = watchTimeAggregation._sum.secondsWatched || 0
+    const totalVideos = totalVideosResult.count || 0
+    const watchedVideos = watchedVideosResult.count || 0
+    const totalPlaylists = totalPlaylistsResult.count || 0
+    const completedPlaylists = completedPlaylistsResult.count || 0
+    const notes = notesResult.count || 0
+    const importantNotes = importantNotesResult.count || 0
+
+    const watchTimeResult = await db.from('VideoProgress').select('secondsWatched').eq('userId', userId)
+    const totalWatchTime = (watchTimeResult.data || []).reduce((sum: number, p: any) => sum + (p.secondsWatched || 0), 0)
 
     return NextResponse.json({
       totalVideos,

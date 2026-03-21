@@ -2,18 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAdminRequest } from '@/lib/admin-auth'
 
-// GET /api/admin/notifications - List recent admin notifications
 export async function GET(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const notifications = await db.notification.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: { user: { select: { email: true, name: true } } },
-    })
+    const notificationsResult = await db.from('Notification').select('*, user:User(email, name)').order('createdAt', { ascending: false }).limit(50)
+    const notifications = notificationsResult.data || []
 
     return NextResponse.json(notifications)
   } catch (error) {
@@ -22,7 +18,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// DELETE /api/admin/notifications - Delete a notification
 export async function DELETE(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,7 +29,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Notification id is required' }, { status: 400 })
     }
 
-    await db.notification.delete({ where: { id } })
+    await db.from('Notification').delete().eq('id', id)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting notification:', error)
@@ -42,7 +37,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// POST /api/admin/notifications - Push a notification
 export async function POST(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -63,19 +57,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message must be 2,000 characters or fewer' }, { status: 400 })
     }
 
+    let notification
     if (userId) {
-      // Send to specific user
-      const notification = await db.notification.create({
-        data: { title, message, userId, global: false },
-      })
-      return NextResponse.json(notification)
+      const notificationResult = await db.from('Notification').insert({ title, message, userId, global: false }).select().single()
+      notification = notificationResult.data
     } else {
-      // Send to all users (global notification)
-      const notification = await db.notification.create({
-        data: { title, message, global: true },
-      })
-      return NextResponse.json(notification)
+      const notificationResult = await db.from('Notification').insert({ title, message, global: true }).select().single()
+      notification = notificationResult.data
     }
+    return NextResponse.json(notification)
   } catch (error) {
     console.error('Error creating notification:', error)
     return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 })

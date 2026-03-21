@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// DELETE /api/user/delete - Schedule account for deletion (2-day grace period)
 export async function DELETE() {
   try {
     const user = await getCurrentUser()
@@ -13,10 +12,7 @@ export async function DELETE() {
     const deletionDate = new Date()
     deletionDate.setDate(deletionDate.getDate() + 2)
 
-    await db.user.update({
-      where: { id: user.id },
-      data: { deletionScheduledAt: deletionDate },
-    })
+    await db.from('User').update({ deletionScheduledAt: deletionDate.toISOString() }).eq('id', user.id)
 
     return NextResponse.json({ success: true, deletionScheduledAt: deletionDate })
   } catch (error) {
@@ -28,7 +24,6 @@ export async function DELETE() {
   }
 }
 
-// POST /api/user/delete - Cancel scheduled deletion
 export async function POST() {
   try {
     const user = await getCurrentUser()
@@ -36,10 +31,7 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await db.user.update({
-      where: { id: user.id },
-      data: { deletionScheduledAt: null },
-    })
+    await db.from('User').update({ deletionScheduledAt: null }).eq('id', user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

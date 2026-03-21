@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
-import type { Playlist, Folder } from '@prisma/client'
+import type { Playlist, Folder } from '@/types'
 
 interface PlaylistWithFolder extends Playlist {
   folder?: Folder | null

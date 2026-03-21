@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
-import type { Todo, Video, Playlist } from '@prisma/client'
+import type { Todo, Video, Playlist } from '@/types'
 
 type UnifiedItem = {
   id: string

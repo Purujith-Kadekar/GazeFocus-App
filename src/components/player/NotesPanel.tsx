@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useNoteStore, usePlayerStore, useAuthStore } from '@/store/useStore'
 import { formatDuration, cn } from '@/lib/utils'
-import type { Note } from '@prisma/client'
+import type { Note } from '@/types'
 
 interface NotesPanelProps {
   videoId: string
@@ -70,16 +70,14 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
       isImportant: false,
       youtubeId: videoId,
       userId: user?.id || 'anonymous',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
 
-    // In a real app, this would save to the database
     addNote(newNote)
     reset()
     setIsAddingNote(false)
 
-    // Save to API
     try {
       const response = await fetch('/api/notes', {
         method: 'POST',
@@ -92,7 +90,6 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
       })
       if (response.ok) {
         const savedNote = await response.json()
-        // Update with the saved note from DB
         removeNote(newNote.id)
         addNote(savedNote)
       }
@@ -181,7 +178,6 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
 
       <Separator />
 
-      {/* Add Note Section */}
       <div className="p-4 border-b">
         {isAddingNote ? (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -227,7 +223,6 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
         )}
       </div>
 
-      {/* Notes List */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-3">
           {filteredNotes.length === 0 ? (
@@ -252,7 +247,6 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
                   )}
                 >
                   <div className="flex items-start gap-2">
-                    {/* Timestamp */}
                     <button
                       className="shrink-0 px-2 py-1 rounded bg-primary/10 text-primary text-xs font-mono hover:bg-primary/20 transition-colors"
                       onClick={() => handleTimestampClick(note.timestampSeconds || 0)}
@@ -260,7 +254,6 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
                       {formatDuration(note.timestampSeconds || 0)}
                     </button>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       {editingNoteId === note.id ? (
                         <Textarea
@@ -287,7 +280,6 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
                         </p>
                       )}
 
-                      {/* Actions */}
                       <div className="flex items-center gap-1 mt-2">
                         <Button
                           variant="ghost"

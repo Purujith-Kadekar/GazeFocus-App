@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Folder, LibraryItem } from '@prisma/client'
+import type { Folder, LibraryItem } from '@/types'
 
 interface LibraryItemWithDetails extends LibraryItem {
   title: string

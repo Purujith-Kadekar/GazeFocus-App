@@ -2,18 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAdminRequest } from '@/lib/admin-auth'
 
-// GET /api/admin/settings - Get site settings
 export async function GET(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    let settings = await db.siteSettings.findUnique({ where: { id: 'global' } })
+    let settingsResult = await db.from('SiteSettings').select('*').eq('id', 'global').maybeSingle()
+    let settings = settingsResult.data
+
     if (!settings) {
-      settings = await db.siteSettings.create({
-        data: { id: 'global', signupEnabled: true },
-      })
+      const newSettingsResult = await db.from('SiteSettings').insert({ id: 'global', signupEnabled: true }).select().single()
+      settings = newSettingsResult.data
     }
     return NextResponse.json(settings)
   } catch (error) {
@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH /api/admin/settings - Update site settings
 export async function PATCH(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,11 +30,16 @@ export async function PATCH(request: NextRequest) {
   try {
     const { signupEnabled } = await request.json()
 
-    const settings = await db.siteSettings.upsert({
-      where: { id: 'global' },
-      update: { signupEnabled },
-      create: { id: 'global', signupEnabled },
-    })
+    const existingResult = await db.from('SiteSettings').select('id').eq('id', 'global').maybeSingle()
+
+    let settings
+    if (existingResult.data) {
+      const updateResult = await db.from('SiteSettings').update({ signupEnabled }).eq('id', 'global').select().single()
+      settings = updateResult.data
+    } else {
+      const insertResult = await db.from('SiteSettings').insert({ id: 'global', signupEnabled }).select().single()
+      settings = insertResult.data
+    }
 
     return NextResponse.json(settings)
   } catch (error) {

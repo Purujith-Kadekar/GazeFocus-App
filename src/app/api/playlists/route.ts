@@ -149,7 +149,6 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
   const videoIds: string[] = []
   const positionMap: Record<string, number> = {}
 
-  // First, fetch all video IDs from the playlist
   let nextPageToken: string | undefined = undefined
 
   do {
@@ -196,7 +195,6 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
       
       if (data.items) {
         for (const item of data.items) {
-          // Use resourceId.videoId (this is the correct path for playlistItems)
           const videoId = item.snippet?.resourceId?.videoId || item.contentDetails?.videoId
           if (videoId && item.snippet) {
             videoIds.push(videoId)
@@ -214,7 +212,6 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
 
   console.log('[fetchAllPlaylistVideos] Total video IDs found:', videoIds.length)
 
-  // Fetch video details in batches to get durations (YouTube API allows max 50 video IDs per request)
   const videos: PlaylistVideo[] = []
   const batchSize = 50
 
@@ -267,11 +264,9 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
     }
   }
 
-  // Sort by position (oldest first - position 0 is the first/oldest video)
   return videos.sort((a, b) => a.position - b.position)
 }
 
-// GET /api/playlists - Get all playlists for the current user
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -281,26 +276,14 @@ export async function GET(request: NextRequest) {
 
     const userId = user.id
 
-    const playlists = await db.playlist.findMany({
-      where: {
-        userId,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const playlistsResult = await db.from('Playlist').select('*').eq('userId', userId).order('createdAt', { ascending: false })
+    const playlists = playlistsResult.data || []
 
-    // Get folder associations from libraryItems
-    const libraryItems = await db.libraryItem.findMany({
-      where: {
-        userId,
-        type: 'PLAYLIST',
-        externalId: { in: playlists.map(p => p.id) },
-      },
-      select: { externalId: true, folderId: true },
-    })
+    const libraryItemsResult = await db.from('LibraryItem').select('externalId, folderId').eq('userId', userId).eq('type', 'PLAYLIST').in('externalId', playlists.map(p => p.id))
+    const libraryItems = libraryItemsResult.data || []
 
-    const folderMap = new Map(libraryItems.map(item => [item.externalId, item.folderId]))
+    const folderMap = new Map(libraryItems.map((item: any) => [item.externalId, item.folderId]))
 
-    // Map to include folderId from libraryItems
     const playlistsWithFolder = playlists.map(p => ({
       ...p,
       folderId: folderMap.get(p.id) || null,
@@ -316,7 +299,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/playlists - Add a new playlist or video
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -335,24 +317,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if already exists for this user (check correct table based on type)
     if (type === 'playlist') {
-      const existing = await db.playlist.findFirst({
-        where: { youtubeId, userId },
-      })
-
-      if (existing) {
+      const existingResult = await db.from('Playlist').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
+      if (existingResult.data) {
         return NextResponse.json(
           { error: 'This playlist already exists in your library' },
           { status: 400 }
         )
       }
     } else {
-      const existing = await db.video.findFirst({
-        where: { youtubeId, userId },
-      })
-
-      if (existing) {
+      const existingResult = await db.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
+      if (existingResult.data) {
         return NextResponse.json(
           { error: 'This video already exists in your library' },
           { status: 400 }
@@ -362,12 +337,11 @@ export async function POST(request: NextRequest) {
 
     let playlistData: YouTubePlaylistDetails | null = null;
     let videoData: YouTubeVideoDetails | null = null;
-    let playlistVideos: any[] = []; // Declare playlistVideos here
+    let playlistVideos: any[] = [];
 
     if (type === 'playlist') {
       console.log('[POST /api/playlists] Fetching playlist details for:', youtubeId)
       playlistData = YOUTUBE_API_KEY ? await fetchYouTubePlaylistDetails(youtubeId) : null;
-      // Fetch videos from the playlist and create them only if API key is available and playlist data is fetched
       if (YOUTUBE_API_KEY && playlistData) {
         playlistVideos = await fetchAllPlaylistVideos(youtubeId);
       }
@@ -375,66 +349,55 @@ export async function POST(request: NextRequest) {
       videoData = YOUTUBE_API_KEY ? await fetchYouTubeVideoDetails(youtubeId) : null;
     }
     
-    // Use fetched data or fall back to provided/manual data
     const finalTitle = title || (playlistData?.title ?? videoData?.title ?? '') || `YouTube ${type}`
     const finalDescription = description || (playlistData?.description ?? videoData?.description ?? '') || ''
     const finalThumbnail = thumbnail || (playlistData?.thumbnail ?? videoData?.thumbnail ?? '') || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
     const finalChannelId = channelId || (playlistData?.channelId ?? videoData?.channelId ?? '') || ''
     const finalChannelName = channelName || (playlistData?.channelName ?? videoData?.channelName ?? '') || 'Unknown Channel'
-    const finalDuration = videoData?.duration ?? 0 // Only applies to individual videos
+    const finalDuration = videoData?.duration ?? 0
 
-    // Only create a Playlist for actual playlists, not for individual videos
     if (type === 'playlist') {
-      const playlist = await db.playlist.create({
-        data: {
-          youtubeId,
-          title: finalTitle,
-          description: finalDescription,
-          thumbnail: finalThumbnail,
-          channelId: finalChannelId,
-          channelName: finalChannelName,
-          userId,
-          totalDuration: 0,
-        },
-      })
+      const playlistResult = await db.from('Playlist').insert({
+        youtubeId,
+        title: finalTitle,
+        description: finalDescription,
+        thumbnail: finalThumbnail,
+        channelId: finalChannelId,
+        channelName: finalChannelName,
+        userId,
+        totalDuration: 0,
+      }).select().single()
 
-      // Create libraryItem entry
-      await db.libraryItem.create({
-        data: {
-          userId,
-          externalId: playlist.id,
-          type: 'PLAYLIST',
-          title: finalTitle,
-          folderId: folderId || null,
-        },
+      const playlist = playlistResult.data
+
+      await db.from('LibraryItem').insert({
+        userId,
+        externalId: playlist!.id,
+        type: 'PLAYLIST',
+        title: finalTitle,
+        folderId: folderId || null,
       })
 
       if (playlistVideos.length > 0) {
         const totalDuration = playlistVideos.reduce((sum, v) => sum + (v.duration || 0), 0)
         
-        await db.video.createMany({
-          data: playlistVideos.map(video => ({
+        for (const video of playlistVideos) {
+          await db.from('Video').upsert({
             youtubeId: video.youtubeId,
             title: video.title,
             description: video.description || '',
             thumbnail: video.thumbnail || `https://img.youtube.com/vi/${video.youtubeId}/maxresdefault.jpg`,
             duration: video.duration || 0,
-            playlistId: playlist.id,
+            playlistId: playlist!.id,
             userId,
             position: video.position || 0,
-          })),
-          skipDuplicates: true,
-        })
+          }, { onConflict: 'youtubeId,userId' })
+        }
         
-        // Update playlist with total duration
-        await db.playlist.update({
-          where: { id: playlist.id },
-          data: { totalDuration },
-        })
+        await db.from('Playlist').update({ totalDuration }).eq('id', playlist!.id)
 
-        const videoCount = await db.video.count({
-          where: { playlistId: playlist.id, userId },
-        })
+        const videoCountResult = await db.from('Video').select('id', { count: 'exact', head: true }).eq('playlistId', playlist!.id).eq('userId', userId)
+        const videoCount = videoCountResult.count || 0
 
         return NextResponse.json({ 
           ...playlist, 
@@ -443,7 +406,6 @@ export async function POST(request: NextRequest) {
         }, { status: 201 })
       }
 
-      // Return playlist even if no videos were created
       return NextResponse.json({ 
         ...playlist, 
         videosCreated: 0,
@@ -451,41 +413,31 @@ export async function POST(request: NextRequest) {
       }, { status: 201 })
     }
 
-    // For individual videos, create only a Video entry (not linked to any playlist)
-    const video = await db.video.create({
-      data: {
-        youtubeId,
-        title: finalTitle, // Use finalTitle for individual videos as well
-        description: finalDescription,
-        thumbnail: finalThumbnail,
-        duration: finalDuration, // Use finalDuration for individual videos
-        playlistId: null,
-        userId,
-        position: 0,
-      },
-    })
+    const videoResult = await db.from('Video').insert({
+      youtubeId,
+      title: finalTitle,
+      description: finalDescription,
+      thumbnail: finalThumbnail,
+      duration: finalDuration,
+      playlistId: null,
+      userId,
+      position: 0,
+    }).select().single()
 
-    // Create libraryItem entry for video
-    await db.libraryItem.upsert({
-      where: {
-        userId_type_externalId: {
-          userId,
-          type: 'VIDEO',
-          externalId: youtubeId,
-        },
-      },
-      update: {
-        title: finalTitle,
-        folderId: folderId || null,
-      },
-      create: {
+    const video = videoResult.data
+
+    const existingItemResult = await db.from('LibraryItem').select('id').eq('userId', userId).eq('type', 'VIDEO').eq('externalId', youtubeId).maybeSingle()
+    if (existingItemResult.data) {
+      await db.from('LibraryItem').update({ title: finalTitle, folderId: folderId || null }).eq('id', existingItemResult.data.id)
+    } else {
+      await db.from('LibraryItem').insert({
         userId,
         externalId: youtubeId,
         type: 'VIDEO',
         title: finalTitle,
         folderId: folderId || null,
-      },
-    })
+      })
+    }
 
     return NextResponse.json(video, { status: 201 })
   } catch (error) {

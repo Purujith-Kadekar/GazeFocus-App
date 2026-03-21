@@ -56,7 +56,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
-import type { Todo, Video, Playlist } from '@prisma/client'
+import type { Todo, Video, Playlist } from '@/types'
 
 type CalendarEvent = {
   id: string

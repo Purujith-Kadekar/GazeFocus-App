@@ -139,45 +139,31 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
   try {
     const playlistVideos = await fetchAllPlaylistVideos(playlist.youtubeId)
 
-    const existingVideos = await db.video.findMany({
-      where: { userId: playlist.userId, playlistId: playlist.id },
-      select: { youtubeId: true },
-    })
-
-    const existingVideoIds = new Set(existingVideos.map(video => video.youtubeId))
+    const { data: existingVideos } = await db.from('Video').select('youtubeId').eq('userId', playlist.userId).eq('playlistId', playlist.id)
+    const existingVideoIds = new Set((existingVideos || []).map((video: any) => video.youtubeId))
     const missingVideos = playlistVideos.filter(video => !existingVideoIds.has(video.youtubeId))
 
     if (missingVideos.length > 0) {
-      await db.video.createMany({
-        data: missingVideos.map(video => ({
-          youtubeId: video.youtubeId,
-          title: video.title,
-          description: video.description,
-          thumbnail: video.thumbnail,
-          duration: video.duration,
-          position: video.position,
-          playlistId: playlist.id,
-          userId: playlist.userId,
-        })),
-        skipDuplicates: true,
-      })
+      await db.from('Video').insert(missingVideos.map(video => ({
+        youtubeId: video.youtubeId,
+        title: video.title,
+        description: video.description,
+        thumbnail: video.thumbnail,
+        duration: video.duration,
+        position: video.position,
+        playlistId: playlist.id,
+        userId: playlist.userId,
+      })))
     }
 
-    const allPlaylistVideos = await db.video.findMany({
-      where: { userId: playlist.userId, playlistId: playlist.id },
-      select: { duration: true },
-    })
+    const { data: allPlaylistVideos } = await db.from('Video').select('duration').eq('userId', playlist.userId).eq('playlistId', playlist.id)
+    const totalDuration = (allPlaylistVideos || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
 
-    const totalDuration = allPlaylistVideos.reduce((sum, video) => sum + (video.duration || 0), 0)
-
-    await db.playlist.update({
-      where: { id: playlist.id },
-      data: { totalDuration },
-    })
+    await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)
 
     return {
       added: missingVideos.length,
-      total: allPlaylistVideos.length,
+      total: (allPlaylistVideos || []).length,
     }
   } catch (error) {
     console.error('[playlistSync] Error syncing playlist:', playlist.youtubeId, error)
@@ -200,20 +186,17 @@ export function initializePlaylistSync() {
 
   console.log('[playlistSync] Initializing playlist sync scheduler (every 30 minutes)')
 
-  // Run every 30 minutes: */30 * * * *
   syncTask = cron.schedule('*/30 * * * *', async () => {
     try {
       console.log('[playlistSync] Running scheduled sync...')
       const startTime = Date.now()
 
-      const playlists = await db.playlist.findMany({
-        select: { id: true, youtubeId: true, userId: true },
-      })
+      const { data: playlists } = await db.from('Playlist').select('id, youtubeId, userId')
 
       let totalSynced = 0
       let totalAdded = 0
 
-      for (const playlist of playlists) {
+      for (const playlist of playlists || []) {
         const result = await syncPlaylist(playlist)
         if (result.added > 0) {
           totalAdded += result.added
@@ -228,16 +211,13 @@ export function initializePlaylistSync() {
     }
   })
 
-  // Also run immediately on startup (after a small delay to ensure DB is ready)
   setTimeout(async () => {
     try {
       console.log('[playlistSync] Running initial sync on startup...')
-      const playlists = await db.playlist.findMany({
-        select: { id: true, youtubeId: true, userId: true },
-      })
+      const { data: playlists } = await db.from('Playlist').select('id, youtubeId, userId')
 
       let totalAdded = 0
-      for (const playlist of playlists) {
+      for (const playlist of playlists || []) {
         const result = await syncPlaylist(playlist)
         totalAdded += result.added
       }

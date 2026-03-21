@@ -146,17 +146,14 @@ async function fetchAllPlaylistVideos(playlistYoutubeId: string): Promise<Playli
 async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: string }): Promise<SyncResult> {
   const playlistVideos = await fetchAllPlaylistVideos(playlist.youtubeId)
 
-  const existingVideos = await db.video.findMany({
-    where: { userId: playlist.userId, playlistId: playlist.id },
-    select: { youtubeId: true },
-  })
-
-  const existingVideoIds = new Set(existingVideos.map(video => video.youtubeId))
+  const existingVideosResult = await db.from('Video').select('youtubeId').eq('userId', playlist.userId).eq('playlistId', playlist.id)
+  const existingVideos = existingVideosResult.data || []
+  const existingVideoIds = new Set(existingVideos.map((video: any) => video.youtubeId))
   const missingVideos = playlistVideos.filter(video => !existingVideoIds.has(video.youtubeId))
 
   if (missingVideos.length > 0) {
-    await db.video.createMany({
-      data: missingVideos.map(video => ({
+    for (const video of missingVideos) {
+      await db.from('Video').upsert({
         youtubeId: video.youtubeId,
         title: video.title,
         description: video.description,
@@ -165,22 +162,15 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
         position: video.position,
         playlistId: playlist.id,
         userId: playlist.userId,
-      })),
-      skipDuplicates: true,
-    })
+      }, { onConflict: 'youtubeId,userId' })
+    }
   }
 
-  const allPlaylistVideos = await db.video.findMany({
-    where: { userId: playlist.userId, playlistId: playlist.id },
-    select: { duration: true },
-  })
+  const allVideosResult = await db.from('Video').select('duration').eq('userId', playlist.userId).eq('playlistId', playlist.id)
+  const allPlaylistVideos = allVideosResult.data || []
+  const totalDuration = allPlaylistVideos.reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
 
-  const totalDuration = allPlaylistVideos.reduce((sum, video) => sum + (video.duration || 0), 0)
-
-  await db.playlist.update({
-    where: { id: playlist.id },
-    data: { totalDuration },
-  })
+  await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)
 
   return {
     playlistId: playlist.id,
@@ -204,9 +194,8 @@ export async function POST(request: NextRequest) {
     const isCronRequest = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`)
 
     if (isCronRequest) {
-      const playlists = await db.playlist.findMany({
-        select: { id: true, youtubeId: true, userId: true },
-      })
+      const playlistsResult = await db.from('Playlist').select('id, youtubeId, userId')
+      const playlists = playlistsResult.data || []
 
       let syncedPlaylists = 0
       let addedVideos = 0
@@ -237,10 +226,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'playlistId is required' }, { status: 400 })
     }
 
-    const playlist = await db.playlist.findFirst({
-      where: { id: playlistId, userId: user.id },
-      select: { id: true, youtubeId: true, userId: true },
-    })
+    const playlistResult = await db.from('Playlist').select('id, youtubeId, userId').eq('id', playlistId).eq('userId', user.id).maybeSingle()
+    const playlist = playlistResult.data
 
     if (!playlist) {
       return NextResponse.json({ error: 'Playlist not found' }, { status: 404 })

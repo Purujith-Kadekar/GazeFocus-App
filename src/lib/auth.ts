@@ -84,6 +84,21 @@ export const authOptions: NextAuthOptions = {
       return extSession
     },
     async signIn({ user, account, profile }) {
+      if (account?.provider === 'google' && user.email) {
+        try {
+          const { data: existingUser } = await db.from('User').select('id').eq('email', user.email).single().catch(() => ({ data: null }))
+
+          if (!existingUser) {
+            await db.from('User').insert({
+              email: user.email,
+              name: user.name || user.email?.split('@')[0],
+              image: user.image,
+            })
+          }
+        } catch (error) {
+          console.error('Error in signIn:', error)
+        }
+      }
       return true
     },
   },

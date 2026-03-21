@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { VideoPlayer } from '@/components/player/VideoPlayer'
 import { Button } from '@/components/ui/button'
-import type { Video } from '@prisma/client'
+import type { Video } from '@/types'
 
 export default function VideoPage() {
   const params = useParams()

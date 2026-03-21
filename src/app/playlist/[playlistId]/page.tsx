@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Video, Playlist, Folder } from '@prisma/client'
+import type { Video, Playlist, Folder } from '@/types'
 
 interface PlaylistWithVideos extends Playlist {
   videos: Video[]

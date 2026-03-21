@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// GET /api/notifications - Get notifications for the current user
 export async function GET() {
   try {
     const user = await getCurrentUser()
@@ -10,17 +9,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user-specific + global notifications
-    const notifications = await db.notification.findMany({
-      where: {
-        OR: [
-          { userId: user.id },
-          { global: true },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    })
+    const notificationsResult = await db.from('Notification').select('*').or(`userId.eq.${user.id},global.eq.true`).order('createdAt', { ascending: false }).limit(20)
+    const notifications = notificationsResult.data || []
 
     return NextResponse.json(notifications)
   } catch (error) {
@@ -29,7 +19,6 @@ export async function GET() {
   }
 }
 
-// PATCH /api/notifications - Mark notifications as read
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -40,16 +29,9 @@ export async function PATCH(request: NextRequest) {
     const { notificationIds } = await request.json()
 
     if (notificationIds && Array.isArray(notificationIds)) {
-      await db.notification.updateMany({
-        where: {
-          id: { in: notificationIds },
-          OR: [
-            { userId: user.id },
-            { global: true },
-          ],
-        },
-        data: { read: true },
-      })
+      for (const id of notificationIds) {
+        await db.from('Notification').update({ read: true }).eq('id', id).or(`userId.eq.${user.id},global.eq.true`)
+      }
     }
 
     return NextResponse.json({ success: true })

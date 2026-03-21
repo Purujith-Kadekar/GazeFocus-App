@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { MoreVertical, Trash2, Edit, ExternalLink } from 'lucide-react'
-import { Folder } from '@prisma/client'
+import type { Folder } from '@/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {

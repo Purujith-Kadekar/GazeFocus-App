@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// GET /api/folders - Get all folders for the current user
 export async function GET() {
   try {
     const user = await getCurrentUser()
@@ -12,15 +11,11 @@ export async function GET() {
 
     const userId = user.id
 
-    const folders = await db.folder.findMany({
-      where: { userId },
-      include: {
-        _count: {
-          select: { items: true },
-        },
-      },
-      orderBy: { position: 'asc' },
-    })
+    const foldersResult = await db.from('Folder').select('*, items:LibraryItem(id)').eq('userId', userId).order('position', { ascending: true })
+    const folders = (foldersResult.data || []).map(f => ({
+      ...f,
+      _count: { items: f.items?.length || 0 },
+    }))
 
     return NextResponse.json(folders)
   } catch (error) {
@@ -32,7 +27,6 @@ export async function GET() {
   }
 }
 
-// POST /api/folders - Create a new folder
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -51,21 +45,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const maxPosition = await db.folder.aggregate({
-      where: { userId },
-      _max: { position: true },
-    })
+    const maxPositionResult = await db.from('Folder').select('position').eq('userId', userId).order('position', { ascending: false }).limit(1)
+    const maxPosition = maxPositionResult.data?.[0]?.position ?? -1
 
-    const folder = await db.folder.create({
-      data: {
-        title,
-        description,
-        userId,
-        position: (maxPosition._max.position ?? -1) + 1,
-      },
-    })
+    const folderResult = await db.from('Folder').insert({
+      title,
+      description,
+      userId,
+      position: maxPosition + 1,
+    }).select().single()
 
-    return NextResponse.json(folder, { status: 201 })
+    return NextResponse.json(folderResult.data, { status: 201 })
   } catch (error) {
     console.error('Error creating folder:', error)
     return NextResponse.json(
@@ -75,7 +65,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH /api/folders - Reorder folders
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -94,14 +83,9 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    await db.$transaction(
-      folderIds.map((id: string, index: number) =>
-        db.folder.update({
-          where: { id, userId },
-          data: { position: index },
-        })
-      )
-    )
+    for (let i = 0; i < folderIds.length; i++) {
+      await db.from('Folder').update({ position: i }).eq('id', folderIds[i]).eq('userId', userId)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

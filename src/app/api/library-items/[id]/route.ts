@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// DELETE /api/library-items/[id] - Remove an item from a folder
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,9 +14,7 @@ export async function DELETE(
 
     const { id } = await params
 
-    await db.libraryItem.delete({
-      where: { id, userId: user.id },
-    })
+    await db.from('LibraryItem').delete().eq('id', id).eq('userId', user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useTodoStore } from '@/store/useStore'
-import type { Todo } from '@prisma/client'
+import type { Todo } from '@/types'
 
 interface ReminderDialogProps {
   open: boolean

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// PUT /api/notes/[id] - Update a note
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,22 +20,19 @@ export async function PUT(
       return NextResponse.json({ error: 'Note content must be 10,000 characters or fewer' }, { status: 400 })
     }
 
-    // Verify the note belongs to this user
-    const existing = await db.note.findFirst({ where: { id, userId: user.id } })
-    if (!existing) {
+    const existingResult = await db.from('Note').select('id').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (!existingResult.data) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
 
-    const note = await db.note.update({
-      where: { id },
-      data: {
-        ...(content !== undefined && { content }),
-        ...(isImportant !== undefined && { isImportant }),
-        ...(timestamp !== undefined && { timestampSeconds: timestamp }),
-      },
-    })
+    const updateData: Record<string, any> = {}
+    if (content !== undefined) updateData.content = content
+    if (isImportant !== undefined) updateData.isImportant = isImportant
+    if (timestamp !== undefined) updateData.timestampSeconds = timestamp
 
-    return NextResponse.json(note)
+    const noteResult = await db.from('Note').update(updateData).eq('id', id).select().single()
+
+    return NextResponse.json(noteResult.data)
   } catch (error) {
     console.error('Error updating note:', error)
     return NextResponse.json(
@@ -46,7 +42,6 @@ export async function PUT(
   }
 }
 
-// DELETE /api/notes/[id] - Delete a note
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,15 +54,12 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Verify the note belongs to this user
-    const existing = await db.note.findFirst({ where: { id, userId: user.id } })
-    if (!existing) {
+    const existingResult = await db.from('Note').select('id').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (!existingResult.data) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
 
-    await db.note.delete({
-      where: { id },
-    })
+    await db.from('Note').delete().eq('id', id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

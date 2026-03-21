@@ -9,10 +9,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const items = await db.libraryItem.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    })
+    const itemsResult = await db.from('LibraryItem').select('*').eq('userId', user.id).order('createdAt', { ascending: false })
+    const items = itemsResult.data || []
 
     return NextResponse.json(items)
   } catch (error) {
@@ -41,69 +39,48 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // If folderId is provided, check if item already exists in this specific folder
     if (folderId) {
-      const existingInFolder = await db.libraryItem.findFirst({
-        where: {
-          userId: user.id,
-          type,
-          externalId,
-          folderId,
-        },
-      })
+      const existingInFolderResult = await db.from('LibraryItem').select('id').eq('userId', user.id).eq('type', type).eq('externalId', externalId).eq('folderId', folderId).maybeSingle()
+      const existingInFolder = existingInFolderResult.data
 
       if (existingInFolder) {
         return NextResponse.json(existingInFolder)
       }
 
-      // Try to create - if unique constraint fails (item in another folder), handle gracefully
       try {
-        const item = await db.libraryItem.create({
-          data: {
-            userId: user.id,
-            type,
-            externalId,
-            folderId,
-            title: title || externalId,
-          },
-        })
-        return NextResponse.json(item, { status: 201 })
-      } catch (createError: unknown) {
-        if (createError && typeof createError === 'object' && 'code' in createError && createError.code === 'P2002') {
-          const existing = await db.libraryItem.findFirst({
-            where: { userId: user.id, type, externalId },
-          })
-          return NextResponse.json(existing)
+        const itemResult = await db.from('LibraryItem').insert({
+          userId: user.id,
+          type,
+          externalId,
+          folderId,
+          title: title || externalId,
+        }).select().single()
+        return NextResponse.json(itemResult.data, { status: 201 })
+      } catch (createError: any) {
+        if (createError?.code === '23505') {
+          const existingResult = await db.from('LibraryItem').select('*').eq('userId', user.id).eq('type', type).eq('externalId', externalId).maybeSingle()
+          return NextResponse.json(existingResult.data)
         }
         throw createError
       }
     }
 
-    // If no folderId, check if item already exists without a folder
-    const existingItem = await db.libraryItem.findFirst({
-      where: {
-        userId: user.id,
-        type,
-        externalId,
-        folderId: null,
-      },
-    })
+    const existingItemResult = await db.from('LibraryItem').select('*').eq('userId', user.id).eq('type', type).eq('externalId', externalId).is('folderId', null).maybeSingle()
+    const existingItem = existingItemResult.data
 
     if (existingItem) {
       return NextResponse.json(existingItem)
     }
 
-    const item = await db.libraryItem.create({
-      data: {
-        userId: user.id,
-        type,
-        externalId,
-        folderId: null,
-        title: title || externalId,
-      },
-    })
+    const itemResult = await db.from('LibraryItem').insert({
+      userId: user.id,
+      type,
+      externalId,
+      folderId: null,
+      title: title || externalId,
+    }).select().single()
 
-    return NextResponse.json(item, { status: 201 })
+    return NextResponse.json(itemResult.data, { status: 201 })
   } catch (error) {
     console.error('Error creating library item:', error)
     return NextResponse.json(

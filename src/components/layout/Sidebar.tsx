@@ -78,7 +78,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Folder, Playlist, LibraryItem } from '@prisma/client'
+import type { Folder, Playlist, LibraryItem } from '@/types'
 
 interface SidebarProps {
   className?: string

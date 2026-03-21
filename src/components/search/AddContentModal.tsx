@@ -24,7 +24,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { extractYouTubeId } from '@/lib/utils'
-import type { Folder } from '@prisma/client'
+import type { Folder } from '@/types'
 
 interface AddContentModalProps {
   open: boolean

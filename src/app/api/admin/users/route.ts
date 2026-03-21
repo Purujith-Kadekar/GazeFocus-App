@@ -2,43 +2,50 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAdminRequest } from '@/lib/admin-auth'
 
-// GET /api/admin/users - List all users
 export async function GET(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const users = await db.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        isBlocked: true,
-        createdAt: true,
-        lastActiveDate: true,
-        deletionScheduledAt: true,
-        accounts: { select: { provider: true } },
-        _count: {
-          select: {
-            notes: true,
-            playlists: true,
-            videoProgress: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const usersResult = await db.from('User').select(`
+      id,
+      name,
+      email,
+      image,
+      isBlocked,
+      createdAt,
+      lastActiveDate,
+      deletionScheduledAt,
+      accounts:Account(id, provider)
+    `).order('createdAt', { ascending: false })
 
-    return NextResponse.json(users)
+    const users = usersResult.data || []
+
+    const usersWithCounts = await Promise.all(users.map(async (user) => {
+      const [notesCount, playlistsCount, videoProgressCount] = await Promise.all([
+        db.from('Note').select('id', { count: 'exact', head: true }).eq('userId', user.id),
+        db.from('Playlist').select('id', { count: 'exact', head: true }).eq('userId', user.id),
+        db.from('VideoProgress').select('id', { count: 'exact', head: true }).eq('userId', user.id),
+      ])
+      return {
+        ...user,
+        accounts: user.accounts || [],
+        _count: {
+          notes: notesCount.count || 0,
+          playlists: playlistsCount.count || 0,
+          videoProgress: videoProgressCount.count || 0,
+        },
+      }
+    }))
+
+    return NextResponse.json(usersWithCounts)
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
   }
 }
 
-// PATCH /api/admin/users - Block/unblock a user
 export async function PATCH(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -51,20 +58,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'userId and isBlocked are required' }, { status: 400 })
     }
 
-    const user = await db.user.update({
-      where: { id: userId },
-      data: { isBlocked },
-      select: { id: true, email: true, isBlocked: true },
-    })
+    const userResult = await db.from('User').update({ isBlocked }).eq('id', userId).select('id, email, isBlocked').single()
 
-    return NextResponse.json(user)
+    return NextResponse.json(userResult.data)
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
   }
 }
 
-// DELETE /api/admin/users - Schedule or cancel deletion, or delete immediately
 export async function DELETE(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -78,29 +80,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (action === 'schedule') {
-      // Schedule deletion 7 days from now
       const deletionDate = new Date()
       deletionDate.setDate(deletionDate.getDate() + 7)
 
-      const user = await db.user.update({
-        where: { id: userId },
-        data: { deletionScheduledAt: deletionDate },
-        select: { id: true, email: true, deletionScheduledAt: true },
-      })
-      return NextResponse.json(user)
+      const userResult = await db.from('User').update({ deletionScheduledAt: deletionDate.toISOString() }).eq('id', userId).select('id, email, deletionScheduledAt').single()
+      return NextResponse.json(userResult.data)
     }
 
     if (action === 'cancel') {
-      const user = await db.user.update({
-        where: { id: userId },
-        data: { deletionScheduledAt: null },
-        select: { id: true, email: true, deletionScheduledAt: true },
-      })
-      return NextResponse.json(user)
+      const userResult = await db.from('User').update({ deletionScheduledAt: null }).eq('id', userId).select('id, email, deletionScheduledAt').single()
+      return NextResponse.json(userResult.data)
     }
 
     if (action === 'immediate') {
-      await db.user.delete({ where: { id: userId } })
+      await db.from('User').delete().eq('id', userId)
       return NextResponse.json({ success: true, id: userId })
     }
 

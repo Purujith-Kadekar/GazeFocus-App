@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { VideoPlayer } from '@/components/player/VideoPlayer'
 import { Button } from '@/components/ui/button'
-import type { Video, Playlist } from '@prisma/client'
+import type { Video, Playlist } from '@/types'
 
 interface VideoWithPlaylist extends Video {
   playlist?: Playlist | null

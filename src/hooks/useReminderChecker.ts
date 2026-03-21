@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { isPast } from 'date-fns'
 import { useTodoStore } from '@/store/useStore'
-import type { Todo } from '@prisma/client'
+import type { Todo } from '@/types'
 
 const CHECK_INTERVAL = 30_000
 

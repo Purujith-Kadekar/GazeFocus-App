@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
-import type { Note } from '@prisma/client'
+import type { Note } from '@/types'
 
 interface NotesPageClientProps {
   initialNotes: Note[]

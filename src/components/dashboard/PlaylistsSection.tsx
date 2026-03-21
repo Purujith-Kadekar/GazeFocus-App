@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { Playlist, Folder } from '@prisma/client'
+import type { Playlist, Folder } from '@/types'
 
 type PlaylistWithFolder = Playlist & { folderId: string | null }
 

@@ -20,24 +20,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const playlistMark = await db.playlistMark.upsert({
-      where: {
-        userId_youtubeId: {
-          userId,
-          youtubeId: playlistId,
-        },
-      },
-      update: {
+    const existingResult = await db.from('PlaylistMark').select('id').eq('userId', userId).eq('youtubeId', playlistId).maybeSingle()
+
+    let playlistMark
+    if (existingResult.data) {
+      const updateResult = await db.from('PlaylistMark').update({
         finished: completed ?? true,
-        finishedAt: completed ? new Date() : undefined,
-      },
-      create: {
+        finishedAt: completed ? new Date().toISOString() : null,
+      }).eq('id', existingResult.data.id).select().single()
+      playlistMark = updateResult.data
+    } else {
+      const insertResult = await db.from('PlaylistMark').insert({
         userId,
         youtubeId: playlistId,
         finished: completed ?? true,
-        finishedAt: completed ? new Date() : undefined,
-      },
-    })
+        finishedAt: completed ? new Date().toISOString() : null,
+      }).select().single()
+      playlistMark = insertResult.data
+    }
 
     return NextResponse.json({ success: true, playlistMark })
   } catch (error) {
@@ -60,24 +60,15 @@ export async function GET(request: NextRequest) {
     const playlistId = searchParams.get('playlistId')
 
     if (playlistId) {
-      const mark = await db.playlistMark.findUnique({
-        where: {
-          userId_youtubeId: {
-            userId: user.id,
-            youtubeId: playlistId,
-          },
-        },
-      })
-      return NextResponse.json({ completed: mark?.finished || false })
+      const markResult = await db.from('PlaylistMark').select('finished').eq('userId', user.id).eq('youtubeId', playlistId).maybeSingle()
+      return NextResponse.json({ completed: markResult.data?.finished || false })
     }
 
-    const completedPlaylists = await db.playlistMark.findMany({
-      where: { userId: user.id, finished: true },
-      select: { youtubeId: true },
-    })
+    const completedResult = await db.from('PlaylistMark').select('youtubeId').eq('userId', user.id).eq('finished', true)
+    const completedPlaylists = completedResult.data || []
 
     return NextResponse.json({ 
-      completedPlaylists: completedPlaylists.map(p => p.youtubeId) 
+      completedPlaylists: completedPlaylists.map((p: any) => p.youtubeId) 
     })
   } catch (error) {
     console.error('Error fetching completed playlists:', error)

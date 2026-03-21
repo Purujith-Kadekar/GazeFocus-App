@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// GET /api/notes - Get all notes for the current user
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -15,14 +14,18 @@ export async function GET(request: NextRequest) {
     const youtubeId = searchParams.get('youtubeId')
     const importantOnly = searchParams.get('important')
 
-    const notes = await db.note.findMany({
-      where: {
-        userId,
-        ...(youtubeId && { youtubeId }),
-        ...(importantOnly === 'true' && { isImportant: true }),
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    let query = db.from('Note').select('*').eq('userId', userId)
+    
+    if (youtubeId) {
+      query = query.eq('youtubeId', youtubeId)
+    }
+    
+    if (importantOnly === 'true') {
+      query = query.eq('isImportant', true)
+    }
+    
+    const notesResult = await query.order('createdAt', { ascending: false })
+    const notes = notesResult.data || []
 
     return NextResponse.json(notes)
   } catch (error) {
@@ -34,7 +37,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/notes - Create a new note
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -53,17 +55,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const note = await db.note.create({
-      data: {
-        content,
-        timestampSeconds: timestamp || 0,
-        isImportant: isImportant || false,
-        youtubeId,
-        userId,
-      },
-    })
+    const noteResult = await db.from('Note').insert({
+      content,
+      timestampSeconds: timestamp || 0,
+      isImportant: isImportant || false,
+      youtubeId,
+      userId,
+    }).select().single()
 
-    return NextResponse.json(note, { status: 201 })
+    return NextResponse.json(noteResult.data, { status: 201 })
   } catch (error) {
     console.error('Error creating note:', error)
     return NextResponse.json(

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { Video, Folder } from '@prisma/client'
+import type { Video, Folder } from '@/types'
 
 interface ContinueWatchingProps {
   videos: Video[]

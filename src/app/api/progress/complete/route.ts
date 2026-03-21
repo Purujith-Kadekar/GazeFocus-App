@@ -20,25 +20,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const progress = await db.videoProgress.upsert({
-      where: {
-        userId_youtubeId: {
-          userId,
-          youtubeId,
-        },
-      },
-      update: {
+    const existingResult = await db.from('VideoProgress').select('id').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
+
+    let progress
+    if (existingResult.data) {
+      const updateResult = await db.from('VideoProgress').update({
         completed: completed ?? true,
-        completedAt: completed ? new Date() : null,
-      },
-      create: {
+        completedAt: completed ? new Date().toISOString() : null,
+      }).eq('id', existingResult.data.id).select().single()
+      progress = updateResult.data
+    } else {
+      const insertResult = await db.from('VideoProgress').insert({
         userId,
         youtubeId,
         secondsWatched: 0,
         completed: completed ?? true,
-        completedAt: completed ? new Date() : null,
-      },
-    })
+        completedAt: completed ? new Date().toISOString() : null,
+      }).select().single()
+      progress = insertResult.data
+    }
 
     return NextResponse.json({ success: true, progress })
   } catch (error) {
@@ -57,13 +57,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const completedVideos = await db.videoProgress.findMany({
-      where: { userId: user.id, completed: true },
-      select: { youtubeId: true },
-    })
+    const completedResult = await db.from('VideoProgress').select('youtubeId').eq('userId', user.id).eq('completed', true)
+    const completedVideos = completedResult.data || []
 
     return NextResponse.json({ 
-      completedVideos: completedVideos.map(v => v.youtubeId) 
+      completedVideos: completedVideos.map((v: any) => v.youtubeId) 
     })
   } catch (error) {
     console.error('Error fetching completed videos:', error)

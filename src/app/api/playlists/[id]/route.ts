@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// GET /api/playlists/[id] - Get a specific playlist
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,10 +13,8 @@ export async function GET(
     }
 
     const { id } = await params
-    const playlist = await db.playlist.findUnique({
-      where: { id, userId: user.id },
-      include: { videos: true },
-    })
+    const playlistResult = await db.from('Playlist').select('*, videos:Video(*)').eq('id', id).eq('userId', user.id).single()
+    const playlist = playlistResult.data
 
     if (!playlist) {
       return NextResponse.json({ error: 'Playlist not found' }, { status: 404 })
@@ -33,7 +30,6 @@ export async function GET(
   }
 }
 
-// PUT /api/playlists/[id] - Update a playlist
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -48,16 +44,14 @@ export async function PUT(
     const body = await request.json()
     const { scheduledAt, title, description } = body
 
-    const playlist = await db.playlist.update({
-      where: { id, userId: user.id },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(description !== undefined && { description }),
-        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
-      },
-    })
+    const updateData: Record<string, any> = {}
+    if (title !== undefined) updateData.title = title
+    if (description !== undefined) updateData.description = description
+    if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt).toISOString() : null
 
-    return NextResponse.json(playlist)
+    const playlistResult = await db.from('Playlist').update(updateData).eq('id', id).eq('userId', user.id).select().single()
+
+    return NextResponse.json(playlistResult.data)
   } catch (error) {
     console.error('Error updating playlist:', error)
     return NextResponse.json(
@@ -67,7 +61,6 @@ export async function PUT(
   }
 }
 
-// DELETE /api/playlists/[id] - Delete a playlist
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -81,25 +74,16 @@ export async function DELETE(
     const { id } = await params
     console.log('[DELETE /api/playlists] Deleting playlist:', id)
 
-    // First, delete all videos in the playlist
     console.log('[DELETE /api/playlists] Deleting videos...')
-    await db.video.deleteMany({
-      where: { playlistId: id },
-    })
+    await db.from('Video').delete().eq('playlistId', id)
     console.log('[DELETE /api/playlists] Videos deleted')
 
-    // Delete library items pointing to this playlist
     console.log('[DELETE /api/playlists] Deleting library items...')
-    await db.libraryItem.deleteMany({
-      where: { externalId: id, type: 'PLAYLIST', userId: user.id },
-    })
+    await db.from('LibraryItem').delete().eq('externalId', id).eq('type', 'PLAYLIST').eq('userId', user.id)
     console.log('[DELETE /api/playlists] Library items deleted')
 
-    // Delete the playlist
     console.log('[DELETE /api/playlists] Deleting playlist...')
-    await db.playlist.delete({
-      where: { id, userId: user.id },
-    })
+    await db.from('Playlist').delete().eq('id', id).eq('userId', user.id)
     console.log('[DELETE /api/playlists] Playlist deleted')
 
     return NextResponse.json({ success: true })

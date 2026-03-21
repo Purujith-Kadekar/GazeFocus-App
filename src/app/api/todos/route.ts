@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
-import { TodoType } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,12 +9,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const todos = await db.todo.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    })
+    const { data: todos } = await db.from('Todo').select('*').eq('userId', user.id).order('createdAt', { ascending: false })
 
-    return NextResponse.json(todos)
+    return NextResponse.json(todos || [])
   } catch (error) {
     console.error('Error fetching todos:', error)
     return NextResponse.json({ error: 'Failed to fetch todos' }, { status: 500 })
@@ -45,21 +41,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid reminder date' }, { status: 400 })
     }
 
-    // Use raw query to bypass client-side validation since prisma generate is failing on Windows
-    const textTrimmed = text.trim()
-    const todoType = (type as TodoType) || TodoType.TASK
+    const todoType = type || 'TASK'
     const reminderIso = parsedReminderAt ? parsedReminderAt.toISOString() : null
 
-    const { randomUUID } = await import('crypto')
-    const todoId = randomUUID()
+    const { data: todo, error } = await db.from('Todo').insert({
+      id: crypto.randomUUID(),
+      text: text.trim(),
+      userId: user.id,
+      type: todoType,
+      completed: false,
+      reminderAt: reminderIso,
+    }).select().single()
 
-    await db.$executeRaw`
-      INSERT INTO "Todo" (id, text, "userId", type, "reminderAt", "updatedAt")
-      VALUES (${todoId}, ${textTrimmed}, ${user.id}, ${todoType}::"TodoType", ${reminderIso}::timestamp, NOW())`
-
-    const todo = await db.todo.findUnique({
-      where: { id: todoId }
-    })
+    if (error) throw error
 
     return NextResponse.json(todo, { status: 201 })
   } catch (error) {

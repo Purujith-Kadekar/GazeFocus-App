@@ -84,11 +84,24 @@ export const authOptions: NextAuthOptions = {
   adapter: isBuildTime ? undefined : PrismaAdapter(db),
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: '/auth/login',
     newUser: '/auth/signup',
     error: '/auth/login',
+  },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      },
+    },
   },
   providers: [
     GoogleProvider({
@@ -103,40 +116,50 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Email and password are required')
+          return null
         }
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email },
-        })
+        try {
+          const user = await db.user.findUnique({
+            where: { email: credentials.email },
+          })
 
-        if (!user || !user.passwordHash) {
-          throw new Error('Invalid email or password')
-        }
+          if (!user || !user.passwordHash) {
+            return null
+          }
 
-        const isValid = await verifyPassword(credentials.password, user.passwordHash)
+          const isValid = await verifyPassword(credentials.password, user.passwordHash)
 
-        if (!isValid) {
-          throw new Error('Invalid email or password')
-        }
+          if (!isValid) {
+            return null
+          }
 
-        if (user.isBlocked) {
-          throw new Error('Your account has been blocked')
-        }
+          if (user.isBlocked) {
+            return null
+          }
 
-        return {
-          id: user.id,
-          email: user.email as string,
-          name: user.name,
-          image: user.image,
+          return {
+            id: user.id,
+            email: user.email as string,
+            name: user.name,
+            image: user.image,
+          }
+        } catch (error) {
+          console.error('Auth error:', error)
+          return null
         }
       },
     }),
   ],
   callbacks: {
     async redirect({ url, baseUrl }) {
+      console.log('Redirect callback:', { url, baseUrl })
       // Always redirect to /dashboard after sign in
       if (url === baseUrl || url === `${baseUrl}/`) {
+        return `${baseUrl}/dashboard`
+      }
+      // If the URL contains the callback path, make sure it goes to dashboard
+      if (url.includes('callback') || url === baseUrl + '/') {
         return `${baseUrl}/dashboard`
       }
       return url

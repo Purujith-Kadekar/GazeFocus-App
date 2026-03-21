@@ -70,7 +70,7 @@ cd GazeFocus-App
 bun install
 
 # set up environment
-cp .env.example .env.local
+cp .env .env.local
 # fill in the values (see below)
 
 # push the schema and run

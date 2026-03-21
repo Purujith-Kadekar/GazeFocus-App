@@ -19,13 +19,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password must be between 8 and 128 characters' }, { status: 400 })
     }
 
-    // Check if signups are disabled
     const { data: siteSettings } = await db.from('SiteSettings').select('signupEnabled').eq('id', 'global').maybeSingle()
     if (siteSettings && !siteSettings.signupEnabled) {
       return NextResponse.json({ error: 'Signups are currently disabled' }, { status: 403 })
     }
 
-    // Check if user already exists
     const { data: existingUser } = await db.from('User').select('id').eq('email', email).maybeSingle()
     if (existingUser) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 })
@@ -34,15 +32,17 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(password)
 
     const { data: user, error } = await db.from('User').insert({
+      id: crypto.randomUUID(),
       name: name || email.split('@')[0],
       email,
       passwordHash,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }).select('id, name, email, image, createdAt').single()
 
     if (error) throw error
 
-    // Create default user settings
-    await db.from('UserSettings').insert({ userId: user.id })
+    await db.from('UserSettings').insert({ id: crypto.randomUUID(), userId: user.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
 
     return NextResponse.json({
       id: user.id, name: user.name, email: user.email,

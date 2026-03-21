@@ -1,39 +1,9 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { SupabaseAdapter } from '@auth/supabase-adapter'
 import { db } from './db'
 import bcrypt from 'bcryptjs'
 
-const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
-
-async function refreshAccessToken(token: any) {
-  try {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.AUTH_GOOGLE_ID!,
-        client_secret: process.env.AUTH_GOOGLE_SECRET!,
-        grant_type: "refresh_token",
-        refresh_token: token.refreshToken,
-      }),
-    });
-
-    const refreshed = await response.json();
-
-    if (!response.ok) throw refreshed;
-
-    return {
-      ...token,
-      accessToken: refreshed.access_token,
-      expiresAt: Math.floor(Date.now() / 1000) + refreshed.expires_in,
-      refreshToken: refreshed.refresh_token ?? token.refreshToken,
-    };
-  } catch (error) {
-    return { ...token, error: "RefreshAccessTokenError" };
-  }
-}
 
 async function updateUserStreak(userId: string) {
   try {
@@ -105,10 +75,7 @@ export const verifyPassword = async (password: string, hashedPassword: string): 
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: isBuildTime ? undefined : SupabaseAdapter({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  }) as any,
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60,
@@ -164,29 +131,17 @@ export const authOptions: NextAuthOptions = {
         extendedToken.id = user.id
       }
 
-      if (account && account.provider === "google") {
-        return {
-          ...token,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          expiresAt: account.expires_at,
-        }
-      }
-
       if (trigger === 'signIn' || extendedToken.currentStreak === undefined) {
-        const streakData = await updateUserStreak(extendedToken.id as string)
-        if (streakData) {
-          extendedToken.currentStreak = streakData.currentStreak ?? 0
-          extendedToken.longestStreak = streakData.longestStreak ?? 0
+        if (extendedToken.id) {
+          const streakData = await updateUserStreak(extendedToken.id as string)
+          if (streakData) {
+            extendedToken.currentStreak = streakData.currentStreak ?? 0
+            extendedToken.longestStreak = streakData.longestStreak ?? 0
+          }
         }
       }
 
-      if (!extendedToken.accessToken || !extendedToken.expiresAt) return extendedToken
-
-      const expiresAt = extendedToken.expiresAt as number
-      if (Date.now() / 1000 < expiresAt - 60) return extendedToken
-
-      return refreshAccessToken(extendedToken)
+      return extendedToken
     },
     async session({ session, token }) {
       const extendedToken = token as any
@@ -211,7 +166,6 @@ export const authOptions: NextAuthOptions = {
         } catch {}
       }
 
-      if (extendedToken.accessToken) extSession.accessToken = extendedToken.accessToken
       if (extendedToken.error) extSession.error = extendedToken.error
 
       return extSession

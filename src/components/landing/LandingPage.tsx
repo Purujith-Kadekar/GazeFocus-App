@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   motion,
   useScroll,
@@ -186,6 +187,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 /* ── Main page ── */
 export default function LandingPage() {
+  const router = useRouter()
   const heroRef = useRef<HTMLDivElement>(null)
   const featuresRef = useRef<HTMLDivElement>(null)
   const howItWorksRef = useRef<HTMLDivElement>(null)
@@ -313,21 +315,19 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.6 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/auth/signup">
-              <motion.button className="group flex items-center gap-3"
-                style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.07em', textTransform: 'uppercase', background: '#D4870A', color: '#0C0A07', padding: '14px 32px', fontWeight: 500 }}
-                whileHover={{ background: '#F0A022' }} whileTap={{ scale: 0.97 }}>
-                Start Learning Free
-                <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-              </motion.button>
-            </Link>
-            <Link href="/auth/login">
-              <motion.button className="flex items-center gap-3"
-                style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.07em', textTransform: 'uppercase', border: '1px solid rgba(212,135,10,0.5)', color: '#DDD0B8', padding: '14px 32px', background: 'transparent' }}
-                whileHover={{ borderColor: 'rgba(212,135,10,0.5)', color: '#D4870A' }} whileTap={{ scale: 0.97 }}>
-                <Play size={12} /> Sign In
-              </motion.button>
-            </Link>
+            <button
+              onClick={() => router.push('/auth/signup')}
+              className="group flex items-center gap-3 cursor-pointer"
+              style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.07em', textTransform: 'uppercase', background: '#D4870A', color: '#0C0A07', padding: '14px 32px', fontWeight: 500, border: 'none' }}>
+              Start Learning Free
+              <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button
+              onClick={() => router.push('/auth/login')}
+              className="flex items-center gap-3 cursor-pointer"
+              style={{ fontFamily: 'Fira Mono, monospace', fontSize: '14px', letterSpacing: '0.07em', textTransform: 'uppercase', border: '1px solid rgba(212,135,10,0.5)', color: '#DDD0B8', padding: '14px 32px', background: 'transparent' }}>
+              <Play size={12} /> Sign In
+            </button>
           </motion.div>
 
           {/* Privacy footnote */}

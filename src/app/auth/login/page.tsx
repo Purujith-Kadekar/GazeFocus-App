@@ -53,21 +53,32 @@ export default function LoginPage() {
         redirect: false,
       })
 
-      if (result?.error) {
-        setError('Invalid email or password')
-      } else {
-        router.push('/dashboard')
-        router.refresh()
+      // Handle different response scenarios
+      if (!result) {
+        setError('Login failed. Please try again.')
+        setIsLoading(false)
+        return
       }
+
+      if (result.error) {
+        setError('Invalid email or password')
+        setIsLoading(false)
+        return
+      }
+
+      // Success - wait for session to be established
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      router.replace('/dashboard')
     } catch (err) {
+      console.error('Login error:', err)
       setError('Something went wrong')
-    } finally {
       setIsLoading(false)
     }
   }
 
   const handleGoogleLogin = () => {
-    signIn('google', { callbackUrl: '/dashboard' })
+    signIn('google', { callbackUrl: '/dashboard', redirect: true })
   }
 
   return (

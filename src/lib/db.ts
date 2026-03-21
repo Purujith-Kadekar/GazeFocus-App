@@ -5,11 +5,21 @@ const globalForSupabase = globalThis as unknown as {
   supabase: ReturnType<typeof createClient<Database>> | undefined
 }
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[DB] Missing Supabase env vars:', { 
+    hasUrl: !!supabaseUrl, 
+    hasKey: !!supabaseKey 
+  })
+}
+
 const _db =
   globalForSupabase.supabase ??
   createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    supabaseUrl!,
+    supabaseKey!,
     {
       auth: {
         autoRefreshToken: false,

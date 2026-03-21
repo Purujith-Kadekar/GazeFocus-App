@@ -17,10 +17,11 @@ export default async function FoldersPage() {
     redirect('/auth/login')
   }
 
-  const folders = await db.folder.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-  })
+  const { data: folders } = await db
+    .from('Folder')
+    .select('*')
+    .eq('userId', user.id)
+    .order('createdAt', { ascending: false })
 
-  return <FoldersPageClient initialFolders={folders} />
+  return <FoldersPageClient initialFolders={folders || []} />
 }

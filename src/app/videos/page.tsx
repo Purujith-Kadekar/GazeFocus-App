@@ -17,19 +17,10 @@ export default async function VideosPage() {
     redirect('/auth/login')
   }
 
-  const [videos, folders] = await Promise.all([
-    db.video.findMany({
-      where: { userId: user.id, playlistId: null },
-      include: {
-        playlist: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    db.folder.findMany({
-      where: { userId: user.id },
-      orderBy: { title: 'asc' },
-    }),
+  const [{ data: videos }, { data: folders }] = await Promise.all([
+    db.from('Video').select('*, playlist(*)').eq('userId', user.id).is('playlistId', null).order('createdAt', { ascending: false }),
+    db.from('Folder').select('*').eq('userId', user.id).order('title', { ascending: true }),
   ])
 
-  return <VideosPageClient initialVideos={videos} initialFolders={folders} />
+  return <VideosPageClient initialVideos={videos || []} initialFolders={folders || []} />
 }

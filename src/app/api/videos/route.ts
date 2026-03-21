@@ -87,9 +87,9 @@ export async function GET(request: NextRequest) {
     const youtubeId = searchParams.get('youtubeId')
     const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
 
-    let query = db.from('Video').select('*, playlist(*)').eq('userId', userId)
+    let query = db.from('Video').select('*').eq('userId', userId)
 
-    if (playlistId !== null && playlistId !== undefined) {
+    if (playlistId !== null && playlistId !== undefined && playlistId !== '') {
       query = query.eq('playlistId', playlistId)
     } else if (standaloneOnly && !youtubeId) {
       query = query.is('playlistId', null)
@@ -103,7 +103,20 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching videos:', error)
-      return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch videos', details: error.message }, { status: 500 })
+    }
+
+    if (videos && videos.length > 0 && !standaloneOnly) {
+      const playlistIds = videos.map(v => v.playlistId).filter((id): id is string => id !== null)
+      if (playlistIds.length > 0) {
+        const { data: playlists } = await db.from('Playlist').select('*').in('id', playlistIds)
+        const playlistMap = new Map(playlists?.map(p => [p.id, p]) || [])
+        const enrichedVideos = videos.map(v => ({
+          ...v,
+          playlist: v.playlistId ? playlistMap.get(v.playlistId) : null
+        }))
+        return NextResponse.json(enrichedVideos)
+      }
     }
 
     return NextResponse.json(videos || [])

@@ -17,16 +17,10 @@ export default async function PlaylistsPage() {
     redirect('/auth/login')
   }
 
-  const [playlists, folders] = await Promise.all([
-    db.playlist.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    }),
-    db.folder.findMany({
-      where: { userId: user.id },
-      orderBy: { title: 'asc' },
-    }),
+  const [{ data: playlists }, { data: folders }] = await Promise.all([
+    db.from('Playlist').select('*').eq('userId', user.id).order('createdAt', { ascending: false }),
+    db.from('Folder').select('*').eq('userId', user.id).order('title', { ascending: true }),
   ])
 
-  return <PlaylistsPageClient initialPlaylists={playlists} initialFolders={folders} />
+  return <PlaylistsPageClient initialPlaylists={playlists || []} initialFolders={folders || []} />
 }

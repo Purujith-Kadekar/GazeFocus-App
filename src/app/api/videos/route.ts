@@ -74,7 +74,6 @@ function parseDuration(isoDuration: string): number {
   return hours * 3600 + minutes * 60 + seconds
 }
 
-// GET /api/videos - Get all videos or filter by youtubeId/playlistId
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -88,44 +87,32 @@ export async function GET(request: NextRequest) {
     const youtubeId = searchParams.get('youtubeId')
     const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
 
-    // Build the where clause
-    const where: any = { userId }
+    let query = db.from('Video').select('*, playlist(*)').eq('userId', userId)
 
-    // If playlistId is explicitly requested in query, use it
     if (playlistId !== null && playlistId !== undefined) {
-      where.playlistId = playlistId
+      query = query.eq('playlistId', playlistId)
     } else if (standaloneOnly && !youtubeId) {
-      // Explicit standalone-only mode for dashboard use
-      where.playlistId = null
+      query = query.is('playlistId', null)
     }
 
-    // If youtubeId is specified, add it to the filter
     if (youtubeId) {
-      where.youtubeId = youtubeId
+      query = query.eq('youtubeId', youtubeId)
     }
 
-    const videos = await db.video.findMany({
-      where,
-      include: {
-        playlist: true,
-      },
-      orderBy: [
-        { position: 'asc' },
-        { createdAt: 'asc' },
-      ],
-    })
+    const { data: videos, error } = await query.order('position', { ascending: true }).order('createdAt', { ascending: true })
 
-    return NextResponse.json(videos)
+    if (error) {
+      console.error('Error fetching videos:', error)
+      return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 })
+    }
+
+    return NextResponse.json(videos || [])
   } catch (error) {
     console.error('Error fetching videos:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch videos' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 })
   }
 }
 
-// POST /api/videos - Add a new video
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -138,85 +125,69 @@ export async function POST(request: NextRequest) {
     const { youtubeId, folderId, title, description, thumbnail, channelId, channelName } = body
 
     if (!youtubeId) {
-      return NextResponse.json(
-        { error: 'YouTube ID is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'YouTube ID is required' }, { status: 400 })
     }
 
-    // Validate YouTube video ID format (11 alphanumeric/-/_ characters)
     const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/
     if (!YOUTUBE_ID_RE.test(youtubeId)) {
-      return NextResponse.json(
-        { error: 'Invalid YouTube ID' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid YouTube ID' }, { status: 400 })
     }
 
-    // Check if video already exists for this user
-    const existing = await db.video.findFirst({
-      where: { youtubeId, userId },
-    })
+    const { data: existing } = await db.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).single()
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'This video already exists in your library' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'This video already exists in your library' }, { status: 400 })
     }
 
-    // Fetch additional details from YouTube if API key is available
     let videoData: YouTubeVideoDetails | null = null
     if (YOUTUBE_API_KEY) {
       videoData = await fetchYouTubeVideoDetails(youtubeId)
     }
 
-    // Use fetched data or fall back to provided/manual data
     const finalTitle = title || videoData?.title || 'YouTube Video'
     const finalDescription = description || videoData?.description || ''
     const finalThumbnail = thumbnail || videoData?.thumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
     const finalDuration = videoData?.duration ?? 0
 
-    const video = await db.video.create({
-      data: {
-        youtubeId,
-        title: finalTitle,
-        description: finalDescription,
-        thumbnail: finalThumbnail,
-        duration: finalDuration,
-        playlistId: null,
-        userId,
-        position: 0,
-      },
-    })
+    const videoId = `video-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    const now = new Date().toISOString()
 
-    await db.libraryItem.upsert({
-      where: {
-        userId_type_externalId: {
-          userId,
-          type: 'VIDEO',
-          externalId: youtubeId,
-        },
-      },
-      update: {
-        title: finalTitle,
-        folderId: folderId || null,
-      },
-      create: {
-        userId,
-        type: 'VIDEO',
-        externalId: youtubeId,
-        title: finalTitle,
-        folderId: folderId || null,
-      },
+    const { data: video, error: videoError } = await db.from('Video').insert({
+      id: videoId,
+      youtubeId,
+      title: finalTitle,
+      description: finalDescription,
+      thumbnail: finalThumbnail,
+      duration: finalDuration,
+      playlistId: null,
+      userId,
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+    }).select().single()
+
+    if (videoError) {
+      console.error('Error creating video:', videoError)
+      return NextResponse.json({ error: 'Failed to create video' }, { status: 500 })
+    }
+
+    const libraryItemId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    await db.from('LibraryItem').upsert({
+      id: libraryItemId,
+      userId,
+      type: 'VIDEO',
+      externalId: youtubeId,
+      title: finalTitle,
+      folderId: folderId || null,
+      createdAt: now,
+      updatedAt: now,
+    }, {
+      onConflict: 'userId,type,externalId',
     })
 
     return NextResponse.json(video, { status: 201 })
   } catch (error) {
     console.error('Error creating video:', error)
-    return NextResponse.json(
-      { error: 'Failed to create video' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create video' }, { status: 500 })
   }
 }

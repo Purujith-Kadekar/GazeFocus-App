@@ -17,10 +17,11 @@ export default async function NotesPage() {
     redirect('/auth/login')
   }
 
-  const notes = await db.note.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-  })
+  const { data: notes } = await db
+    .from('Note')
+    .select('*')
+    .eq('userId', user.id)
+    .order('createdAt', { ascending: false })
 
-  return <NotesPageClient initialNotes={notes} />
+  return <NotesPageClient initialNotes={notes || []} />
 }

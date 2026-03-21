@@ -13,29 +13,29 @@ export async function GET(
     }
 
     const { id } = await params
-    const video = await db.video.findFirst({
-      where: { id, userId: user.id },
-      include: {
-        playlist: true,
-      },
-    })
 
-    if (!video) {
+    const { data: video, error } = await db
+      .from('Video')
+      .select('*, playlist(*)')
+      .eq('id', id)
+      .eq('userId', user.id)
+      .single()
+
+    if (error || !video) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 })
     }
 
-    const notes = await db.note.findMany({
-      where: { youtubeId: video.youtubeId, userId: user.id },
-      orderBy: { timestampSeconds: 'asc' },
-    })
+    const { data: notes } = await db
+      .from('Note')
+      .select('*')
+      .eq('youtubeId', video.youtubeId)
+      .eq('userId', user.id)
+      .order('timestampSeconds', { ascending: true })
 
-    return NextResponse.json({ ...video, notes })
+    return NextResponse.json({ ...video, notes: notes || [] })
   } catch (error) {
     console.error('Error fetching video:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch video' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch video' }, { status: 500 })
   }
 }
 
@@ -53,22 +53,29 @@ export async function PUT(
     const body = await request.json()
     const { lastPosition, duration, scheduledAt } = body
 
-    const video = await db.video.update({
-      where: { id, userId: user.id },
-      data: {
-        ...(lastPosition !== undefined && { position: lastPosition }),
-        ...(duration !== undefined && { duration }),
-        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
-      },
-    })
+    const updateData: Record<string, any> = {}
+    if (lastPosition !== undefined) updateData.position = lastPosition
+    if (duration !== undefined) updateData.duration = duration
+    if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt).toISOString() : null
+    updateData.updatedAt = new Date().toISOString()
+
+    const { data: video, error } = await db
+      .from('Video')
+      .update(updateData)
+      .eq('id', id)
+      .eq('userId', user.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating video:', error)
+      return NextResponse.json({ error: 'Failed to update video' }, { status: 500 })
+    }
 
     return NextResponse.json(video)
   } catch (error) {
     console.error('Error updating video:', error)
-    return NextResponse.json(
-      { error: 'Failed to update video' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update video' }, { status: 500 })
   }
 }
 
@@ -84,38 +91,21 @@ export async function DELETE(
 
     const { id } = await params
 
-    const video = await db.video.findUnique({
-      where: { id },
-    })
+    const { data: video } = await db.from('Video').select('id, youtubeId').eq('id', id).single()
 
     if (!video) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 })
     }
 
-    await db.note.deleteMany({
-      where: { youtubeId: video.youtubeId, userId: user.id },
-    })
+    await db.from('Note').delete().eq('youtubeId', video.youtubeId).eq('userId', user.id)
 
-    await db.libraryItem.deleteMany({
-      where: {
-        type: 'VIDEO',
-        userId: user.id,
-        externalId: {
-          in: [video.youtubeId, video.id],
-        },
-      },
-    })
+    await db.from('LibraryItem').delete().eq('type', 'VIDEO').eq('userId', user.id).or(`externalId.eq.${video.youtubeId},externalId.eq.${video.id}`)
 
-    await db.video.delete({
-      where: { id, userId: user.id },
-    })
+    await db.from('Video').delete().eq('id', id).eq('userId', user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting video:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete video' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to delete video' }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { TodoType } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,9 +10,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const todos = await db.from('Todo').select('*').eq('userId', user.id).order('createdAt', { ascending: false })
+    const todos = await db.todo.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    })
 
-    return NextResponse.json(todos.data || [])
+    return NextResponse.json(todos)
   } catch (error) {
     console.error('Error fetching todos:', error)
     return NextResponse.json({ error: 'Failed to fetch todos' }, { status: 500 })
@@ -41,16 +45,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid reminder date' }, { status: 400 })
     }
 
-    const todoType = type || 'TASK'
+    // Use raw query to bypass client-side validation since prisma generate is failing on Windows
+    const textTrimmed = text.trim()
+    const todoType = (type as TodoType) || TodoType.TASK
+    const reminderIso = parsedReminderAt ? parsedReminderAt.toISOString() : null
 
-    const { data: todo, error } = await db.from('Todo').insert({
-      text: text.trim(),
-      userId: user.id,
-      type: todoType,
-      reminderAt: parsedReminderAt ? parsedReminderAt.toISOString() : null,
-    }).select().single()
+    const { randomUUID } = await import('crypto')
+    const todoId = randomUUID()
 
-    if (error) throw error
+    await db.$executeRaw`
+      INSERT INTO "Todo" (id, text, "userId", type, "reminderAt", "updatedAt")
+      VALUES (${todoId}, ${textTrimmed}, ${user.id}, ${todoType}::"TodoType", ${reminderIso}::timestamp, NOW())`
+
+    const todo = await db.todo.findUnique({
+      where: { id: todoId }
+    })
 
     return NextResponse.json(todo, { status: 201 })
   } catch (error) {

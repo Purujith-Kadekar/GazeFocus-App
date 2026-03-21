@@ -13,7 +13,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { FolderCard } from '@/components/folders/FolderCard'
 import { useUIStore } from '@/store/useStore'
-import type { Folder } from '@/types'
+import type { Folder } from '@prisma/client'
 
 interface RecentFoldersProps {
   folders: (Folder & { _count?: { playlists: number } })[]

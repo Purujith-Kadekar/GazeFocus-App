@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Folder } from '@/types'
+import type { Folder } from '@prisma/client'
 
 interface FoldersPageClientProps {
   initialFolders: Folder[]
@@ -56,8 +56,8 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
         {folders.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {folders.map((folder) => (
-              <Card
-                key={folder.id}
+              <Card 
+                key={folder.id} 
                 className="hover:shadow-md transition-shadow cursor-pointer min-h-[140px] flex flex-col"
                 onClick={() => router.push(`/folders/${folder.id}`)}
               >
@@ -69,16 +69,16 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
                           onClick={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
+                        <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation()
                             handleDeleteFolder(folder.id)

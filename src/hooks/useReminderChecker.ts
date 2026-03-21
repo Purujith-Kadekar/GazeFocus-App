@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { isPast } from 'date-fns'
 import { useTodoStore } from '@/store/useStore'
-import type { Todo } from '@/types'
+import type { Todo } from '@prisma/client'
 
 const CHECK_INTERVAL = 30_000
 
@@ -20,7 +20,7 @@ export function useReminderChecker() {
       if (!todo.reminderAt || todo.completed || shownRef.current.has(todo.id)) {
         continue
       }
-
+      
       const reminderTime = new Date(todo.reminderAt)
       if (isPast(reminderTime)) {
         newlyDue.push(todo)

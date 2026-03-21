@@ -2,56 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
-// GET /api/videos - Get all videos or filter by youtubeId/playlistId
-export async function GET(request: NextRequest) {
-  try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = user.id
-    const { searchParams } = new URL(request.url)
-    const playlistId = searchParams.get('playlistId')
-    const youtubeId = searchParams.get('youtubeId')
-    const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
-
-    let query = db.from('Video').select('*, Playlist(*)')
-    query = query.eq('userId', userId)
-
-    if (playlistId !== null && playlistId !== undefined) {
-      query = query.eq('playlistId', playlistId)
-    } else if (standaloneOnly && !youtubeId) {
-      query = query.is('playlistId', null)
-    }
-
-    if (youtubeId) {
-      query = query.eq('youtubeId', youtubeId)
-    }
-
-    query = query.order('position', { ascending: true }).order('createdAt', { ascending: true })
-
-    const { data: videos, error } = await query
-
-    if (error) throw error
-
-    // Map the relation name from Supabase format
-    const mappedVideos = (videos || []).map((v: any) => ({
-      ...v,
-      playlist: v.Playlist || null,
-      Playlist: undefined,
-    }))
-
-    return NextResponse.json(mappedVideos)
-  } catch (error) {
-    console.error('Error fetching videos:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch videos' },
-      { status: 500 }
-    )
-  }
-}
-
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
@@ -74,7 +24,24 @@ async function fetchYouTubeVideoDetails(videoId: string): Promise<YouTubeVideoDe
     const response = await fetch(
       `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`
     )
-    const data = await response.json() as any
+    const data = await response.json() as {
+      items?: {
+        snippet: {
+          title: string;
+          description: string;
+          thumbnails: {
+            maxres?: { url: string };
+            medium?: { url: string };
+          };
+          channelId: string;
+          channelTitle: string;
+        };
+        contentDetails: {
+          duration: string;
+        };
+      }[];
+      error?: any;
+    }
 
     if (data.error) {
       console.error('Error fetching YouTube video details:', data.error)
@@ -107,6 +74,57 @@ function parseDuration(isoDuration: string): number {
   return hours * 3600 + minutes * 60 + seconds
 }
 
+// GET /api/videos - Get all videos or filter by youtubeId/playlistId
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const userId = user.id
+    const { searchParams } = new URL(request.url)
+    const playlistId = searchParams.get('playlistId')
+    const youtubeId = searchParams.get('youtubeId')
+    const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
+
+    // Build the where clause
+    const where: any = { userId }
+
+    // If playlistId is explicitly requested in query, use it
+    if (playlistId !== null && playlistId !== undefined) {
+      where.playlistId = playlistId
+    } else if (standaloneOnly && !youtubeId) {
+      // Explicit standalone-only mode for dashboard use
+      where.playlistId = null
+    }
+
+    // If youtubeId is specified, add it to the filter
+    if (youtubeId) {
+      where.youtubeId = youtubeId
+    }
+
+    const videos = await db.video.findMany({
+      where,
+      include: {
+        playlist: true,
+      },
+      orderBy: [
+        { position: 'asc' },
+        { createdAt: 'asc' },
+      ],
+    })
+
+    return NextResponse.json(videos)
+  } catch (error) {
+    console.error('Error fetching videos:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch videos' },
+      { status: 500 }
+    )
+  }
+}
+
 // POST /api/videos - Add a new video
 export async function POST(request: NextRequest) {
   try {
@@ -136,7 +154,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if video already exists for this user
-    const { data: existing } = await db.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).limit(1).maybeSingle()
+    const existing = await db.video.findFirst({
+      where: { youtubeId, userId },
+    })
 
     if (existing) {
       return NextResponse.json(
@@ -157,27 +177,39 @@ export async function POST(request: NextRequest) {
     const finalThumbnail = thumbnail || videoData?.thumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
     const finalDuration = videoData?.duration ?? 0
 
-    const { data: video, error } = await db.from('Video').insert({
-      youtubeId,
-      title: finalTitle,
-      description: finalDescription,
-      thumbnail: finalThumbnail,
-      duration: finalDuration,
-      playlistId: null,
-      userId,
-      position: 0,
-    }).select().single()
+    const video = await db.video.create({
+      data: {
+        youtubeId,
+        title: finalTitle,
+        description: finalDescription,
+        thumbnail: finalThumbnail,
+        duration: finalDuration,
+        playlistId: null,
+        userId,
+        position: 0,
+      },
+    })
 
-    if (error) throw error
-
-    // Create/update libraryItem entry for video
-    await db.from('LibraryItem').upsert({
-      userId,
-      type: 'VIDEO',
-      externalId: youtubeId,
-      title: finalTitle,
-      folderId: folderId || null,
-    }, { onConflict: 'userId,type,externalId' }).select()
+    await db.libraryItem.upsert({
+      where: {
+        userId_type_externalId: {
+          userId,
+          type: 'VIDEO',
+          externalId: youtubeId,
+        },
+      },
+      update: {
+        title: finalTitle,
+        folderId: folderId || null,
+      },
+      create: {
+        userId,
+        type: 'VIDEO',
+        externalId: youtubeId,
+        title: finalTitle,
+        folderId: folderId || null,
+      },
+    })
 
     return NextResponse.json(video, { status: 201 })
   } catch (error) {

@@ -22,19 +22,19 @@ export async function PUT(
     }
 
     // Verify the note belongs to this user
-    const { data: existing } = await db.from('Note').select('id').eq('id', id).eq('userId', user.id).single()
+    const existing = await db.note.findFirst({ where: { id, userId: user.id } })
     if (!existing) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
 
-    const updateData: any = {}
-    if (content !== undefined) updateData.content = content
-    if (isImportant !== undefined) updateData.isImportant = isImportant
-    if (timestamp !== undefined) updateData.timestampSeconds = timestamp
-
-    const { data: note, error } = await db.from('Note').update(updateData).eq('id', id).select().single()
-
-    if (error) throw error
+    const note = await db.note.update({
+      where: { id },
+      data: {
+        ...(content !== undefined && { content }),
+        ...(isImportant !== undefined && { isImportant }),
+        ...(timestamp !== undefined && { timestampSeconds: timestamp }),
+      },
+    })
 
     return NextResponse.json(note)
   } catch (error) {
@@ -60,12 +60,14 @@ export async function DELETE(
     const { id } = await params
 
     // Verify the note belongs to this user
-    const { data: existing } = await db.from('Note').select('id').eq('id', id).eq('userId', user.id).single()
+    const existing = await db.note.findFirst({ where: { id, userId: user.id } })
     if (!existing) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
 
-    await db.from('Note').delete().eq('id', id)
+    await db.note.delete({
+      where: { id },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

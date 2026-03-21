@@ -2,20 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAdminRequest } from '@/lib/admin-auth'
 
+// GET /api/admin/settings - Get site settings
 export async function GET(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const { data: settings } = await db.from('SiteSettings').select('*').eq('id', 'global').maybeSingle()
-
+    let settings = await db.siteSettings.findUnique({ where: { id: 'global' } })
     if (!settings) {
-      const { data: created, error } = await db.from('SiteSettings').insert({ id: 'global', signupEnabled: true }).select().single()
-      if (error) throw error
-      return NextResponse.json(created)
+      settings = await db.siteSettings.create({
+        data: { id: 'global', signupEnabled: true },
+      })
     }
-
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error fetching settings:', error)
@@ -23,6 +22,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// PATCH /api/admin/settings - Update site settings
 export async function PATCH(request: NextRequest) {
   if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,11 +31,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const { signupEnabled } = await request.json()
 
-    const { data: settings, error } = await db.from('SiteSettings').upsert({
-      id: 'global', signupEnabled,
-    }, { onConflict: 'id' }).select().single()
-
-    if (error) throw error
+    const settings = await db.siteSettings.upsert({
+      where: { id: 'global' },
+      update: { signupEnabled },
+      create: { id: 'global', signupEnabled },
+    })
 
     return NextResponse.json(settings)
   } catch (error) {

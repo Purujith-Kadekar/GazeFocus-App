@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { VideoPlayer } from '@/components/player/VideoPlayer'
 import { Button } from '@/components/ui/button'
-import type { Video, Playlist } from '@/types'
+import type { Video, Playlist } from '@prisma/client'
 
 interface VideoWithPlaylist extends Video {
   playlist?: Playlist | null
@@ -24,7 +24,7 @@ export default function PlaylistVideoPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
-
+  
   const playlistId = params.playlistId as string
   const videoId = params.videoId as string
 
@@ -37,7 +37,7 @@ export default function PlaylistVideoPage() {
   useEffect(() => {
     async function loadData() {
       if (!playlistId || !videoId || status !== 'authenticated') return
-
+      
       try {
         // Fetch playlist details
         const playlistRes = await fetch(`/api/playlists/${playlistId}`)
@@ -51,7 +51,7 @@ export default function PlaylistVideoPage() {
         if (videosRes.ok) {
           const videosData = await videosRes.json()
           setPlaylistVideos(videosData)
-
+          
           // Find current video index
           const idx = videosData.findIndex((v: Video) => v.youtubeId === videoId)
           if (idx !== -1) {
@@ -64,7 +64,7 @@ export default function PlaylistVideoPage() {
         const [progressRes] = await Promise.all([
           fetch(`/api/progress?youtubeId=${videoId}`)
         ])
-
+        
         if (progressRes.ok) {
           const progressData = await progressRes.json()
           if (progressData.progress) {
@@ -84,10 +84,10 @@ export default function PlaylistVideoPage() {
 
   const handleMarkComplete = async () => {
     if (!video) return
-
+    
     const newCompleted = !isCompleted
     setIsCompleted(newCompleted)
-
+    
     try {
       await fetch(`/api/videos/${video.id}`, {
         method: 'PUT',
@@ -153,14 +153,14 @@ export default function PlaylistVideoPage() {
       <div className="space-y-4">
         {/* Navigation Header */}
         <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
+          <Button 
+            variant="ghost" 
             onClick={() => router.push(`/playlist/${playlistId}`)}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to {playlist.title}
           </Button>
-
+          
           {/* Playlist Navigation */}
           <div className="flex items-center gap-2">
             <Button
@@ -184,7 +184,7 @@ export default function PlaylistVideoPage() {
             </Button>
           </div>
         </div>
-
+        
         <VideoPlayer
           videoId={video.youtubeId}
           title={video.title}

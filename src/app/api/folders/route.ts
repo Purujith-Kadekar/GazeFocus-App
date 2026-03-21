@@ -12,17 +12,28 @@ export async function GET() {
 
     const userId = user.id
 
-    const folders = await db.folder.findMany({
-      where: { userId },
-      include: {
-        _count: {
-          select: { items: true },
-        },
-      },
-      orderBy: { position: 'asc' },
-    })
+    const { data: folders, error } = await db.from('Folder').select('*').eq('userId', userId).order('position', { ascending: true })
 
-    return NextResponse.json(folders)
+    if (error) throw error
+
+    // Get item counts for each folder
+    const folderIds = (folders || []).map((f: any) => f.id)
+    let itemCounts: Record<string, number> = {}
+    if (folderIds.length > 0) {
+      const { data: items } = await db.from('LibraryItem').select('folderId').in('folderId', folderIds)
+      if (items) {
+        for (const item of items) {
+          itemCounts[item.folderId] = (itemCounts[item.folderId] || 0) + 1
+        }
+      }
+    }
+
+    const foldersWithCount = (folders || []).map((f: any) => ({
+      ...f,
+      _count: { items: itemCounts[f.id] || 0 },
+    }))
+
+    return NextResponse.json(foldersWithCount)
   } catch (error) {
     console.error('Error fetching folders:', error)
     return NextResponse.json(
@@ -51,19 +62,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const maxPosition = await db.folder.aggregate({
-      where: { userId },
-      _max: { position: true },
-    })
+    // Get max position
+    const { data: maxPosData } = await db.from('Folder').select('position').eq('userId', userId).order('position', { ascending: false }).limit(1).single()
+    const maxPosition = maxPosData?.position ?? -1
 
-    const folder = await db.folder.create({
-      data: {
-        title,
-        description,
-        userId,
-        position: (maxPosition._max.position ?? -1) + 1,
-      },
-    })
+    const { data: folder, error } = await db.from('Folder').insert({
+      title,
+      description,
+      userId,
+      position: maxPosition + 1,
+    }).select().single()
+
+    if (error) throw error
 
     return NextResponse.json(folder, { status: 201 })
   } catch (error) {
@@ -94,14 +104,10 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    await db.$transaction(
-      folderIds.map((id: string, index: number) =>
-        db.folder.update({
-          where: { id, userId },
-          data: { position: index },
-        })
-      )
-    )
+    // Update positions sequentially (Supabase doesn't support transactions)
+    for (let i = 0; i < folderIds.length; i++) {
+      await db.from('Folder').update({ position: i }).eq('id', folderIds[i]).eq('userId', userId)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

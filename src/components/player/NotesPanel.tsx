@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { 
-  Plus, 
-  Star, 
-  Trash2, 
-  Edit3, 
-  Clock, 
+import {
+  Plus,
+  Star,
+  Trash2,
+  Edit3,
+  Clock,
   ChevronDown,
   ChevronUp,
   FileText
@@ -19,15 +19,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { useNoteStore, usePlayerStore, useAuthStore } from '@/store/useStore'
 import { formatDuration, cn } from '@/lib/utils'
-import type { Note } from '@prisma/client'
+import type { Note } from '@/types'
 
 interface NotesPanelProps {
   videoId: string
@@ -48,8 +48,8 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
 
   const videoNotes = notes.filter((n) => n.youtubeId === videoId)
-  const filteredNotes = showImportantOnly 
-    ? videoNotes.filter((n) => n.isImportant) 
+  const filteredNotes = showImportantOnly
+    ? videoNotes.filter((n) => n.isImportant)
     : videoNotes
 
   const {

@@ -38,7 +38,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
 import { formatWatchTime } from '@/lib/utils'
-import type { Video, Note, Folder, Playlist } from '@prisma/client'
+import type { Video, Note, Folder, Playlist } from '@/types'
 
 type PlaylistWithFolder = Playlist & { folderId: string | null }
 
@@ -81,7 +81,7 @@ export function Dashboard() {
       fetch('/api/folders').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/videos?standaloneOnly=true').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/notes').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => {}),
+      fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => { }),
       fetch('/api/progress/complete').then(r => r?.ok ? r.json() : { completedVideos: [] }).catch(() => ({ completedVideos: [] })),
       fetch('/api/playlists').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/playlists/complete').then(r => r?.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
@@ -112,7 +112,7 @@ export function Dashboard() {
         streak: activityData?.streak ?? progress?.streak ?? 0,
         longestStreak: activityData?.longestStreak ?? progress?.longestStreak ?? 0,
       })
-    }).catch(() => {})
+    }).catch(() => { })
   }, [setFolders, setVideos, setNotes, setTodos, setRecentVideos, setRecentFolders, setImportantNotes, setStats])
 
   useEffect(() => {
@@ -274,8 +274,8 @@ export function Dashboard() {
       {/* Row 2: Videos + Notes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6">
         <div className="lg:col-span-2">
-          <ContinueWatching 
-            videos={videos} 
+          <ContinueWatching
+            videos={videos}
             folders={folders}
             completedVideos={completedVideos}
             onVideoClick={handleVideoClick}
@@ -303,7 +303,7 @@ export function Dashboard() {
                       className={`group p-2 rounded-lg border cursor-pointer ${note.isImportant ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/50'}`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p 
+                        <p
                           className="text-sm font-medium line-clamp-2 flex-1 text-foreground"
                           onClick={() => handleNoteClick(note)}
                         >
@@ -311,9 +311,9 @@ export function Dashboard() {
                         </p>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -321,7 +321,7 @@ export function Dashboard() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleToggleNoteImportant(note)
@@ -330,7 +330,7 @@ export function Dashboard() {
                               <Star className={`mr-2 h-4 w-4 ${note.isImportant ? 'fill-yellow-500 text-yellow-500' : ''}`} />
                               {note.isImportant ? 'Remove from important' : 'Mark as important'}
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation()
                                 router.push('/notes')
@@ -382,15 +382,15 @@ export function Dashboard() {
       </div>
 
       {/* Playlists Section */}
-      <PlaylistsSection 
+      <PlaylistsSection
         playlists={playlists}
         folders={folders}
         completedPlaylists={completedPlaylists}
         onPlaylistRemoved={() => {
           fetch('/api/folders').then(res => {
-            if (res.ok) res.json().then(setFolders).catch(() => {})
-          }).catch(() => {})
-      }} />
+            if (res.ok) res.json().then(setFolders).catch(() => { })
+          }).catch(() => { })
+        }} />
 
       {/* Folders */}
       <RecentFolders folders={folders} />

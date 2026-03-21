@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 import FolderDetailClient from './FolderDetailClient'
-import { LibraryItemType, Prisma } from '@prisma/client'
 
 interface FolderItemWithDetails {
   id: string
@@ -13,7 +12,7 @@ interface FolderItemWithDetails {
   title: string
   folderId: string | null
   thumbnail?: string | null
-  metadata: Prisma.JsonValue
+  metadata: Record<string, unknown> | null
   userId: string
   position: number
   createdAt: Date
@@ -22,7 +21,7 @@ interface FolderItemWithDetails {
 
 export default async function FolderDetailPage({ params }: { params: Promise<{ folderId: string }> }) {
   const session = await getServerSession(authOptions)
-  
+
   if (!session) {
     redirect('/auth/login')
   }
@@ -34,47 +33,40 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
 
   const { folderId } = await params
 
-  const [folder, allFolders, completedData] = await Promise.all([
-    db.folder.findUnique({
-      where: { id: folderId },
-      include: {
-        items: true,
-      },
-    }),
-    db.folder.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    }),
+  const [folderRes, allFoldersRes, completedData] = await Promise.all([
+    db.from('Folder').select('*').eq('id', folderId).single(),
+    db.from('Folder').select('*').eq('userId', user.id).order('createdAt', { ascending: false }),
     fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/progress/complete`, {
       cache: 'no-store'
     }).then(r => r.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
   ])
 
+  const folder = folderRes.data
+  const allFolders = allFoldersRes.data || []
+
   if (!folder) {
     redirect('/folders')
   }
 
+  // Get library items for this folder
+  const { data: items } = await db.from('LibraryItem').select('*').eq('folderId', folderId)
+
   // Fetch thumbnails
-  const playlistIds = folder.items.filter(i => i.type === LibraryItemType.PLAYLIST).map(i => i.externalId)
-  const videoExternalIds = folder.items.filter(i => i.type === LibraryItemType.VIDEO).map(i => i.externalId)
-  
-  const [playlistThumbnails, videoThumbnails] = await Promise.all([
-    playlistIds.length > 0 ? db.playlist.findMany({
-      where: { id: { in: playlistIds } },
-      select: { id: true, thumbnail: true },
-    }) : [],
-    videoExternalIds.length > 0 ? db.video.findMany({
-      where: {
-        userId: user.id,
-        OR: [
-          { youtubeId: { in: videoExternalIds } },
-          { id: { in: videoExternalIds } },
-        ],
-      },
-      select: { id: true, youtubeId: true, thumbnail: true },
-    }) : [],
-  ])
-  
+  const playlistIds = (items || []).filter((i: any) => i.type === 'PLAYLIST').map((i: any) => i.externalId)
+  const videoExternalIds = (items || []).filter((i: any) => i.type === 'VIDEO').map((i: any) => i.externalId)
+
+  let playlistThumbnails: any[] = []
+  let videoThumbnails: any[] = []
+
+  if (playlistIds.length > 0) {
+    const { data } = await db.from('Playlist').select('id, thumbnail').in('id', playlistIds)
+    playlistThumbnails = data || []
+  }
+  if (videoExternalIds.length > 0) {
+    const { data } = await db.from('Video').select('id, youtubeId, thumbnail').eq('userId', user.id)
+    videoThumbnails = (data || []).filter((v: any) => videoExternalIds.includes(v.youtubeId) || videoExternalIds.includes(v.id))
+  }
+
   const playlistMap = new Map<string, string | null>()
   for (const p of playlistThumbnails) {
     playlistMap.set(p.id, p.thumbnail)
@@ -84,8 +76,8 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
     videoMap.set(v.id, v.thumbnail)
     videoMap.set(v.youtubeId, v.thumbnail)
   }
-  
-  const itemsWithThumbnails: FolderItemWithDetails[] = folder.items.map(item => ({
+
+  const itemsWithThumbnails: FolderItemWithDetails[] = (items || []).map((item: any) => ({
     id: item.id,
     userId: item.userId,
     title: item.title,
@@ -96,7 +88,7 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
     position: item.position,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
-    thumbnail: item.type === LibraryItemType.PLAYLIST
+    thumbnail: item.type === 'PLAYLIST'
       ? (playlistMap.get(item.externalId) ?? null)
       : (videoMap.get(item.externalId) ?? null),
   }))
@@ -104,9 +96,9 @@ export default async function FolderDetailPage({ params }: { params: Promise<{ f
   const completedSet = new Set<string>((completedData.completedPlaylists as string[]) || [])
 
   return (
-    <FolderDetailClient 
-      initialFolder={folder} 
-      initialFolders={allFolders} 
+    <FolderDetailClient
+      initialFolder={folder}
+      initialFolders={allFolders}
       initialItems={itemsWithThumbnails}
       completedPlaylists={completedSet}
     />

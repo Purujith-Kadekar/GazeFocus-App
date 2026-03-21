@@ -5,110 +5,61 @@ import { getCurrentUser } from '@/lib/auth-helper'
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = user.id
 
-    const items = await db.libraryItem.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    })
+    const { searchParams } = new URL(request.url)
+    const folderId = searchParams.get('folderId')
 
-    return NextResponse.json(items)
+    let query = db.from('LibraryItem').select('*').eq('userId', userId)
+    if (folderId) query = query.eq('folderId', folderId)
+    query = query.order('position', { ascending: true })
+
+    const { data: items, error } = await query
+    if (error) throw error
+
+    return NextResponse.json(items || [])
   } catch (error) {
     console.error('Error fetching library items:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch library items' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch library items' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = user.id
     const body = await request.json()
-    const { type, externalId, folderId, title } = body
+    const { folderId, type, externalId, title, metadata } = body
 
-    if (!type || !externalId) {
-      return NextResponse.json(
-        { error: 'Type and externalId are required' },
-        { status: 400 }
-      )
+    if (!type || !externalId || !title) {
+      return NextResponse.json({ error: 'type, externalId, and title are required' }, { status: 400 })
     }
 
-    // If folderId is provided, check if item already exists in this specific folder
-    if (folderId) {
-      const existingInFolder = await db.libraryItem.findFirst({
-        where: {
-          userId: user.id,
-          type,
-          externalId,
-          folderId,
-        },
-      })
+    // Check if already exists
+    const { data: existing } = await db.from('LibraryItem')
+      .select('id').eq('userId', userId).eq('type', type).eq('externalId', externalId).maybeSingle()
 
-      if (existingInFolder) {
-        return NextResponse.json(existingInFolder)
+    if (existing) {
+      return NextResponse.json({ error: 'Item already exists in library' }, { status: 409 })
+    }
+
+    const { data: item, error } = await db.from('LibraryItem').insert({
+      userId, folderId: folderId || null, type, externalId, title, metadata: metadata || null,
+    }).select().single()
+
+    if (error) {
+      // Handle unique constraint violation
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Item already exists in library' }, { status: 409 })
       }
-
-      // Try to create - if unique constraint fails (item in another folder), handle gracefully
-      try {
-        const item = await db.libraryItem.create({
-          data: {
-            userId: user.id,
-            type,
-            externalId,
-            folderId,
-            title: title || externalId,
-          },
-        })
-        return NextResponse.json(item, { status: 201 })
-      } catch (createError: unknown) {
-        if (createError && typeof createError === 'object' && 'code' in createError && createError.code === 'P2002') {
-          const existing = await db.libraryItem.findFirst({
-            where: { userId: user.id, type, externalId },
-          })
-          return NextResponse.json(existing)
-        }
-        throw createError
-      }
+      throw error
     }
-
-    // If no folderId, check if item already exists without a folder
-    const existingItem = await db.libraryItem.findFirst({
-      where: {
-        userId: user.id,
-        type,
-        externalId,
-        folderId: null,
-      },
-    })
-
-    if (existingItem) {
-      return NextResponse.json(existingItem)
-    }
-
-    const item = await db.libraryItem.create({
-      data: {
-        userId: user.id,
-        type,
-        externalId,
-        folderId: null,
-        title: title || externalId,
-      },
-    })
 
     return NextResponse.json(item, { status: 201 })
   } catch (error) {
     console.error('Error creating library item:', error)
-    return NextResponse.json(
-      { error: 'Failed to create library item' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create library item' }, { status: 500 })
   }
 }

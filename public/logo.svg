@@ -1,25 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6C3CE0"/>
-      <stop offset="100%" stop-color="#3B82F6"/>
-    </linearGradient>
-  </defs>
-  <!-- Rounded square background -->
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bg)"/>
-  <!-- Eye white (outer shape) -->
-  <path d="M32 18C20 18 12 32 12 32s8 14 20 14 20-14 20-14-8-14-20-14z" fill="rgba(255,255,255,0.95)"/>
-  <!-- Iris -->
-  <circle cx="32" cy="32" r="9" fill="#1E1B4B"/>
-  <!-- Pupil -->
-  <circle cx="32" cy="32" r="4.5" fill="#6C3CE0"/>
-  <!-- Focus crosshair ring -->
-  <circle cx="32" cy="32" r="7" fill="none" stroke="#3B82F6" stroke-width="1.2" stroke-dasharray="3 3"/>
-  <!-- Crosshair lines -->
-  <line x1="32" y1="23" x2="32" y2="27" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="32" y1="37" x2="32" y2="41" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="23" y1="32" x2="27" y2="32" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="37" y1="32" x2="41" y2="32" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
-  <!-- Light reflection on eye -->
-  <circle cx="35" cy="29" r="2" fill="rgba(255,255,255,0.6)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Eye almond - brighter orange stroke -->
+  <ellipse cx="32" cy="32" rx="26" ry="16" stroke="#FF8C00" stroke-width="2"/>
+  <!-- Corner ticks -->
+  <line x1="6" y1="32" x2="12" y2="32" stroke="#FF8C00" stroke-width="2" stroke-linecap="round"/>
+  <line x1="52" y1="32" x2="58" y2="32" stroke="#FF8C00" stroke-width="2" stroke-linecap="round"/>
+  <!-- Iris ring -->
+  <circle cx="32" cy="32" r="13" stroke="#FF8C00" stroke-width="1.5" opacity="0.7"/>
+  <!-- Pupil - filled with solid orange -->
+  <circle cx="32" cy="32" r="8" fill="#FF8C00"/>
+  <!-- Inner pupil detail -->
+  <circle cx="32" cy="32" r="4" fill="#0C0A07"/>
+  <!-- Radial detail lines -->
+  <line x1="42" y1="32" x2="45" y2="32" stroke="#FF8C00" stroke-width="1" opacity="0.8"/>
+  <line x1="38.5" y1="38.5" x2="41" y2="41" stroke="#FF8C00" stroke-width="1" opacity="0.8"/>
+  <line x1="32" y1="42" x2="32" y2="45" stroke="#FF8C00" stroke-width="1" opacity="0.8"/>
+  <line x1="25.5" y1="38.5" x2="23" y2="41" stroke="#FF8C00" stroke-width="1" opacity="0.8"/>
+  <!-- Glint - bright white/orange -->
+  <circle cx="35" cy="29" r="2.5" fill="#FFD700"/>
 </svg>

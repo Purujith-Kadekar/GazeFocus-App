@@ -16,19 +16,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gaze Focus - Distraction-Free Learning Platform",
-  description: "A focused learning platform with eye tracking, playlist management, and note-taking. Learn without distractions.",
-  keywords: ["Gaze Focus", "learning", "eye tracking", "YouTube", "playlists", "notes", "focus"],
-  authors: [{ name: "Gaze Focus Team" }],
+  title: "GazeFocus - Distraction-Free Learning Platform",
+  description: "Your distraction-free learning companion with eye tracking. Auto-pauses video when you look away.",
+  keywords: ["GazeFocus", "eye tracking", "learning", "YouTube", "focus", "distraction-free"],
+  authors: [{ name: "Purujith Kadekar" }],
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },
       { url: "/logo.svg", type: "image/svg+xml" },
     ],
+    apple: { url: "/logo.svg" },
   },
   openGraph: {
-    title: "Gaze Focus",
-    description: "Learn without distractions",
+    title: "GazeFocus",
+    description: "Your eyes stay focused. Your learning stays on track.",
     type: "website",
   },
 };

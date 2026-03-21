@@ -40,6 +40,15 @@ export default function DashboardPage() {
     }
   }, [status, router])
 
+  useEffect(() => {
+    if (currentView === 'folder' && selectedFolder) {
+      fetch(`/api/folders/${selectedFolder.id}`)
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(data => setFolderItems(data.items || []))
+        .catch(() => setFolderItems([]))
+    }
+  }, [currentView, selectedFolder])
+
   if (status === 'loading') {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -58,15 +67,6 @@ export default function DashboardPage() {
       </div>
     )
   }
-
-  useEffect(() => {
-    if (currentView === 'folder' && selectedFolder) {
-      fetch(`/api/folders/${selectedFolder.id}`)
-        .then(r => r.ok ? r.json() : { items: [] })
-        .then(data => setFolderItems(data.items || []))
-        .catch(() => setFolderItems([]))
-    }
-  }, [currentView, selectedFolder])
 
   return (
     <MainLayout>

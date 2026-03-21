@@ -28,6 +28,28 @@ import { cn } from '@/lib/utils'
 import { useUIStore, useFolderStore, useAuthStore, useEyeTrackingStore, usePlaylistStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+
+function IrisMotif({ size = 26 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="none"
+    >
+      <ellipse cx="32" cy="32" rx="28" ry="17" stroke="#D4870A" strokeWidth="1.5" />
+      <line x1="4" y1="32" x2="10" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="54" y1="32" x2="60" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="13" stroke="#D4870A" strokeWidth="1" opacity="0.4" />
+      <circle cx="32" cy="32" r="8" fill="#0C0A07" stroke="#D4870A" strokeWidth="1.5" />
+      <line x1="40.5"  y1="32"    x2="44.5"  y2="32"    stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="38.01" y1="38.01" x2="40.84" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="32"    y1="40.5"  x2="32"    y2="44.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="25.99" y1="38.01" x2="23.16" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <circle cx="35" cy="29" r="2" fill="#D4870A" opacity="0.7" />
+    </svg>
+  )
+}
 import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
@@ -289,16 +311,14 @@ export function Sidebar({ className }: SidebarProps) {
           <div className="flex h-16 items-center justify-between border-b px-4">
             {isSidebarOpen ? (
               <Link href="/dashboard" className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                  <Film className="h-5 w-5 text-white" />
-                </div>
-                <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <IrisMotif size={26} />
+                <span style={{ fontFamily: 'Fraunces, Georgia, serif', fontWeight: 700, fontSize: '1.05rem', color: '#F2EDE4' }}>
                   GazeFocus
                 </span>
               </Link>
             ) : (
-              <Link href="/dashboard" className="flex h-8 w-8 items-center justify-center mx-auto rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <Film className="h-5 w-5 text-white" />
+              <Link href="/dashboard" className="flex items-center justify-center">
+                <IrisMotif size={26} />
               </Link>
             )}
             <Button

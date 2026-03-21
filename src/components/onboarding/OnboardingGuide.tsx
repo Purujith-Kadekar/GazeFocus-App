@@ -16,6 +16,7 @@ import {
   X,
   CheckCircle2,
   Plus,
+  Calendar,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -50,8 +51,8 @@ const steps: Step[] = [
   {
     targetId: 'onboarding-dashboard',
     icon: Home,
-    iconColor: 'text-blue-400',
-    iconBg: 'bg-blue-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Dashboard',
     description: 'Your home base — see learning stats, streaks, recent videos, and quick actions.',
     position: 'right',
@@ -59,8 +60,8 @@ const steps: Step[] = [
   {
     targetId: 'onboarding-search-bar',
     icon: Search,
-    iconColor: 'text-purple-400',
-    iconBg: 'bg-purple-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Search Bar',
     description: 'Quickly search for YouTube videos and playlists to add to your library.',
     position: 'bottom',
@@ -68,17 +69,26 @@ const steps: Step[] = [
   {
     targetId: 'onboarding-add-content',
     icon: Plus,
-    iconColor: 'text-green-400',
-    iconBg: 'bg-green-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Add Content',
     description: 'Paste a YouTube URL to instantly add videos or playlists to your library.',
     position: 'bottom',
   },
   {
+    targetId: 'onboarding-calendar',
+    icon: Calendar,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Calendar',
+    description: 'Track your daily focus sessions and see your learning consistency over time.',
+    position: 'right',
+  },
+  {
     targetId: 'onboarding-videos',
     icon: Film,
-    iconColor: 'text-red-400',
-    iconBg: 'bg-red-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Videos',
     description: 'Browse all your saved videos. Progress is auto-tracked so you can resume anytime.',
     position: 'right',
@@ -86,35 +96,35 @@ const steps: Step[] = [
   {
     targetId: 'onboarding-playlists',
     icon: ListVideo,
-    iconColor: 'text-green-400',
-    iconBg: 'bg-green-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Playlists',
     description: 'Add full YouTube playlists and work through them one video at a time.',
     position: 'right',
   },
   {
-    targetId: 'onboarding-folders',
-    icon: FolderOpen,
-    iconColor: 'text-orange-400',
-    iconBg: 'bg-orange-500/10',
-    title: 'Folders',
-    description: 'Organize videos and playlists into folders. Drag and drop to reorder.',
-    position: 'right',
-  },
-  {
     targetId: 'onboarding-notes',
     icon: FileText,
-    iconColor: 'text-cyan-400',
-    iconBg: 'bg-cyan-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Notes',
     description: 'Take timestamped notes while watching. Star important ones for quick review.',
     position: 'right',
   },
   {
+    targetId: 'onboarding-folders',
+    icon: FolderOpen,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Folders',
+    description: 'Organize videos and playlists into folders. Drag and drop to reorder.',
+    position: 'right',
+  },
+  {
     targetId: 'onboarding-eye-tracking',
     icon: Eye,
-    iconColor: 'text-emerald-400',
-    iconBg: 'bg-emerald-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Eye Tracking',
     description: 'Auto-pauses video when you look away. 100% local — nothing is uploaded.',
     position: 'bottom',
@@ -122,8 +132,8 @@ const steps: Step[] = [
   {
     targetId: 'onboarding-settings',
     icon: Settings,
-    iconColor: 'text-slate-400',
-    iconBg: 'bg-slate-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'Settings',
     description: 'Customize theme, alerts, eye tracking sensitivity, and playback speed. Re-run this guide anytime from here.',
     position: 'right',
@@ -131,8 +141,8 @@ const steps: Step[] = [
   {
     targetId: null,
     icon: CheckCircle2,
-    iconColor: 'text-green-400',
-    iconBg: 'bg-green-500/10',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
     title: 'You\'re All Set!',
     description: 'Start by searching for a video or playlist. Happy focused learning!',
     position: 'bottom',
@@ -369,8 +379,8 @@ export function OnboardingGuide({ onComplete }: OnboardingGuideProps) {
                 <Button size="sm" onClick={handleNext} className="gap-1 h-8 px-4">
                   {isLast ? (
                     <>
-                      Get Started
-                      <Sparkles className="h-3.5 w-3.5" />
+                      Finish
+                      <CheckCircle2 className="h-3.5 w-3.5" />
                     </>
                   ) : isFirst ? (
                     <>

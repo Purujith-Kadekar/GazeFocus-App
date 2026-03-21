@@ -97,17 +97,6 @@ Open `http://localhost:3000`.
 
 ---
 
-## Desktop app
-
-The repo includes an Electron wrapper. If you want a proper desktop build:
-
-```bash
-bun run electron:dev   # dev mode
-bun run electron:pack  # package for Windows (NSIS installer)
-```
-
----
-
 ## Stack
 
 | | |

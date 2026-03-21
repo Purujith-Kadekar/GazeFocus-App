@@ -1,141 +1,178 @@
-# 👁️ GazeFocus App
+# 👁 GazeFocus
 
-A smart YouTube learning platform that uses **real-time eye tracking** to keep you focused. When you look away from the screen, the video automatically pauses — and resumes the moment you look back.
+> A YouTube learning platform that pauses your video when you stop looking at it.
 
----
+No extensions. No installs. Just open it, paste a YouTube link, and let it watch you back.
 
-## ✨ Features
-
-### 👁️ Eye Tracking & Smart Pause
-- **Real-time gaze detection** using your webcam and MediaPipe Face Landmarker
-- **Smart Pause** — video automatically pauses when you look away and resumes when you look back
-- **Configurable pause threshold** (1–10 seconds) to control how quickly the video pauses
-- **Calibration wizard** to optimize tracking accuracy for your setup
-- **Focus state indicator** showing whether you are currently focused or distracted
-- **Distraction counter** to track how many times you looked away per session
-
-### 📚 Learning Management
-- **Folders** to organize your playlists and learning paths
-- **Playlists** imported directly from YouTube — full playlist sync supported
-- **Video player** with playback speed control, progress tracking, and completion marking
-- **Notes** — timestamped notes attached to specific videos
-- **Todo list** to track learning tasks
-
-### 🔄 Playlist Auto-Sync
-- Playlists automatically sync new YouTube videos every **30 minutes** using a background scheduler
-- Manual sync available via the "Refresh" button on any playlist page
-- Requires a `YOUTUBE_API_KEY` to fetch data from YouTube
-
-### 🔐 Authentication & Admin
-- Google OAuth and credential-based sign-in via NextAuth.js
-- Protected admin portal at `/admin` for managing content
-
-### 🎨 UI & Experience
-- Clean, responsive design built with **shadcn/ui** and **Tailwind CSS**
-- Dark / light / system theme support
-- Onboarding tour for new users
+**[Live App](https://gaze-focus.vercel.app)** · Built with Next.js, MediaPipe, PostgreSQL
 
 ---
 
-## 🚀 Quick Start
+## The idea
+
+I kept catching myself watching lectures while actually staring at my phone. The video would be 10 minutes ahead of where my brain was. GazeFocus fixes that one specific problem — it uses your webcam to track where you're looking, and pauses the video the moment you drift. No nudges, no timers, no gamification. Just a hard stop.
+
+---
+
+## What it does
+
+### Eye tracking
+
+The core feature. Your webcam runs [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker) locally in the browser — head pose and iris position are analysed every frame. When you look away for longer than your chosen threshold, the video pauses. When you look back, it resumes.
+
+Everything runs in WebAssembly. No video frames, no gaze coordinates, nothing leaves your browser tab.
+
+**Three focus modes** to match how your session is going:
+- `Light` — generous grace period, good for casual watching or note-taking
+- `Moderate` — balanced, works well for most study sessions
+- `Strict` — pauses fast, for when you genuinely need to be locked in
+
+**Distraction counter** tracks how many times you looked away per session.
+
+### Video player
+
+Wraps the YouTube IFrame API in a distraction-free shell — no recommendations sidebar, no comments, no autoplay queue. Controls for playback speed and progress tracking. Videos are marked complete when you finish them.
+
+### Timestamped notes
+
+Take notes while a video is playing. Each note is attached to the exact timestamp. Click any note later and the video jumps straight to that moment. Works well for reviewing long lectures.
+
+### Folders & playlists
+
+Organise your learning into folders. Import entire YouTube playlists by pasting a URL — the app pulls all videos via the YouTube Data API and keeps them in sync.
+
+**Auto-sync**: a background cron job runs every 30 minutes and checks your playlists for new uploads. Manual sync is available via the Refresh button on any playlist page.
+
+Drag-and-drop reordering for folders and videos (powered by dnd-kit).
+
+### Todo list
+
+A per-session task list attached to your learning. Tick off concepts as you cover them.
+
+### Progress tracking
+
+Watch time, session streaks, completion status per video. Nothing fancy — just the numbers that matter.
+
+---
+
+## Auth
+
+Google OAuth and email/password via NextAuth.js. Protected admin portal at `/admin/login` for content management.
+
+---
+
+## Running it
 
 ```bash
-# Install dependencies
+# clone and install
+git clone https://github.com/Purujith-Kadekar/GazeFocus-App
+cd GazeFocus-App
 bun install
 
-# Copy the environment template and fill in your values
+# set up environment
 cp .env.example .env.local
+# fill in the values (see below)
 
-# Start development server
+# push the schema and run
+bun run db:push
 bun run dev
-
-# Build for production
-bun run build
-
-# Start production server
-bun start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+Open `http://localhost:3000`.
 
----
+### Environment variables
 
-## 🔑 Environment Variables
-
-Copy `.env.example` to `.env.local` and configure the following:
-
-| Variable | Required | Description |
+| Variable | Required | What it's for |
 |---|---|---|
-| `NEXTAUTH_SECRET` | ✅ | Secret for signing NextAuth session tokens — generate with `openssl rand -base64 32` |
-| `ADMIN_USERNAME` | ✅ | Username for the `/admin` portal |
-| `ADMIN_PASSWORD` | ✅ | Password for the `/admin` portal |
-| `ADMIN_SECRET` | ✅* | Secret for signing admin session JWTs — generate with `openssl rand -base64 32`. Falls back to `NEXTAUTH_SECRET` if not set. |
-| `DATABASE_URL` | ✅ | PostgreSQL connection string for Prisma |
-| `AUTH_GOOGLE_ID` | Optional | Google OAuth client ID (required for Google sign-in) |
-| `AUTH_GOOGLE_SECRET` | Optional | Google OAuth client secret (required for Google sign-in) |
-| `NEXT_PUBLIC_URL` | Optional | Public base URL of the app (default: `http://localhost:3000`) |
-| `YOUTUBE_API_KEY` | Optional | YouTube Data API v3 key for importing and syncing playlists |
-| `CRON_SECRET` | Optional | Secret to authenticate internal cron-job endpoints |
-
-> \* At least one of `ADMIN_SECRET` or `NEXTAUTH_SECRET` must be set for the admin portal to work.
-
-> **Admin login:** Navigate to `/admin/login` and sign in with the credentials you configured above.
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `NEXTAUTH_SECRET` | ✅ | Session signing key — `openssl rand -base64 32` |
+| `ADMIN_USERNAME` | ✅ | Admin portal username |
+| `ADMIN_PASSWORD` | ✅ | Admin portal password |
+| `ADMIN_SECRET` | ✅ | Admin JWT signing key — falls back to `NEXTAUTH_SECRET` |
+| `AUTH_GOOGLE_ID` | optional | Google OAuth client ID |
+| `AUTH_GOOGLE_SECRET` | optional | Google OAuth client secret |
+| `YOUTUBE_API_KEY` | optional | Required for playlist import and auto-sync |
+| `NEXT_PUBLIC_URL` | optional | Public base URL (default: `http://localhost:3000`) |
+| `CRON_SECRET` | optional | Authenticates internal cron endpoints |
 
 ---
 
-## 📁 Project Structure
+## Desktop app
+
+The repo includes an Electron wrapper. If you want a proper desktop build:
+
+```bash
+bun run electron:dev   # dev mode
+bun run electron:pack  # package for Windows (NSIS installer)
+```
+
+---
+
+## Stack
+
+| | |
+|---|---|
+| Framework | Next.js 16 (App Router) + TypeScript |
+| Styling | Tailwind CSS + shadcn/ui |
+| Eye tracking | MediaPipe Tasks Vision (Face Landmarker) via WebAssembly |
+| Database | PostgreSQL + Prisma ORM |
+| Auth | NextAuth.js (Google OAuth + credentials) |
+| State | Zustand |
+| Data fetching | TanStack Query |
+| Drag and drop | dnd-kit |
+| Video | YouTube IFrame API |
+| Background jobs | node-cron |
+| Desktop | Electron |
+
+---
+
+## Project structure
 
 ```
 src/
-├── app/                 # Next.js App Router pages & API routes
-├── components/          # Reusable React components
-│   ├── player/          # Video player, eye tracker, notes panel
-│   ├── layout/          # Header, sidebar, navigation
-│   └── ui/              # shadcn/ui base components
-├── hooks/               # Custom React hooks (useFocusEngine, etc.)
+├── app/                  Next.js App Router — pages and API routes
+│   └── api/
+│       ├── auth/         NextAuth endpoints
+│       ├── cron/         Background sync scheduler
+│       └── youtube/      Playlist import and sync
+├── components/
+│   ├── player/           Video player, eye tracker, notes panel
+│   ├── layout/           Sidebar, header, nav
+│   └── ui/               shadcn/ui base components
+├── hooks/
+│   └── useFocusEngine    Core gaze detection and pause logic
 ├── lib/
-│   └── eye-tracking/    # GazeEngine — MediaPipe face landmark detection
-└── store/               # Zustand global state stores
+│   └── eye-tracking/     GazeEngine — MediaPipe integration
+└── store/                Zustand stores
 ```
 
 ---
 
-## 🧠 How Eye Tracking Works
+## How the eye tracking actually works
 
-1. **Camera access** is requested when you open a video
-2. **MediaPipe Face Landmarker** runs locally in your browser — no data leaves your device
-3. The engine analyzes **head pose** (yaw/pitch) and **iris position** every frame
-4. If you look away for longer than your configured threshold, the video **pauses automatically**
-5. When you look back at the screen, the video **resumes** instantly
-6. Use the **Calibration wizard** in Settings → Eye Tracking for best accuracy
+1. Camera access is requested when you open a video
+2. MediaPipe processes each frame locally — head yaw, pitch, and iris position
+3. The focus engine compares gaze direction against your chosen mode's threshold
+4. Below threshold for longer than the grace period → video pauses
+5. Gaze returns to screen → video resumes immediately
 
-> Eye tracking runs entirely on-device using WebAssembly. No video or camera data is ever sent to a server.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js (App Router) + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| Eye Tracking | MediaPipe Tasks Vision (Face Landmarker) |
-| State | Zustand |
-| Database | PostgreSQL + Prisma ORM |
-| Auth | NextAuth.js (Google OAuth + Credentials) |
-| Video | YouTube IFrame API |
-| Data Fetching | TanStack Query + Fetch |
+The engine exposes a live focus state (`focused` / `distracted`) and a running distraction count for the current session.
 
 ---
 
-## 🔄 Playlist Auto-Sync Details
+## Caveats
 
-- On app startup, `/api/cron/init` is called to initialize the background scheduler
-- The scheduler runs every 30 minutes and syncs all playlists for new YouTube videos
-- An initial sync also runs 2 seconds after startup
-- Manual sync is available via the **Refresh** button on each playlist page
-- Syncs only run if `YOUTUBE_API_KEY` is configured
+- YouTube API key is optional but without it, playlist import won't work — you'd need to add videos individually
+- Eye tracking accuracy varies with lighting. A well-lit face pointing at the screen works best
+- Mobile browsers don't support the MediaPipe WebAssembly build reliably — this is a desktop-first app
+- The auto-sync cron only runs while the server is active (not serverless-friendly out of the box)
 
 ---
 
-Built with ❤️ for focused, distraction-free learning.
+## License
+
+MIT — do whatever you want with it.
+
+---
+
+Built by [Purujith Kadekar](https://github.com/Purujith-Kadekar)

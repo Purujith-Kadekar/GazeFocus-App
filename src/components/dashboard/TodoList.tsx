@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
-import type { Todo, Video, Playlist } from '@prisma/client'
+import type { Todo, Video, Playlist } from '@/types'
 
 type UnifiedItem = {
   id: string
@@ -260,8 +260,8 @@ export function TodoList() {
                     const res = await fetch(endpoint, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ 
-                        scheduledAt: updates.reminderAt ? new Date(updates.reminderAt).toISOString() : null 
+                      body: JSON.stringify({
+                        scheduledAt: updates.reminderAt ? new Date(updates.reminderAt).toISOString() : null
                       }),
                     })
                     if (res.ok) {
@@ -368,15 +368,15 @@ function UnifiedTodoItem({
   if (isEditing) {
     return (
       <div className="p-2 rounded-lg border bg-accent/50 space-y-2 animate-in fade-in duration-200">
-        <Input 
-          value={editText} 
+        <Input
+          value={editText}
           onChange={(e) => setEditText(e.target.value)}
           className="h-7 text-xs"
           placeholder="Task title..."
           disabled={item.type === 'VIDEO' || item.type === 'PLAYLIST'}
         />
         <div className="flex gap-2">
-          <Input 
+          <Input
             type="datetime-local"
             value={editReminderAt}
             onChange={(e) => setEditReminderAt(e.target.value)}
@@ -396,12 +396,11 @@ function UnifiedTodoItem({
   }
 
   return (
-    <div className={`group flex items-start gap-2 p-2 rounded-lg transition-all border ${
-      isOverdue
+    <div className={`group flex items-start gap-2 p-2 rounded-lg transition-all border ${isOverdue
         ? 'bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700'
         : 'bg-muted/30 border-transparent hover:border-muted-foreground/20'
-    }`}>
-      { (item.type === 'VIDEO' || item.type === 'PLAYLIST') ? (
+      }`}>
+      {(item.type === 'VIDEO' || item.type === 'PLAYLIST') ? (
         <Button size="icon" variant="ghost" className="h-5 w-5 mt-0.5 shrink-0" onClick={handleAction}>
           {item.type === 'VIDEO' ? <Film className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> : <ListVideo className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />}
         </Button>

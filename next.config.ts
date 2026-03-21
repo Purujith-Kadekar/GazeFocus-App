@@ -24,7 +24,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://i.ytimg.com https://lh3.googleusercontent.com https://yt3.ggpht.com",
       "font-src 'self'",
-      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://storage.googleapis.com https://www.gstatic.com",
+      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://storage.googleapis.com https://www.gstatic.com https://*.supabase.co",
       "frame-src https://www.youtube.com https://youtube.com",
       "worker-src 'self' blob:",
       "object-src 'none'",

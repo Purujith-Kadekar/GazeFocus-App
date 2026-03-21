@@ -42,9 +42,9 @@ function IrisMotif({ size = 26 }: { size?: number }) {
       <line x1="54" y1="32" x2="60" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
       <circle cx="32" cy="32" r="13" stroke="#D4870A" strokeWidth="1" opacity="0.4" />
       <circle cx="32" cy="32" r="8" fill="#0C0A07" stroke="#D4870A" strokeWidth="1.5" />
-      <line x1="40.5"  y1="32"    x2="44.5"  y2="32"    stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="40.5" y1="32" x2="44.5" y2="32" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
       <line x1="38.01" y1="38.01" x2="40.84" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="32"    y1="40.5"  x2="32"    y2="44.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
+      <line x1="32" y1="40.5" x2="32" y2="44.5" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
       <line x1="25.99" y1="38.01" x2="23.16" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
       <circle cx="35" cy="29" r="2" fill="#D4870A" opacity="0.7" />
     </svg>
@@ -78,7 +78,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Folder, Playlist, LibraryItem } from '@prisma/client'
+import type { Folder, Playlist, LibraryItem } from '@/types'
 
 interface SidebarProps {
   className?: string
@@ -159,7 +159,7 @@ function SortableFolder({
           )}
         </Button>
       </div>
-      
+
       {isSidebarOpen && isExpanded && folderItems.length > 0 && (
         <div className="ml-6 mt-1 space-y-1">
           {folderItems.map((item) => (
@@ -285,11 +285,11 @@ export function Sidebar({ className }: SidebarProps) {
       const oldIndex = folders.findIndex((item) => item.id === active.id)
       const newIndex = folders.findIndex((item) => item.id === over.id)
       const newFolders = arrayMove(folders, oldIndex, newIndex)
-      
+
       setFolders(newFolders)
-      
+
       const folderIds = newFolders.map((item) => item.id)
-      
+
       fetch('/api/folders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -416,43 +416,43 @@ export function Sidebar({ className }: SidebarProps) {
 
             {isFoldersSectionOpen && (
 
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext 
-                items={folders.map(f => f.id)} 
-                strategy={verticalListSortingStrategy}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
               >
-                <nav className="space-y-1">
-                  {folders.map((folder) => {
-                    const isExpanded = expandedFolders.has(folder.id)
-                    const folderItems = libraryItems.filter(item => item.folderId === folder.id)
-                    
-                    return (
-                      <SortableFolder
-                        key={folder.id}
-                        folder={folder}
-                        isExpanded={isExpanded}
-                        isSidebarOpen={isSidebarOpen}
-                        selectedFolder={selectedFolder}
-                        expandedFolders={expandedFolders}
-                        folderItems={folderItems}
-                        onFolderClick={handleFolderClick}
-                        onToggleExpand={toggleFolderExpand}
-                        onItemClick={handleItemClick}
-                      />
-                    )
-                  })}
-                  {folders.length === 0 && isSidebarOpen && (
-                    <p className="px-2 py-4 text-sm text-muted-foreground text-center">
-                      No folders yet. Create one to organize your playlists.
-                    </p>
-                  )}
-                </nav>
-              </SortableContext>
-            </DndContext>
+                <SortableContext
+                  items={folders.map(f => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <nav className="space-y-1">
+                    {folders.map((folder) => {
+                      const isExpanded = expandedFolders.has(folder.id)
+                      const folderItems = libraryItems.filter(item => item.folderId === folder.id)
+
+                      return (
+                        <SortableFolder
+                          key={folder.id}
+                          folder={folder}
+                          isExpanded={isExpanded}
+                          isSidebarOpen={isSidebarOpen}
+                          selectedFolder={selectedFolder}
+                          expandedFolders={expandedFolders}
+                          folderItems={folderItems}
+                          onFolderClick={handleFolderClick}
+                          onToggleExpand={toggleFolderExpand}
+                          onItemClick={handleItemClick}
+                        />
+                      )
+                    })}
+                    {folders.length === 0 && isSidebarOpen && (
+                      <p className="px-2 py-4 text-sm text-muted-foreground text-center">
+                        No folders yet. Create one to organize your playlists.
+                      </p>
+                    )}
+                  </nav>
+                </SortableContext>
+              </DndContext>
             )}
 
             <Separator className="my-4" />
@@ -472,8 +472,8 @@ export function Sidebar({ className }: SidebarProps) {
               <div className="px-2 mt-4 space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className={cn(
                   "relative rounded-xl overflow-hidden bg-black border-2 transition-all duration-300",
-                  isLookingAtScreen 
-                    ? "border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.2)]" 
+                  isLookingAtScreen
+                    ? "border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.2)]"
                     : "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
                 )}>
                   <video
@@ -483,7 +483,7 @@ export function Sidebar({ className }: SidebarProps) {
                     muted
                     className="w-full aspect-video object-cover scale-x-[-1]"
                   />
-                  
+
                   {/* Status Overlay */}
                   <div className="absolute top-1 right-1 flex gap-1">
                     <div className={cn(
@@ -491,7 +491,7 @@ export function Sidebar({ className }: SidebarProps) {
                       isLookingAtScreen ? "bg-green-500 animate-pulse" : "bg-red-500"
                     )} />
                   </div>
-                  
+
                   {!isLookingAtScreen && (
                     <div className="absolute inset-0 bg-red-500/10 backdrop-none pointer-events-none flex items-center justify-center">
                       <EyeOff className="h-6 w-6 text-red-500/50" />

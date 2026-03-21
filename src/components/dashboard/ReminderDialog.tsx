@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useTodoStore } from '@/store/useStore'
-import type { Todo } from '@prisma/client'
+import type { Todo } from '@/types'
 
 interface ReminderDialogProps {
   open: boolean
@@ -70,11 +70,10 @@ export function ReminderDialog({
             return (
               <div
                 key={todo.id}
-                className={`flex items-start gap-3 p-3 rounded-lg border ${
-                  overdue
+                className={`flex items-start gap-3 p-3 rounded-lg border ${overdue
                     ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100'
                     : 'bg-muted/50 border-border'
-                }`}
+                  }`}
               >
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${overdue ? 'text-red-900 dark:text-red-100' : 'text-foreground'}`}>
@@ -83,9 +82,8 @@ export function ReminderDialog({
                   {todo.reminderAt && (
                     <div className="flex items-center gap-1 mt-1">
                       <Clock className={`h-3 w-3 shrink-0 ${overdue ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
-                      <span className={`text-xs ${
-                        overdue ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
-                      }`}>
+                      <span className={`text-xs ${overdue ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                        }`}>
                         {overdue ? 'Overdue by ' : ''}
                         {formatDistanceToNow(new Date(todo.reminderAt))}
                         {overdue ? '' : ' from now'}

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
-import { TodoType } from '@/types'
 
 export async function PUT(
   request: NextRequest,
@@ -25,43 +24,20 @@ export async function PUT(
       }
     }
 
-    const existing = await db.todo.findFirst({ where: { id, userId: user.id } })
+    const { data: existing } = await db.from('Todo').select('id').eq('id', id).eq('userId', user.id).single()
     if (!existing) {
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 })
     }
 
-    // Use raw query to bypass client-side validation
-    const updates: string[] = []
-    const values: any[] = []
-    let paramIndex = 1
+    const updateData: any = {}
+    if (text !== undefined) updateData.text = text
+    if (completed !== undefined) updateData.completed = completed
+    if (type !== undefined) updateData.type = type
+    if (reminderAt !== undefined) updateData.reminderAt = parsedReminderAt ? parsedReminderAt.toISOString() : null
 
-    if (text !== undefined) {
-      updates.push(`text = $${paramIndex++}`)
-      values.push(text)
-    }
-    if (completed !== undefined) {
-      updates.push(`completed = $${paramIndex++}`)
-      values.push(completed)
-    }
-    if (type !== undefined) {
-      updates.push(`type = $${paramIndex++}::"TodoType"`)
-      values.push(type as TodoType)
-    }
-    if (reminderAt !== undefined) {
-      updates.push(`"reminderAt" = $${paramIndex++}::timestamp`)
-      values.push(parsedReminderAt ? parsedReminderAt.toISOString() : null)
-    }
+    const { data: todo, error } = await db.from('Todo').update(updateData).eq('id', id).select().single()
 
-    if (updates.length > 0) {
-      updates.push(`"updatedAt" = NOW()`)
-      values.push(id)
-      const query = `UPDATE "Todo" SET ${updates.join(', ')} WHERE id = $${paramIndex}`
-      await db.$executeRawUnsafe(query, ...values)
-    }
-
-    const todo = await db.todo.findUnique({
-      where: { id }
-    })
+    if (error) throw error
 
     return NextResponse.json(todo)
   } catch (error) {
@@ -82,12 +58,12 @@ export async function DELETE(
 
     const { id } = await params
 
-    const existing = await db.todo.findFirst({ where: { id, userId: user.id } })
+    const { data: existing } = await db.from('Todo').select('id').eq('id', id).eq('userId', user.id).single()
     if (!existing) {
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 })
     }
 
-    await db.todo.delete({ where: { id } })
+    await db.from('Todo').delete().eq('id', id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

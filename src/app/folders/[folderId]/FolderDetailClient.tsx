@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Folder, LibraryItem } from '@prisma/client'
+import type { Folder, LibraryItem } from '@/types'
 
 interface LibraryItemWithDetails extends LibraryItem {
   title: string
@@ -29,15 +29,15 @@ interface FolderDetailClientProps {
   completedPlaylists: Set<string>
 }
 
-export default function FolderDetailClient({ 
-  initialFolder, 
-  initialFolders, 
+export default function FolderDetailClient({
+  initialFolder,
+  initialFolders,
   initialItems,
-  completedPlaylists: initialCompleted 
+  completedPlaylists: initialCompleted
 }: FolderDetailClientProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  
+
   const [folders] = useState<Folder[]>(initialFolders)
   const [selectedFolder] = useState<Folder | null>(initialFolder)
   const [folderItems, setFolderItems] = useState<LibraryItemWithDetails[]>(initialItems)
@@ -131,7 +131,7 @@ export default function FolderDetailClient({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {folderItems.map((item) => (
               <div key={item.id} className="relative group">
-                <Card 
+                <Card
                   className="cursor-pointer hover:shadow-md transition-all"
                   onClick={() => handleItemClick(item)}
                 >

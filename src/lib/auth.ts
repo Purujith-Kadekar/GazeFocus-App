@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import { SupabaseAdapter } from '@auth/supabase-adapter'
 import { db } from './db'
 import { compare } from 'bcryptjs'
 import '@/types' // Import types for module augmentation
@@ -11,7 +11,7 @@ const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
 // Helper to update user streak on sign-in using activity-based date
 async function updateUserStreak(userId: string) {
   try {
-    const user = await db.user.findUnique({ where: { id: userId } })
+    const { data: user } = await db.from('User').select('*').eq('id', userId).single()
     if (!user) return null
 
     const today = new Date()
@@ -22,7 +22,7 @@ async function updateUserStreak(userId: string) {
       const lastLogin = new Date(user.lastLoginDate)
       lastLogin.setHours(0, 0, 0, 0)
       const daysSinceLastLogin = Math.floor((today.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24))
-      
+
       // Already updated today, return current streak
       if (daysSinceLastLogin === 0) {
         return {
@@ -39,9 +39,9 @@ async function updateUserStreak(userId: string) {
       : user.lastLoginDate
         ? new Date(user.lastLoginDate)
         : null
-    
+
     let newStreak = 1
-    
+
     if (lastReferenceDate) {
       const lastActive = new Date(lastReferenceDate)
       lastActive.setHours(0, 0, 0, 0)
@@ -62,21 +62,12 @@ async function updateUserStreak(userId: string) {
     // Update longest streak if needed
     const longestStreak = Math.max(user.longestStreak || 0, newStreak)
 
-    const updatedUser = await db.user.update({
-      where: { id: userId },
-      data: {
-        currentStreak: newStreak,
-        longestStreak: longestStreak,
-        lastLoginDate: today,
-        lastActiveDate: today,
-      },
-      select: {
-        currentStreak: true,
-        longestStreak: true,
-        lastLoginDate: true,
-        lastActiveDate: true,
-      },
-    })
+    const { data: updatedUser } = await db.from('User').update({
+      currentStreak: newStreak,
+      longestStreak: longestStreak,
+      lastLoginDate: today.toISOString(),
+      lastActiveDate: today.toISOString(),
+    }).eq('id', userId).select('currentStreak, longestStreak, lastLoginDate, lastActiveDate').single()
 
     return updatedUser
   } catch (error) {
@@ -98,7 +89,10 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: isBuildTime ? undefined : PrismaAdapter(db),
+  adapter: isBuildTime ? undefined : SupabaseAdapter({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  }),
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -137,9 +131,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await db.user.findUnique({
-            where: { email: credentials.email },
-          })
+          const { data: user } = await db.from('User').select('*').eq('email', credentials.email).single()
 
           if (!user || !user.passwordHash) {
             return null
@@ -183,7 +175,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account, profile, trigger }) {
       const extendedToken = token as any
-      
+
       if (user) {
         extendedToken.id = user.id
         // For Google users, also store the image
@@ -193,7 +185,7 @@ export const authOptions: NextAuthOptions = {
           extendedToken.name = googleProfile.name
         }
       }
-      
+
       // Update streak on sign in or if token doesn't have streak yet
       if (trigger === 'signIn' || extendedToken.currentStreak === undefined) {
         const streakData = await updateUserStreak(extendedToken.id as string)
@@ -202,12 +194,12 @@ export const authOptions: NextAuthOptions = {
           extendedToken.longestStreak = streakData.longestStreak ?? 0
         }
       }
-      
+
       return extendedToken
     },
     async session({ session, token }) {
       const extendedToken = token as any
-      
+
       if (session.user && extendedToken.id) {
         session.user.id = extendedToken.id
         // Add image from token if available
@@ -217,7 +209,7 @@ export const authOptions: NextAuthOptions = {
         if (extendedToken.name) {
           session.user.name = extendedToken.name
         }
-        
+
         // Use streak from token if available, otherwise fetch from DB
         if (extendedToken.currentStreak !== undefined) {
           session.user.currentStreak = extendedToken.currentStreak ?? 0
@@ -225,14 +217,8 @@ export const authOptions: NextAuthOptions = {
         } else {
           // Fallback: fetch from DB
           try {
-            const user = await db.user.findUnique({
-              where: { id: extendedToken.id as string },
-              select: {
-                currentStreak: true,
-                longestStreak: true,
-              },
-            })
-            
+            const { data: user } = await db.from('User').select('currentStreak, longestStreak').eq('id', extendedToken.id as string).single()
+
             if (user) {
               session.user.currentStreak = user.currentStreak
               session.user.longestStreak = user.longestStreak
@@ -246,13 +232,11 @@ export const authOptions: NextAuthOptions = {
     },
     async signIn({ user, account, profile }) {
       // Note: Streak is now updated in JWT callback with trigger === 'signIn'
-      
+
       // For Google sign in, ensure user settings are created and update profile
       try {
         if (account?.provider === 'google' && user.email) {
-          const existingUser = await db.user.findUnique({
-            where: { email: user.email },
-          })
+          const { data: existingUser } = await db.from('User').select('*').eq('email', user.email).single()
 
           // Block login for blocked users
           if (existingUser?.isBlocked) {
@@ -261,7 +245,7 @@ export const authOptions: NextAuthOptions = {
 
           // Block new Google signups if signups are disabled
           if (!existingUser) {
-            const settings = await db.siteSettings.findUnique({ where: { id: 'global' } })
+            const { data: settings } = await db.from('SiteSettings').select('*').eq('id', 'global').single()
             if (settings && !settings.signupEnabled) {
               return false
             }
@@ -269,25 +253,18 @@ export const authOptions: NextAuthOptions = {
 
           if (existingUser) {
             // Get user settings separately
-            const settings = await db.userSettings.findUnique({
-              where: { userId: existingUser.id },
-            })
+            const { data: settings } = await db.from('UserSettings').select('*').eq('userId', existingUser.id).single()
 
             // Update user profile with Google info if not already set
             if (!existingUser.name || !existingUser.image) {
-              await db.user.update({
-                where: { id: existingUser.id },
-                data: {
-                  name: existingUser.name || user.name || user.email?.split('@')[0],
-                  image: existingUser.image || user.image,
-                },
-              })
+              await db.from('User').update({
+                name: existingUser.name || user.name || user.email?.split('@')[0],
+                image: existingUser.image || user.image,
+              }).eq('id', existingUser.id)
             }
 
             if (!settings) {
-              await db.userSettings.create({
-                data: { userId: existingUser.id },
-              })
+              await db.from('UserSettings').insert({ userId: existingUser.id })
             }
           }
         }
@@ -302,9 +279,7 @@ export const authOptions: NextAuthOptions = {
       // Create default settings for new users
       try {
         if (user.id) {
-          await db.userSettings.create({
-            data: { userId: user.id },
-          })
+          await db.from('UserSettings').insert({ userId: user.id })
         }
       } catch (error) {
         console.error('Error creating user settings:', error)

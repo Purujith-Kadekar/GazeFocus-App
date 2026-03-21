@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { VideoPlayer } from '@/components/player/VideoPlayer'
 import { Button } from '@/components/ui/button'
-import type { Video } from '@prisma/client'
+import type { Video } from '@/types'
 
 export default function VideoPage() {
   const params = useParams()
@@ -27,7 +27,7 @@ export default function VideoPage() {
 
   useEffect(() => {
     if (!videoId) return
-    
+
     const fetchData = async () => {
       try {
         const [videoRes, progressRes] = await Promise.all([
@@ -38,7 +38,7 @@ export default function VideoPage() {
         if (videoRes.ok) {
           const videoData = await videoRes.json()
           // API returns an array for list view, check if we got our specific video
-          let foundVideo = Array.isArray(videoData) 
+          let foundVideo = Array.isArray(videoData)
             ? videoData.find((v: Video) => v.youtubeId === videoId)
             : videoData;
 
@@ -48,7 +48,7 @@ export default function VideoPage() {
               foundVideo = await directVideoRes.json()
             }
           }
-            
+
           if (foundVideo) {
             setVideo(foundVideo)
           }
@@ -73,18 +73,18 @@ export default function VideoPage() {
 
   const handleMarkComplete = async () => {
     if (!video) return
-    
+
     const newCompleted = !isCompleted
     setIsCompleted(newCompleted)
-    
+
     try {
       // Use the unified progress API to update completion status
       await fetch(`/api/progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           youtubeId: video.youtubeId,
-          completed: newCompleted 
+          completed: newCompleted
         }),
       })
     } catch (error) {
@@ -143,15 +143,15 @@ export default function VideoPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={() => router.push('/')}
           className="hover:bg-accent/50"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
-        
+
         {video && (
           <VideoPlayer
             videoId={video.youtubeId}

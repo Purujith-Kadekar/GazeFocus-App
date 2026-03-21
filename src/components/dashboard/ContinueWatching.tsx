@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { Video, Folder } from '@prisma/client'
+import type { Video, Folder } from '@/types'
 
 interface ContinueWatchingProps {
   videos: Video[]
@@ -175,9 +175,9 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
         <ScrollArea className="h-full pr-4">
           <div className="space-y-4">
             {localVideos.map((video) => {
-                const isCompleted = completedVideos.has(video.youtubeId)
-                const isInFolder = videoFolderMap[video.youtubeId] !== undefined && videoFolderMap[video.youtubeId] !== null
-                return (
+              const isCompleted = completedVideos.has(video.youtubeId)
+              const isInFolder = videoFolderMap[video.youtubeId] !== undefined && videoFolderMap[video.youtubeId] !== null
+              return (
                 <div
                   key={video.id}
                   className="group flex gap-3 cursor-pointer"
@@ -195,7 +195,7 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
                         <Play className="h-8 w-8 text-muted-foreground/50" />
                       </div>
                     )}
-                    
+
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-center">
                       <Play className="h-8 w-8 text-white" />
                     </div>
@@ -274,7 +274,8 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
                     )}
                   </div>
                 </div>
-              )})}
+              )
+            })}
           </div>
         </ScrollArea>
       </CardContent>

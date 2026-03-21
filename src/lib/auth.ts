@@ -17,6 +17,23 @@ async function updateUserStreak(userId: string) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
+    // Check if already updated today
+    if (user.lastLoginDate) {
+      const lastLogin = new Date(user.lastLoginDate)
+      lastLogin.setHours(0, 0, 0, 0)
+      const daysSinceLastLogin = Math.floor((today.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24))
+      
+      // Already updated today, return current streak
+      if (daysSinceLastLogin === 0) {
+        return {
+          currentStreak: user.currentStreak,
+          longestStreak: user.longestStreak,
+          lastLoginDate: user.lastLoginDate,
+          lastActiveDate: user.lastActiveDate,
+        }
+      }
+    }
+
     const lastReferenceDate = user.lastActiveDate
       ? new Date(user.lastActiveDate)
       : user.lastLoginDate
@@ -235,7 +252,6 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === 'google' && user.email) {
           const existingUser = await db.user.findUnique({
             where: { email: user.email },
-            include: { settings: true },
           })
 
           // Block login for blocked users
@@ -252,6 +268,11 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (existingUser) {
+            // Get user settings separately
+            const settings = await db.userSettings.findUnique({
+              where: { userId: existingUser.id },
+            })
+
             // Update user profile with Google info if not already set
             if (!existingUser.name || !existingUser.image) {
               await db.user.update({
@@ -263,7 +284,7 @@ export const authOptions: NextAuthOptions = {
               })
             }
 
-            if (!existingUser.settings) {
+            if (!settings) {
               await db.userSettings.create({
                 data: { userId: existingUser.id },
               })

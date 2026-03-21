@@ -3,12 +3,37 @@ import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { SupabaseAdapter } from '@auth/supabase-adapter'
 import { db } from './db'
-import { compare } from 'bcryptjs'
-import '@/types' // Import types for module augmentation
 
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
 
-// Helper to update user streak on sign-in using activity-based date
+async function refreshAccessToken(token: any) {
+  try {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.AUTH_GOOGLE_ID!,
+        client_secret: process.env.AUTH_GOOGLE_SECRET!,
+        grant_type: "refresh_token",
+        refresh_token: token.refreshToken,
+      }),
+    });
+
+    const refreshed = await response.json();
+
+    if (!response.ok) throw refreshed;
+
+    return {
+      ...token,
+      accessToken: refreshed.access_token,
+      expiresAt: Math.floor(Date.now() / 1000) + refreshed.expires_in,
+      refreshToken: refreshed.refresh_token ?? token.refreshToken,
+    };
+  } catch (error) {
+    return { ...token, error: "RefreshAccessTokenError" };
+  }
+}
+
 async function updateUserStreak(userId: string) {
   try {
     const { data: user } = await db.from('User').select('*').eq('id', userId).single()
@@ -17,13 +42,11 @@ async function updateUserStreak(userId: string) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Check if already updated today
     if (user.lastLoginDate) {
       const lastLogin = new Date(user.lastLoginDate)
       lastLogin.setHours(0, 0, 0, 0)
       const daysSinceLastLogin = Math.floor((today.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24))
 
-      // Already updated today, return current streak
       if (daysSinceLastLogin === 0) {
         return {
           currentStreak: user.currentStreak,
@@ -48,18 +71,14 @@ async function updateUserStreak(userId: string) {
       const daysSinceLastActive = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24))
 
       if (daysSinceLastActive === 0) {
-        // Same day activity/sign-in - keep current streak
         newStreak = user.currentStreak || 1
       } else if (daysSinceLastActive === 1) {
-        // Consecutive day - increment streak
         newStreak = (user.currentStreak || 0) + 1
       } else {
-        // Streak broken - reset to 1
         newStreak = 1
       }
     }
 
-    // Update longest streak if needed
     const longestStreak = Math.max(user.longestStreak || 0, newStreak)
 
     const { data: updatedUser } = await db.from('User').update({
@@ -76,14 +95,12 @@ async function updateUserStreak(userId: string) {
   }
 }
 
-// Helper to hash passwords (for dummy user creation)
-export async function hashPassword(password: string): Promise<string> {
+export const hashPassword = async (password: string): Promise<string> => {
   const bcrypt = await import('bcryptjs')
   return bcrypt.hash(password, 12)
 }
 
-// Helper to verify passwords
-export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+export const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
   const bcrypt = await import('bcryptjs')
   return bcrypt.compare(password, hashedPassword)
 }
@@ -92,101 +109,75 @@ export const authOptions: NextAuthOptions = {
   adapter: isBuildTime ? undefined : SupabaseAdapter({
     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
     secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  }),
+  }) as any,
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
-    signIn: '/auth/login',
-    newUser: '/auth/signup',
-    error: '/auth/login',
-  },
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-      },
-    },
+    signIn: '/',
+    error: '/',
   },
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || process.env.AUTH_GOOGLE_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || process.env.AUTH_GOOGLE_SECRET || '',
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      authorization: {
+        params: {
+          scope: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/youtube",
+            "https://www.googleapis.com/auth/youtube.readonly",
+          ].join(" "),
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     }),
     CredentialsProvider({
-      name: 'Email/Password',
+      name: "Email and Password",
       credentials: {
-        email: { label: 'Email', type: 'email', placeholder: 'your@email.com' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
+        if (!credentials?.email || !credentials?.password) return null
 
-        try {
-          const { data: user } = await db.from('User').select('*').eq('email', credentials.email).single()
+        const { data: user } = await db.from('User').select('*').eq('email', String(credentials.email).toLowerCase()).single()
 
-          if (!user || !user.passwordHash) {
-            return null
-          }
+        if (!user?.passwordHash) return null
 
-          const isValid = await verifyPassword(credentials.password, user.passwordHash)
+        const isValid = await verifyPassword(credentials.password, user.passwordHash)
+        if (!isValid) return null
 
-          if (!isValid) {
-            return null
-          }
-
-          if (user.isBlocked) {
-            return null
-          }
-
-          return {
-            id: user.id,
-            email: user.email as string,
-            name: user.name,
-            image: user.image,
-          }
-        } catch (error) {
-          console.error('Auth error:', error)
-          return null
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
         }
       },
     }),
   ],
   callbacks: {
-    async redirect({ url, baseUrl }) {
-      console.log('Redirect callback:', { url, baseUrl })
-      // Always redirect to /dashboard after sign in
-      if (url === baseUrl || url === `${baseUrl}/`) {
-        return `${baseUrl}/dashboard`
-      }
-      // If the URL contains the callback path, make sure it goes to dashboard
-      if (url.includes('callback') || url === baseUrl + '/') {
-        return `${baseUrl}/dashboard`
-      }
-      return url
-    },
-    async jwt({ token, user, account, profile, trigger }) {
+    async jwt({ token, account, user, trigger }) {
       const extendedToken = token as any
 
       if (user) {
         extendedToken.id = user.id
-        // For Google users, also store the image
-        if (account?.provider === 'google' && profile) {
-          const googleProfile = profile as { picture?: string; name?: string }
-          extendedToken.picture = googleProfile.picture
-          extendedToken.name = googleProfile.name
+      }
+
+      if (account && account.provider === "google") {
+        return {
+          ...token,
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
+          expiresAt: account.expires_at,
         }
       }
 
-      // Update streak on sign in or if token doesn't have streak yet
       if (trigger === 'signIn' || extendedToken.currentStreak === undefined) {
         const streakData = await updateUserStreak(extendedToken.id as string)
         if (streakData) {
@@ -195,67 +186,56 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      return extendedToken
+      if (!extendedToken.accessToken || !extendedToken.expiresAt) return extendedToken
+
+      const expiresAt = extendedToken.expiresAt as number
+      if (Date.now() / 1000 < expiresAt - 60) return extendedToken
+
+      return refreshAccessToken(extendedToken)
     },
     async session({ session, token }) {
       const extendedToken = token as any
+      const extSession = session as any
 
-      if (session.user && extendedToken.id) {
-        session.user.id = extendedToken.id
-        // Add image from token if available
-        if (extendedToken.picture) {
-          session.user.image = extendedToken.picture
-        }
-        if (extendedToken.name) {
-          session.user.name = extendedToken.name
-        }
-
-        // Use streak from token if available, otherwise fetch from DB
-        if (extendedToken.currentStreak !== undefined) {
-          session.user.currentStreak = extendedToken.currentStreak ?? 0
-          session.user.longestStreak = extendedToken.longestStreak ?? 0
-        } else {
-          // Fallback: fetch from DB
-          try {
-            const { data: user } = await db.from('User').select('currentStreak, longestStreak').eq('id', extendedToken.id as string).single()
-
-            if (user) {
-              session.user.currentStreak = user.currentStreak
-              session.user.longestStreak = user.longestStreak
-            }
-          } catch (error) {
-            console.error('Failed to fetch user streak data:', error)
-          }
-        }
+      if (extSession.user && extendedToken.id) {
+        extSession.user.id = extendedToken.id
+        if (extendedToken.picture) extSession.user.image = extendedToken.picture
+        if (extendedToken.name) extSession.user.name = extendedToken.name
       }
-      return session
+
+      if (extendedToken.currentStreak !== undefined) {
+        extSession.user.currentStreak = extendedToken.currentStreak ?? 0
+        extSession.user.longestStreak = extendedToken.longestStreak ?? 0
+      } else if (extendedToken.id) {
+        try {
+          const { data: userData } = await db.from('User').select('currentStreak, longestStreak').eq('id', extendedToken.id as string).single()
+          if (userData) {
+            extSession.user.currentStreak = userData.currentStreak
+            extSession.user.longestStreak = userData.longestStreak
+          }
+        } catch {}
+      }
+
+      if (extendedToken.accessToken) extSession.accessToken = extendedToken.accessToken
+      if (extendedToken.error) extSession.error = extendedToken.error
+
+      return extSession
     },
     async signIn({ user, account, profile }) {
-      // Note: Streak is now updated in JWT callback with trigger === 'signIn'
-
-      // For Google sign in, ensure user settings are created and update profile
       try {
         if (account?.provider === 'google' && user.email) {
           const { data: existingUser } = await db.from('User').select('*').eq('email', user.email).single()
 
-          // Block login for blocked users
-          if (existingUser?.isBlocked) {
-            return false
-          }
+          if (existingUser?.isBlocked) return false
 
-          // Block new Google signups if signups are disabled
           if (!existingUser) {
             const { data: settings } = await db.from('SiteSettings').select('*').eq('id', 'global').single()
-            if (settings && !settings.signupEnabled) {
-              return false
-            }
+            if (settings && !settings.signupEnabled) return false
           }
 
           if (existingUser) {
-            // Get user settings separately
-            const { data: settings } = await db.from('UserSettings').select('*').eq('userId', existingUser.id).single()
+            const { data: userSettings } = await db.from('UserSettings').select('*').eq('userId', existingUser.id).single()
 
-            // Update user profile with Google info if not already set
             if (!existingUser.name || !existingUser.image) {
               await db.from('User').update({
                 name: existingUser.name || user.name || user.email?.split('@')[0],
@@ -263,7 +243,7 @@ export const authOptions: NextAuthOptions = {
               }).eq('id', existingUser.id)
             }
 
-            if (!settings) {
+            if (!userSettings) {
               await db.from('UserSettings').insert({ userId: existingUser.id })
             }
           }
@@ -276,7 +256,6 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async createUser({ user }) {
-      // Create default settings for new users
       try {
         if (user.id) {
           await db.from('UserSettings').insert({ userId: user.id })

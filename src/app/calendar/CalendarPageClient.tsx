@@ -56,7 +56,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
-import type { Todo, Video, Playlist } from '@/types'
+import type { Todo, Video, Playlist } from '@prisma/client'
 
 type CalendarEvent = {
   id: string
@@ -76,7 +76,7 @@ export default function CalendarPageClient() {
   const { playlists, setPlaylists } = usePlaylistStore()
   const [isLoading, setIsLoading] = useState(true)
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false)
-
+  
   // Edit state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
@@ -157,9 +157,9 @@ export default function CalendarPageClient() {
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
+            <Button 
+              variant="ghost" 
+              size="sm" 
               onClick={() => router.push('/dashboard')}
               className="gap-2"
             >
@@ -184,7 +184,7 @@ export default function CalendarPageClient() {
                 <DialogHeader>
                   <DialogTitle>Schedule Content or Create Plan</DialogTitle>
                 </DialogHeader>
-                <ScheduleContentForm
+                <ScheduleContentForm 
                   videos={videos.filter(v => !v.scheduledAt)}
                   playlists={playlists.filter(p => !p.scheduledAt)}
                   selectedDate={selectedDate}
@@ -294,8 +294,8 @@ export default function CalendarPageClient() {
             <div className="flex justify-between items-center mb-1">
               <span className={cn(
                 "text-sm font-medium h-6 w-6 flex items-center justify-center rounded-full transition-colors",
-                isToday(day) ? "bg-primary text-primary-foreground shadow-sm" :
-                  isSameDay(day, selectedDate) ? "text-primary font-bold" : ""
+                isToday(day) ? "bg-primary text-primary-foreground shadow-sm" : 
+                isSameDay(day, selectedDate) ? "text-primary font-bold" : ""
               )}>
                 {formattedDate}
               </span>
@@ -312,12 +312,12 @@ export default function CalendarPageClient() {
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-md truncate flex items-center gap-1 border shadow-sm",
                     (event.type === 'todo' || event.type === 'task')
-                      ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300"
+                      ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300" 
                       : event.type === 'video'
-                        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
-                        : event.type === 'playlist'
-                          ? "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
-                          : "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300",
+                      ? "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                      : event.type === 'playlist'
+                      ? "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
+                      : "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300",
                     event.completed ? "opacity-50 grayscale" : ""
                   )}
                 >
@@ -350,7 +350,7 @@ export default function CalendarPageClient() {
 
   const renderSidebar = () => {
     const dayEvents = events.filter(e => isSameDay(e.date, selectedDate))
-
+    
     return (
       <div className="w-80 flex flex-col gap-4">
         <Card className="flex-1 flex flex-col overflow-hidden">
@@ -371,9 +371,9 @@ export default function CalendarPageClient() {
                       <CalendarIcon className="h-8 w-8 text-muted-foreground/30" />
                     </div>
                     <p className="text-sm font-medium text-muted-foreground">Nothing scheduled for today</p>
-                    <Button
-                      variant="link"
-                      size="sm"
+                    <Button 
+                      variant="link" 
+                      size="sm" 
                       className="mt-2"
                       onClick={() => setIsScheduleDialogOpen(true)}
                     >
@@ -384,90 +384,89 @@ export default function CalendarPageClient() {
                   dayEvents
                     .sort((a, b) => a.date.getTime() - b.date.getTime())
                     .map(event => (
-                      <Card key={event.id} className="overflow-hidden border-l-4 group shadow-sm transition-shadow hover:shadow-md" style={{
-                        borderLeftColor:
-                          (event.type === 'todo' || event.type === 'task') ? '#a855f7' :
-                            event.type === 'video' ? '#3b82f6' :
-                              event.type === 'playlist' ? '#22c55e' : '#f97316'
-                      }}>
-                        <CardContent className="p-3">
-                          <div className="flex justify-between items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <Badge variant="secondary" className="text-[9px] uppercase px-1.5 py-0 h-4 font-bold tracking-tight">
-                                  {event.type}
-                                </Badge>
-                                <div className="flex items-center text-[10px] text-muted-foreground font-medium">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {format(event.date, 'h:mm a')}
-                                </div>
+                    <Card key={event.id} className="overflow-hidden border-l-4 group shadow-sm transition-shadow hover:shadow-md" style={{ borderLeftColor: 
+                      (event.type === 'todo' || event.type === 'task') ? '#a855f7' : 
+                      event.type === 'video' ? '#3b82f6' : 
+                      event.type === 'playlist' ? '#22c55e' : '#f97316'
+                    }}>
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Badge variant="secondary" className="text-[9px] uppercase px-1.5 py-0 h-4 font-bold tracking-tight">
+                                {event.type}
+                              </Badge>
+                              <div className="flex items-center text-[10px] text-muted-foreground font-medium">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {format(event.date, 'h:mm a')}
                               </div>
-                              <h4 className={cn(
-                                "text-sm font-semibold leading-tight",
-                                event.completed && "line-through text-muted-foreground"
-                              )}>
-                                {event.title}
-                              </h4>
                             </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => {
-                                  setEditingEvent(event)
-                                  setIsEditDialogOpen(true)
-                                }}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    if (event.type === 'video' || event.type === 'playlist') {
-                                      await handleUnschedule(event)
-                                    } else {
-                                      try {
-                                        const res = await fetch(`/api/todos/${event.id}`, { method: 'DELETE' })
-                                        if (res.ok) {
-                                          removeTodo(event.id)
-                                          fetchData()
-                                          window.dispatchEvent(new CustomEvent('refresh-dashboard'))
-                                        }
-                                      } catch (error) {
-                                        console.error('Failed to delete plan:', error)
-                                      }
-                                    }
-                                  }}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  {(event.type === 'video' || event.type === 'playlist') ? 'Unschedule' : 'Delete'}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <h4 className={cn(
+                              "text-sm font-semibold leading-tight",
+                              event.completed && "line-through text-muted-foreground"
+                            )}>
+                              {event.title}
+                            </h4>
                           </div>
-                          {(event.type === 'video' || event.type === 'playlist') && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="w-full mt-3 h-8 text-xs font-semibold gap-2"
-                              onClick={() => {
-                                if (event.type === 'video') {
-                                  router.push(`/watch?v=${(event.originalItem as Video).youtubeId}`)
-                                } else {
-                                  router.push(`/playlist/${(event.originalItem as Playlist).youtubeId}`)
-                                }
-                              }}
-                            >
-                              <Play className="h-3 w-3 fill-current" />
-                              Start Now
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                setEditingEvent(event)
+                                setIsEditDialogOpen(true)
+                              }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={async () => {
+                                  if (event.type === 'video' || event.type === 'playlist') {
+                                    await handleUnschedule(event)
+                                  } else {
+                                    try {
+                                      const res = await fetch(`/api/todos/${event.id}`, { method: 'DELETE' })
+                                      if (res.ok) {
+                                        removeTodo(event.id)
+                                        fetchData()
+                                        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+                                      }
+                                    } catch (error) {
+                                      console.error('Failed to delete plan:', error)
+                                    }
+                                  }
+                                }}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                { (event.type === 'video' || event.type === 'playlist') ? 'Unschedule' : 'Delete' }
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        {(event.type === 'video' || event.type === 'playlist') && (
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            className="w-full mt-3 h-8 text-xs font-semibold gap-2"
+                            onClick={() => {
+                              if (event.type === 'video') {
+                                router.push(`/watch?v=${(event.originalItem as Video).youtubeId}`)
+                              } else {
+                                router.push(`/playlist/${(event.originalItem as Playlist).youtubeId}`)
+                              }
+                            }}
+                          >
+                            <Play className="h-3 w-3 fill-current" />
+                            Start Now
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
                 )}
               </div>
             </ScrollArea>
@@ -528,13 +527,13 @@ export default function CalendarPageClient() {
             <DialogTitle>Edit {editingEvent?.type === 'video' || editingEvent?.type === 'playlist' ? 'Schedule' : 'Plan'}</DialogTitle>
           </DialogHeader>
           {editingEvent && (
-            <EditEventForm
-              event={editingEvent}
+            <EditEventForm 
+              event={editingEvent} 
               onSuccess={() => {
                 setIsEditDialogOpen(false)
                 fetchData()
                 window.dispatchEvent(new CustomEvent('refresh-dashboard'))
-              }}
+              }} 
             />
           )}
         </DialogContent>
@@ -543,16 +542,16 @@ export default function CalendarPageClient() {
   )
 }
 
-function ScheduleContentForm({
-  videos,
-  playlists,
-  selectedDate,
-  onSuccess
-}: {
-  videos: Video[],
-  playlists: Playlist[],
+function ScheduleContentForm({ 
+  videos, 
+  playlists, 
+  selectedDate, 
+  onSuccess 
+}: { 
+  videos: Video[], 
+  playlists: Playlist[], 
   selectedDate: Date,
-  onSuccess: () => void
+  onSuccess: () => void 
 }) {
   const [type, setType] = useState<'video' | 'playlist' | 'PLAN' | 'EVENT'>('video')
   const [selectedId, setSelectedId] = useState('')
@@ -562,7 +561,7 @@ function ScheduleContentForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
+    
     setIsSubmitting(true)
     try {
       const [hours, minutes] = time.split(':')
@@ -583,8 +582,8 @@ function ScheduleContentForm({
         const res = await fetch('/api/todos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: planTitle.trim(),
+          body: JSON.stringify({ 
+            text: planTitle.trim(), 
             reminderAt: scheduledDate.toISOString(),
             type: type
           }),
@@ -664,7 +663,7 @@ function ScheduleContentForm({
       ) : (
         <div className="space-y-2">
           <Label>{type === 'PLAN' ? 'Plan' : 'Event'} Title</Label>
-          <Input
+          <Input 
             placeholder={`Enter ${type.toLowerCase()} details...`}
             value={planTitle}
             onChange={(e) => setPlanTitle(e.target.value)}
@@ -684,9 +683,9 @@ function ScheduleContentForm({
       </div>
 
       <div className="pt-4">
-        <Button
-          type="submit"
-          disabled={isSubmitting || ((type === 'video' || type === 'playlist') ? !selectedId : !planTitle.trim())}
+        <Button 
+          type="submit" 
+          disabled={isSubmitting || ( (type === 'video' || type === 'playlist') ? !selectedId : !planTitle.trim() )} 
           className="w-full h-10 font-bold"
         >
           {isSubmitting ? 'Processing...' : `Add to Calendar`}
@@ -707,7 +706,7 @@ function EditEventForm({ event, onSuccess }: { event: CalendarEvent, onSuccess: 
     try {
       const scheduledAt = new Date(dateTime).toISOString()
       const isContent = event.type === 'video' || event.type === 'playlist'
-      const endpoint = isContent
+      const endpoint = isContent 
         ? (event.type === 'video' ? `/api/videos/${event.id}` : `/api/playlists/${event.id}`)
         : `/api/todos/${event.id}`
 
@@ -715,8 +714,8 @@ function EditEventForm({ event, onSuccess }: { event: CalendarEvent, onSuccess: 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
-          isContent
-            ? { scheduledAt }
+          isContent 
+            ? { scheduledAt } 
             : { text: title, reminderAt: scheduledAt }
         ),
       })
@@ -739,11 +738,11 @@ function EditEventForm({ event, onSuccess }: { event: CalendarEvent, onSuccess: 
       )}
       <div className="space-y-2">
         <Label>Date & Time</Label>
-        <Input
-          type="datetime-local"
-          value={dateTime}
-          onChange={(e) => setDateTime(e.target.value)}
-          required
+        <Input 
+          type="datetime-local" 
+          value={dateTime} 
+          onChange={(e) => setDateTime(e.target.value)} 
+          required 
         />
       </div>
       <Button type="submit" className="w-full" disabled={isSubmitting}>

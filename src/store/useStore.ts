@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Folder, Playlist, Video, Note, Todo } from '@/types'
+import type { Folder, Playlist, Video, Note, Todo } from '@prisma/client'
 
 // Settings Store - Persisted for the theme script to work instantly
 interface SettingsState {

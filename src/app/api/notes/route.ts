@@ -15,16 +15,16 @@ export async function GET(request: NextRequest) {
     const youtubeId = searchParams.get('youtubeId')
     const importantOnly = searchParams.get('important')
 
-    let query = db.from('Note').select('*').eq('userId', userId)
-    if (youtubeId) query = query.eq('youtubeId', youtubeId)
-    if (importantOnly === 'true') query = query.eq('isImportant', true)
-    query = query.order('createdAt', { ascending: false })
+    const notes = await db.note.findMany({
+      where: {
+        userId,
+        ...(youtubeId && { youtubeId }),
+        ...(importantOnly === 'true' && { isImportant: true }),
+      },
+      orderBy: { createdAt: 'desc' },
+    })
 
-    const { data: notes, error } = await query
-
-    if (error) throw error
-
-    return NextResponse.json(notes || [])
+    return NextResponse.json(notes)
   } catch (error) {
     console.error('Error fetching notes:', error)
     return NextResponse.json(
@@ -53,15 +53,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: note, error } = await db.from('Note').insert({
-      content,
-      timestampSeconds: timestamp || 0,
-      isImportant: isImportant || false,
-      youtubeId,
-      userId,
-    }).select().single()
-
-    if (error) throw error
+    const note = await db.note.create({
+      data: {
+        content,
+        timestampSeconds: timestamp || 0,
+        isImportant: isImportant || false,
+        youtubeId,
+        userId,
+      },
+    })
 
     return NextResponse.json(note, { status: 201 })
   } catch (error) {

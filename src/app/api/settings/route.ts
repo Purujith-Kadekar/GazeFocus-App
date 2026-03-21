@@ -2,42 +2,85 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
+// GET /api/settings - Get user settings
 export async function GET() {
   try {
     const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    const { data: settings } = await db.from('UserSettings').select('*').eq('userId', user.id).maybeSingle()
+    const userId = user.id
 
+    let settings = await db.userSettings.findUnique({
+      where: { userId },
+    })
+
+    // Create default settings if doesn't exist
     if (!settings) {
-      const { data: created, error } = await db.from('UserSettings').insert({ userId: user.id }).select().single()
-      if (error) throw error
-      return NextResponse.json(created)
+      settings = await db.userSettings.create({
+        data: { userId },
+      })
     }
 
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error fetching settings:', error)
-    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to fetch settings' },
+      { status: 500 }
+    )
   }
 }
 
+// PUT /api/settings - Update user settings
 export async function PUT(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const userId = user.id
     const body = await request.json()
+    const { 
+      eyeTrackingEnabled,
+      sensitivityMode,
+      inactivityTimeout, 
+      soundAlerts, 
+      theme, 
+      autoPlayNext,
+      defaultPlaybackSpeed,
+      eyeTrackingThreshold,
+      onboardingCompleted,
+      weeklyGoal
+    } = body
 
-    const { data: settings, error } = await db.from('UserSettings').upsert({
-      userId: user.id,
-      ...body,
-    }, { onConflict: 'userId' }).select().single()
+    const data = {
+      ...(eyeTrackingEnabled !== undefined && { eyeTrackingEnabled }),
+      ...(sensitivityMode !== undefined && { sensitivityMode }),
+      ...(inactivityTimeout !== undefined && { inactivityTimeout }),
+      ...(soundAlerts !== undefined && { soundAlerts }),
+      ...(theme !== undefined && { theme }),
+      ...(autoPlayNext !== undefined && { autoPlayNext }),
+      ...(defaultPlaybackSpeed !== undefined && { defaultPlaybackSpeed }),
+      ...(eyeTrackingThreshold !== undefined && { eyeTrackingThreshold }),
+      ...(onboardingCompleted !== undefined && { onboardingCompleted }),
+      ...(weeklyGoal !== undefined && { weeklyGoal }),
+    }
 
-    if (error) throw error
+    const settings = await db.userSettings.upsert({
+      where: { userId },
+      update: data,
+      create: { userId, ...data },
+    })
 
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Error updating settings:', error)
-    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to update settings' },
+      { status: 500 }
+    )
   }
 }

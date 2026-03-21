@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
-import type { Playlist, Folder } from '@/types'
+import type { Playlist, Folder } from '@prisma/client'
 
 interface PlaylistWithFolder extends Playlist {
   folder?: Folder | null
@@ -48,7 +48,7 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
       fetch('/api/playlists')
         .then(r => r.ok ? r.json() : [])
         .then(setPlaylists)
-        .catch(() => { })
+        .catch(() => {})
     }
     window.addEventListener('refresh-playlists', handleRefresh)
     return () => window.removeEventListener('refresh-playlists', handleRefresh)
@@ -205,7 +205,7 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
                         {formatDuration(playlist.totalDuration)}
                       </Badge>
                     )}
-                    <DropdownMenu>
+                      <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
@@ -226,7 +226,7 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
                               <DropdownMenuItem disabled>No folders</DropdownMenuItem>
                             ) : (
                               folders.map((folder) => (
-                                <DropdownMenuItem
+                                <DropdownMenuItem 
                                   key={folder.id}
                                   onClick={(e) => handleCopyToFolder(playlist.id, folder.id, e as unknown as React.MouseEvent)}
                                 >
@@ -246,7 +246,7 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
                               <DropdownMenuItem disabled>No folders</DropdownMenuItem>
                             ) : (
                               folders.map((folder) => (
-                                <DropdownMenuItem
+                                <DropdownMenuItem 
                                   key={folder.id}
                                   onClick={(e) => handleMoveToFolder(playlist.id, folder.id, e as unknown as React.MouseEvent)}
                                 >

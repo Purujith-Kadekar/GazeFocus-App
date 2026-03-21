@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Video, Playlist, Folder } from '@/types'
+import type { Video, Playlist, Folder } from '@prisma/client'
 
 interface PlaylistWithVideos extends Playlist {
   videos: Video[]
@@ -137,7 +137,7 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
 
   const handleDeletePlaylist = async () => {
     if (!playlistId) return
-
+    
     try {
       await fetch(`/api/playlists/${playlistId}`, {
         method: 'DELETE',
@@ -150,7 +150,7 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
 
   const handleMoveToFolder = async (folderId: string) => {
     if (!playlistId || !playlist) return
-
+    
     try {
       await fetch('/api/library-items', {
         method: 'POST',
@@ -179,9 +179,9 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
       const res = await fetch('/api/progress/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          youtubeId: video.youtubeId,
-          completed: !isCompleted
+        body: JSON.stringify({ 
+          youtubeId: video.youtubeId, 
+          completed: !isCompleted 
         }),
       })
       if (res.ok) {
@@ -203,9 +203,9 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
       const res = await fetch('/api/playlists/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playlistId,
-          completed: !isPlaylistCompleted
+        body: JSON.stringify({ 
+          playlistId, 
+          completed: !isPlaylistCompleted 
         }),
       })
       if (res.ok) {
@@ -257,7 +257,7 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
               )}
             </div>
           </div>
-
+          
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleManualSync} disabled={isSyncing}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -353,64 +353,64 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
               {playlist.videos.map((video, index) => {
                 const isCompleted = completedVideos.has(video.youtubeId)
                 return (
-                  <Card
-                    key={video.id}
-                    className={`cursor-pointer transition-colors ${isCompleted ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'hover:bg-accent/50'
-                      }`}
-                    onClick={() => handleVideoClick(video)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <span className="text-muted-foreground font-mono w-8">
-                          {index + 1}
-                        </span>
-                        {video.thumbnail && (
-                          <img
-                            src={video.thumbnail}
-                            alt={video.title}
-                            className="w-40 h-24 object-cover rounded"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h3 className={`font-medium truncate ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
-                            {video.title}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {Math.floor((video.duration || 0) / 60)}:{((video.duration || 0) % 60).toString().padStart(2, '0')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isCompleted && (
-                            <CheckCircle className="h-5 w-5 text-green-500" />
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
-                                {isCompleted ? (
-                                  <>
-                                    <Circle className="mr-2 h-4 w-4" />
-                                    Mark as incomplete
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Mark as complete
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                <Card
+                  key={video.id}
+                  className={`cursor-pointer transition-colors ${
+                    isCompleted ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'hover:bg-accent/50'
+                  }`}
+                  onClick={() => handleVideoClick(video)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-muted-foreground font-mono w-8">
+                        {index + 1}
+                      </span>
+                      {video.thumbnail && (
+                        <img
+                          src={video.thumbnail}
+                          alt={video.title}
+                          className="w-40 h-24 object-cover rounded"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-medium truncate ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
+                          {video.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {Math.floor((video.duration || 0) / 60)}:{((video.duration || 0) % 60).toString().padStart(2, '0')}
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                      <div className="flex items-center gap-2">
+                        {isCompleted && (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => handleToggleComplete(video, e)}>
+                              {isCompleted ? (
+                                <>
+                                  <Circle className="mr-2 h-4 w-4" />
+                                  Mark as incomplete
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Mark as complete
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )})}
             </div>
           ) : (
             <div className="text-center py-12">

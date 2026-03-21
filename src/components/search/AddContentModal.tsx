@@ -24,7 +24,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { extractYouTubeId } from '@/lib/utils'
-import type { Folder } from '@/types'
+import type { Folder } from '@prisma/client'
 
 interface AddContentModalProps {
   open: boolean
@@ -50,9 +50,9 @@ interface PreviewData {
 export function AddContentModal({ open, onOpenChange, folders }: AddContentModalProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
-  const [previewData, setPreviewData] = useState<PreviewData>({
-    type: null,
-    id: null,
+  const [previewData, setPreviewData] = useState<PreviewData>({ 
+    type: null, 
+    id: null, 
     title: null,
     description: null,
     thumbnail: null,
@@ -156,7 +156,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
       })
 
       console.log('[AddContentModal] Response status:', response.status)
-
+      
       if (!response.ok) {
         const errorText = await response.text()
         console.error('[AddContentModal] Error response:', errorText)
@@ -167,7 +167,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
 
       const result = await response.json()
       console.log('[AddContentModal] Success:', result)
-
+      
       setIsAdding(false)
       onOpenChange(false)
       reset()
@@ -205,17 +205,17 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
             <Label htmlFor="url">YouTube URL</Label>
             <div className="max-w-full px-1">
               <div className="relative max-w-full">
-                <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-red-500" />
-                <Input
-                  id="url"
-                  placeholder="https://youtube.com/watch?v=... or playlist?list=..."
-                  {...urlField}
-                  className="w-full max-w-full pl-10 pr-3"
-                  onChange={(e) => {
-                    urlField.onChange(e)
-                    detectContentType(e.target.value)
-                  }}
-                />
+              <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-red-500" />
+              <Input
+                id="url"
+                placeholder="https://youtube.com/watch?v=... or playlist?list=..."
+                {...urlField}
+                className="w-full max-w-full pl-10 pr-3"
+                onChange={(e) => {
+                  urlField.onChange(e)
+                  detectContentType(e.target.value)
+                }}
+              />
               </div>
             </div>
             {errors.url && (
@@ -226,61 +226,61 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
           {/* Preview */}
           {previewData.id && (
             <div className="px-1">
-              <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
-                <CardContent className="min-w-0 max-w-full p-3">
-                  <div className="flex min-w-0 max-w-full items-start gap-3 overflow-hidden">
-                    <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded bg-muted">
-                      {isLoadingPreview ? (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : previewData.thumbnail ? (
-                        <img
-                          src={previewData.thumbnail}
-                          alt={previewData.title || 'Preview'}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://img.youtube.com/vi/default/maxresdefault.jpg'
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-red-100 dark:bg-red-900/20">
-                          {previewData.type === 'playlist' ? (
-                            <List className="h-6 w-6 text-red-500" />
-                          ) : (
-                            <Video className="h-6 w-6 text-red-500" />
-                          )}
-                        </div>
-                      )}
-                      {previewData.type === 'playlist' && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <List className="h-6 w-6 text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 overflow-hidden">
-                      <div className="flex min-w-0 items-start justify-between gap-2">
-                        <p className="min-w-0 flex-1 font-medium line-clamp-2 break-words">
-                          {isLoadingPreview ? 'Loading...' : previewData.title}
-                        </p>
-                        <Badge variant="outline" className="shrink-0 capitalize">
-                          {previewData.type}
-                        </Badge>
+            <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
+              <CardContent className="min-w-0 max-w-full p-3">
+                <div className="flex min-w-0 max-w-full items-start gap-3 overflow-hidden">
+                  <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded bg-muted">
+                    {isLoadingPreview ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
-                      {previewData.channelName && (
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                          {previewData.channelName}
-                        </p>
-                      )}
-                      {previewData.description && (
-                        <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">
-                          {previewData.description}
-                        </p>
-                      )}
-                    </div>
+                    ) : previewData.thumbnail ? (
+                      <img
+                        src={previewData.thumbnail}
+                        alt={previewData.title || 'Preview'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://img.youtube.com/vi/default/maxresdefault.jpg'
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-red-100 dark:bg-red-900/20">
+                        {previewData.type === 'playlist' ? (
+                          <List className="h-6 w-6 text-red-500" />
+                        ) : (
+                          <Video className="h-6 w-6 text-red-500" />
+                        )}
+                      </div>
+                    )}
+                    {previewData.type === 'playlist' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <List className="h-6 w-6 text-white" />
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 font-medium line-clamp-2 break-words">
+                        {isLoadingPreview ? 'Loading...' : previewData.title}
+                      </p>
+                      <Badge variant="outline" className="shrink-0 capitalize">
+                        {previewData.type}
+                      </Badge>
+                    </div>
+                    {previewData.channelName && (
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        {previewData.channelName}
+                      </p>
+                    )}
+                    {previewData.description && (
+                      <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">
+                        {previewData.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             </div>
           )}
 

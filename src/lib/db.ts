@@ -8,18 +8,22 @@ const globalForSupabase = globalThis as unknown as {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
+console.log('[DB] Initializing Supabase client:', { 
+  hasUrl: !!supabaseUrl, 
+  hasKey: !!supabaseKey,
+  url: supabaseUrl ? '***' + supabaseUrl.slice(-10) : null,
+  env: process.env.NODE_ENV
+})
+
 if (!supabaseUrl || !supabaseKey) {
-  console.error('[DB] Missing Supabase env vars:', { 
-    hasUrl: !!supabaseUrl, 
-    hasKey: !!supabaseKey 
-  })
+  console.error('[DB] Missing Supabase env vars!')
 }
 
 const _db =
   globalForSupabase.supabase ??
   createClient<Database>(
-    supabaseUrl!,
-    supabaseKey!,
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseKey || 'placeholder',
     {
       auth: {
         autoRefreshToken: false,

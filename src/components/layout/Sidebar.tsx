@@ -252,10 +252,8 @@ export function Sidebar({ className }: SidebarProps) {
   }
 
   const handleLogout = async () => {
-    await signOut({ redirect: false })
     logout()
-    router.push('/auth/login')
-    router.refresh()
+    await signOut({ redirect: true, callbackUrl: '/auth/login' })
   }
 
   const handleFolderClick = (folder: Folder) => {

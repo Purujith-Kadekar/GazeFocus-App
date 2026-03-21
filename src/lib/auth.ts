@@ -65,8 +65,22 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }) {
       const extendedToken = token as any
 
-      if (user) {
-        extendedToken.id = user.id
+      if (user && user.email) {
+        console.log('[Auth JWT] New user from OAuth:', user.email, 'OAuth ID:', user.id)
+        
+        try {
+          const dbUser = await db.from('User').select('id').eq('email', user.email.toLowerCase()).single()
+          console.log('[Auth JWT] DB user:', dbUser.data)
+          
+          if (dbUser.data) {
+            extendedToken.id = dbUser.data.id
+          } else {
+            extendedToken.id = user.id
+          }
+        } catch (e) {
+          console.log('[Auth JWT] Using OAuth ID as fallback')
+          extendedToken.id = user.id
+        }
       }
 
       return extendedToken
@@ -77,6 +91,16 @@ export const authOptions: NextAuthOptions = {
 
       if (extSession.user && extendedToken.id) {
         extSession.user.id = extendedToken.id
+        
+        try {
+          const dbUser = await db.from('User').select('name, image').eq('id', extendedToken.id).single()
+          if (dbUser.data) {
+            if (dbUser.data.name) extSession.user.name = dbUser.data.name
+            if (dbUser.data.image) extSession.user.image = dbUser.data.image
+          }
+        } catch (e) {
+          console.log('[Auth Session] Could not fetch user details')
+        }
       }
 
       if (extendedToken.error) extSession.error = extendedToken.error
@@ -84,31 +108,46 @@ export const authOptions: NextAuthOptions = {
       return extSession
     },
     async signIn({ user, account, profile }) {
-      console.log('[Auth] signIn callback:', { 
-        provider: account?.provider, 
-        email: user?.email,
-        hasDb: !!db 
-      })
+      console.log('[Auth] signIn:', { provider: account?.provider, email: user?.email })
       
       if (account?.provider === 'google' && user?.email) {
         try {
-          console.log('[Auth] Checking for existing user:', user.email)
-          const { data: existingUser, error: selectError } = await db.from('User').select('id').eq('email', user.email).single()
+          const email = user.email.toLowerCase()
+          console.log('[Auth] Looking for user with email:', email)
           
-          console.log('[Auth] Existing user check:', { existingUser, selectError })
+          let existingUser = null
+          let selectError = null
+          
+          try {
+            const result = await db.from('User').select('id').eq('email', email).single()
+            existingUser = result.data
+            selectError = result.error
+          } catch (e: any) {
+            if (e.code === 'PGRST116') {
+              existingUser = null
+            } else {
+              selectError = e
+            }
+          }
+          
+          console.log('[Auth] DB query result:', { existingUser, selectError })
 
           if (!existingUser) {
-            console.log('[Auth] Creating new user:', user.email)
-            const { data: newUser, error: insertError } = await db.from('User').insert({
-              email: user.email,
-              name: user.name || user.email?.split('@')[0],
-              image: user.image,
-            }).select('id').single()
+            console.log('[Auth] Creating new user:', email)
+            const { data: newUser, error: insertError } = await db
+              .from('User')
+              .insert({
+                email: email,
+                name: user.name || email.split('@')[0],
+                image: user.image,
+              })
+              .select('id')
+              .single()
             
-            console.log('[Auth] User created:', { newUser, insertError })
+            console.log('[Auth] Insert result:', { newUser, insertError })
           }
         } catch (error) {
-          console.error('[Auth] Error in signIn:', error)
+          console.error('[Auth] Error:', error)
         }
       }
       return true

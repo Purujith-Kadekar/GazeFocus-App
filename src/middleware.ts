@@ -9,6 +9,10 @@ export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
     const supabaseResponse = createSupabaseClient(request)
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Middleware]', pathname, 'NEXTAUTH_URL:', process.env.NEXTAUTH_URL)
+    }
+
   const isStaticFile = pathname.includes(".") || pathname.startsWith("/_next")
   const isApiAuth = pathname.startsWith("/api/auth/")
 

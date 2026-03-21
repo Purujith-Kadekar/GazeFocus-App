@@ -1,9 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
 export const createClient = (request: NextRequest) => {
   let supabaseResponse = NextResponse.next({
     request: {
@@ -11,7 +8,14 @@ export const createClient = (request: NextRequest) => {
     },
   })
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
   if (!supabaseUrl || !supabaseKey) {
+    console.error('[Supabase Middleware] Missing env vars:', { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseKey 
+    })
     return supabaseResponse
   }
 
@@ -32,7 +36,8 @@ export const createClient = (request: NextRequest) => {
       },
     },
     })
-  } catch {
+  } catch (error) {
+    console.error('[Supabase Middleware] Client creation failed:', error)
     return supabaseResponse
   }
 

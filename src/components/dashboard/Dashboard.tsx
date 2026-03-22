@@ -17,6 +17,9 @@ import {
   Edit3,
   Star,
   Target,
+  Users,
+  Radio,
+  RefreshCw,
 } from 'lucide-react'
 import { StatsCard } from './StatsCard'
 import { ContinueWatching } from './ContinueWatching'
@@ -37,8 +40,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
-import { formatWatchTime } from '@/lib/utils'
-import type { Video, Note, Folder, Playlist } from '@/types'
+import { formatWatchTime, cn } from '@/lib/utils'
+import type { Video, Note, Folder, Playlist, Channel, ChannelWithFolder } from '@/types'
 
 type PlaylistWithFolder = Playlist & { folderId: string | null }
 
@@ -53,6 +56,8 @@ interface DashboardStats {
   totalWatchTime: number
   streak: number
   longestStreak?: number
+  totalChannels: number
+  liveChannels: number
 }
 
 export function Dashboard() {
@@ -70,6 +75,8 @@ export function Dashboard() {
   const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
   const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
   const [weeklyGoal, setWeeklyGoal] = useState(10)
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [isRefreshingLive, setIsRefreshingLive] = useState(false)
 
   const fetchDashboardData = useCallback(() => {
     return Promise.all([
@@ -87,7 +94,8 @@ export function Dashboard() {
       fetch('/api/playlists/complete').then(r => r?.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
       fetch('/api/todos').then(r => r?.ok ? r.json() : []).catch(() => []),
       fetch('/api/settings', { cache: 'no-store' }).then(r => r?.ok ? r.json() : null).catch(() => null),
-    ]).then(([activityData, foldersData, videosData, notesData, statsData, completedVideosData, playlistsData, completedData, todosData, settingsData]) => {
+      fetch('/api/channels').then(r => r?.ok ? r.json() : []).catch(() => []),
+    ]).then(([activityData, foldersData, videosData, notesData, statsData, completedVideosData, playlistsData, completedData, todosData, settingsData, channelsData]) => {
       setFolders(foldersData)
       setVideos(videosData)
       setNotes(notesData)
@@ -95,11 +103,13 @@ export function Dashboard() {
       setCompletedVideos(new Set(completedVideosData.completedVideos || []))
       setCompletedPlaylists(new Set(completedData.completedPlaylists || []))
       setTodos(todosData)
+      setChannels(channelsData)
       if (settingsData?.weeklyGoal != null) setWeeklyGoal(settingsData.weeklyGoal)
       setRecentVideos(videosData.slice(0, 6))
       setRecentFolders(foldersData.slice(0, 4))
       setImportantNotes(notesData.filter((n: Note) => n.isImportant).slice(0, 4))
       const progress = statsData as DashboardStats
+      const liveCount = (channelsData as Channel[]).filter((c: Channel) => c.isLive).length
       setStats({
         totalPlaylists: progress?.totalPlaylists ?? 0,
         completedPlaylists: progress?.completedPlaylists ?? 0,
@@ -111,6 +121,8 @@ export function Dashboard() {
         totalWatchTime: progress?.totalWatchTime ?? 0,
         streak: activityData?.streak ?? progress?.streak ?? 0,
         longestStreak: activityData?.longestStreak ?? progress?.longestStreak ?? 0,
+        totalChannels: (channelsData as Channel[]).length,
+        liveChannels: liveCount,
       })
     }).catch(() => {})
   }, [setFolders, setVideos, setNotes, setTodos, setRecentVideos, setRecentFolders, setImportantNotes, setStats])
@@ -119,12 +131,84 @@ export function Dashboard() {
     fetchDashboardData().finally(() => setIsLoading(false))
   }, [fetchDashboardData])
 
-  // Listen for content additions from AddContentModal / SearchModal
   useEffect(() => {
     const handleRefresh = () => fetchDashboardData()
     window.addEventListener('refresh-dashboard', handleRefresh)
-    return () => window.removeEventListener('refresh-dashboard', handleRefresh)
+    window.addEventListener('refresh-channels', handleRefresh)
+    return () => {
+      window.removeEventListener('refresh-dashboard', handleRefresh)
+      window.removeEventListener('refresh-channels', handleRefresh)
+    }
   }, [fetchDashboardData])
+
+  useEffect(() => {
+    if (channels.length === 0) return
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch('/api/channels/live-status')
+        if (response.ok) {
+          const data = await response.json()
+          setChannels(prev => prev.map(channel => {
+            const liveStatus = data.channels.find((c: any) => c.channelId === channel.id)
+            if (liveStatus) {
+              return {
+                ...channel,
+                isLive: liveStatus.isLive,
+                liveVideoId: liveStatus.liveVideoId,
+                liveTitle: liveStatus.liveTitle,
+              }
+            }
+            return channel
+          }))
+          const currentStats = useDashboardStore.getState().stats
+          if (currentStats) {
+            setStats({
+              ...currentStats,
+              liveChannels: data.liveCount,
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Failed to refresh live status:', error)
+      }
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [channels.length])
+
+  const handleRefreshLiveStatus = async () => {
+    setIsRefreshingLive(true)
+    try {
+      const response = await fetch('/api/channels/live-status')
+      if (response.ok) {
+        const data = await response.json()
+        setChannels(prev => prev.map(channel => {
+          const liveStatus = data.channels.find((c: any) => c.channelId === channel.id)
+          if (liveStatus) {
+            return {
+              ...channel,
+              isLive: liveStatus.isLive,
+              liveVideoId: liveStatus.liveVideoId,
+              liveTitle: liveStatus.liveTitle,
+            }
+          }
+          return channel
+        }))
+        const currentStats = useDashboardStore.getState().stats
+        if (currentStats) {
+          setStats({
+            ...currentStats,
+            liveChannels: data.liveCount,
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh live status:', error)
+    } finally {
+      setIsRefreshingLive(false)
+    }
+  }
 
   const handleVideoClick = (video: Video) => {
     router.push(`/video/${video.youtubeId}`)
@@ -180,7 +264,6 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Welcome back!</h1>
@@ -199,10 +282,8 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Row 1: Stats + TodoList */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Combined Stats Card */}
           <Card className="flex items-center h-[280px]">
             <CardContent className="p-5 space-y-3 w-full">
               <div className="flex items-center gap-3">
@@ -235,7 +316,6 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Watch Time + Weekly Goal Card */}
           <Card className="flex items-center h-[280px]">
             <CardContent className="p-5 flex flex-col gap-4 w-full h-full">
               <div className="flex items-center gap-3">
@@ -271,7 +351,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Row 2: Videos + Notes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6">
         <div className="lg:col-span-2">
           <ContinueWatching 
@@ -381,7 +460,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Playlists Section */}
       <PlaylistsSection 
         playlists={playlists}
         folders={folders}
@@ -392,10 +470,81 @@ export function Dashboard() {
           }).catch(() => {})
       }} />
 
-      {/* Folders */}
       <RecentFolders folders={folders} />
 
-      {/* Quick Actions */}
+      {channels.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              Your Channels
+              {stats?.liveChannels && stats.liveChannels > 0 && (
+                <Badge className="bg-red-500 text-white ml-2 animate-pulse">
+                  <Radio className="h-3 w-3 mr-1" />
+                  {stats.liveChannels} Live
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleRefreshLiveStatus} disabled={isRefreshingLive}>
+                <RefreshCw className={cn('h-4 w-4 mr-1', isRefreshingLive && 'animate-spin')} />
+                {isRefreshingLive ? 'Refreshing...' : 'Check Live'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => router.push('/channels')}>
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {channels.slice(0, 6).map((channel) => (
+                <div
+                  key={channel.id}
+                  className="flex flex-col items-center gap-2 cursor-pointer group"
+                  onClick={() => router.push(`/channel/${channel.id}`)}
+                >
+                  <div className={cn(
+                    'relative w-20 h-20 rounded-full overflow-hidden bg-muted',
+                    channel.isLive && 'ring-4 ring-red-500'
+                  )}>
+                    {channel.thumbnail ? (
+                      <img
+                        src={channel.thumbnail}
+                        alt={channel.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    {channel.isLive && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <Badge className="bg-red-600 text-white text-[10px] animate-pulse">
+                          <span className="relative flex h-2 w-2 mr-1">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                          </span>
+                          LIVE
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-center line-clamp-2 w-full group-hover:text-primary transition-colors">
+                    {channel.title}
+                  </p>
+                  {channel.isLive && channel.liveTitle && (
+                    <p className="text-xs text-red-500 text-center line-clamp-1 w-full">
+                      {channel.liveTitle}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Quick Actions</CardTitle>

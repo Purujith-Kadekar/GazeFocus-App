@@ -3,14 +3,14 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { createClient } from '@supabase/supabase-js'
-import VideosPageClient from './VideosPageClient'
+import ChannelLivePlayerClient from './ChannelLivePlayerClient'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-export default async function VideosPage() {
+export default async function ChannelLivePage({ params }: { params: Promise<{ id: string; videoId: string }> }) {
   const session = await getServerSession(authOptions)
-  
+
   if (!session) {
     redirect('/auth/login')
   }
@@ -20,6 +20,8 @@ export default async function VideosPage() {
     redirect('/auth/login')
   }
 
+  const { id, videoId } = await params
+
   const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
@@ -27,10 +29,21 @@ export default async function VideosPage() {
     },
   })
 
-  const [{ data: videos }, { data: folders }] = await Promise.all([
-    supabase.from('Video').select('*, playlist(*)').eq('userId', user.id).is('playlistId', null).is('channelId', null).order('createdAt', { ascending: false }),
-    supabase.from('Folder').select('*').eq('userId', user.id).order('title', { ascending: true }),
-  ])
+  const { data: channel, error: channelError } = await supabase
+    .from('Channel')
+    .select('*')
+    .eq('id', id)
+    .eq('userId', user.id)
+    .maybeSingle()
 
-  return <VideosPageClient initialVideos={videos || []} initialFolders={folders || []} />
+  if (!channel) {
+    redirect('/channels')
+  }
+
+  return (
+    <ChannelLivePlayerClient
+      channel={channel}
+      videoId={videoId}
+    />
+  )
 }

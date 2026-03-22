@@ -3,12 +3,12 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { createClient } from '@supabase/supabase-js'
-import VideosPageClient from './VideosPageClient'
+import ChannelVideosClient from './ChannelVideosClient'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-export default async function VideosPage() {
+export default async function ChannelVideosPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
@@ -20,6 +20,8 @@ export default async function VideosPage() {
     redirect('/auth/login')
   }
 
+  const { id } = await params
+
   const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
@@ -27,10 +29,28 @@ export default async function VideosPage() {
     },
   })
 
-  const [{ data: videos }, { data: folders }] = await Promise.all([
-    supabase.from('Video').select('*, playlist(*)').eq('userId', user.id).is('playlistId', null).is('channelId', null).order('createdAt', { ascending: false }),
-    supabase.from('Folder').select('*').eq('userId', user.id).order('title', { ascending: true }),
-  ])
+  const { data: channel, error: channelError } = await supabase
+    .from('Channel')
+    .select('*')
+    .eq('id', id)
+    .eq('userId', user.id)
+    .maybeSingle()
+  
+  if (!channel) {
+    redirect('/channels')
+  }
 
-  return <VideosPageClient initialVideos={videos || []} initialFolders={folders || []} />
+  const { data: videos } = await supabase
+    .from('Video')
+    .select('*')
+    .eq('channelId', id)
+    .eq('userId', user.id)
+    .order('position', { ascending: true })
+
+  return (
+    <ChannelVideosClient 
+      channel={channel}
+      initialVideos={videos || []}
+    />
+  )
 }

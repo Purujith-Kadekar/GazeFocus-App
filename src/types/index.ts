@@ -2,7 +2,7 @@ import type { Database } from './supabase'
 
 export type Folder = Database['public']['Tables']['Folder']['Row']
 export type Playlist = Database['public']['Tables']['Playlist']['Row']
-export type Video = Database['public']['Tables']['Video']['Row']
+export type Video = Database['public']['Tables']['Video']['Row'] & { channelId?: string | null }
 export type Note = Database['public']['Tables']['Note']['Row']
 export type Todo = Database['public']['Tables']['Todo']['Row']
 export type LibraryItem = Database['public']['Tables']['LibraryItem']['Row']
@@ -13,8 +13,25 @@ export type VideoProgress = Database['public']['Tables']['VideoProgress']['Row']
 export type PlaylistMark = Database['public']['Tables']['PlaylistMark']['Row']
 export type User = Database['public']['Tables']['User']['Row']
 
+export interface Channel {
+  id: string
+  userId: string
+  youtubeId: string
+  title: string
+  description: string | null
+  thumbnail: string | null
+  subscriberCount: string | null
+  videoCount: string | null
+  isLive: boolean
+  liveVideoId: string | null
+  liveTitle: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type LibraryItemType = 'PLAYLIST' | 'VIDEO'
 export type TodoType = 'TASK' | 'PLAN' | 'EVENT'
+export type LibraryItemTypeNew = 'PLAYLIST' | 'VIDEO' | 'CHANNEL'
 
 export interface AuthUser {
   id: string
@@ -70,6 +87,7 @@ export interface YouTubeSearchResult {
   publishedAt: string
   duration?: string
   videoCount?: number
+  subscriberCount?: string
 }
 
 export interface YouTubeVideoDetails {
@@ -93,4 +111,21 @@ export interface DashboardStats {
   totalWatchTime: number
   streak: number
   longestStreak?: number
+  totalChannels: number
+  liveChannels: number
+}
+
+export interface ChannelWithFolder extends Channel {
+  folderId: string | null
+  folder?: Folder | null
+}
+
+export interface ChannelVideo {
+  youtubeId: string
+  title: string
+  description: string
+  thumbnail: string
+  duration: number
+  publishedAt: string
+  position: number
 }

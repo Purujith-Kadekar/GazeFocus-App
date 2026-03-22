@@ -75,13 +75,70 @@ export async function GET(request: NextRequest) {
           channelName: playlist.snippet.channelTitle,
           totalVideos: playlist.contentDetails.itemCount,
         })
+      } else if (type === 'channel') {
+        let actualChannelId = id
+
+        const handle = id.startsWith('@') ? id.substring(1) : id
+
+        if (id.startsWith('@')) {
+          const searchResponse = await fetch(
+            `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
+          )
+          const searchData = await searchResponse.json()
+
+          if (searchData.items && searchData.items.length > 0) {
+            actualChannelId = searchData.items[0].id
+          }
+        }
+
+        if (actualChannelId === id || !actualChannelId.startsWith('UC')) {
+          const searchResponse = await fetch(
+            `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
+          )
+          const searchData = await searchResponse.json()
+
+          if (searchData.items && searchData.items.length > 0) {
+            actualChannelId = searchData.items[0].id
+          } else {
+            const byUsernameResponse = await fetch(
+              `${YOUTUBE_API_BASE}/channels?part=id&forUsername=${handle}&key=${YOUTUBE_API_KEY}`
+            )
+            const byUsernameData = await byUsernameResponse.json()
+            if (byUsernameData.items && byUsernameData.items.length > 0) {
+              actualChannelId = byUsernameData.items[0].id
+            }
+          }
+        }
+
+        const response = await fetch(
+          `${YOUTUBE_API_BASE}/channels?part=snippet,statistics&id=${actualChannelId}&key=${YOUTUBE_API_KEY}`
+        )
+        const data = await response.json()
+
+        if (data.error) {
+          return NextResponse.json({ error: data.error.message }, { status: 400 })
+        }
+
+        if (!data.items || data.items.length === 0) {
+          return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+        }
+
+        const channel = data.items[0]
+        return NextResponse.json({
+          youtubeId: channel.id,
+          title: channel.snippet.title,
+          description: channel.snippet.description,
+          thumbnail: channel.snippet.thumbnails?.maxres?.url || channel.snippet.thumbnails?.high?.url || channel.snippet.thumbnails?.medium?.url || '',
+          subscriberCount: channel.statistics.subscriberCount,
+          videoCount: channel.statistics.videoCount,
+        })
       }
     }
 
     // Search for videos and playlists
     if (query) {
       const response = await fetch(
-        `${YOUTUBE_API_BASE}/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video,playlist&key=${YOUTUBE_API_KEY}`
+        `${YOUTUBE_API_BASE}/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video,playlist,channel&key=${YOUTUBE_API_KEY}`
       )
       const data = await response.json()
 
@@ -90,13 +147,13 @@ export async function GET(request: NextRequest) {
       }
 
       const results = data.items?.map((item: any) => ({
-        id: item.id.videoId || item.id.playlistId,
-        type: item.id.kind === 'youtube#video' ? 'video' : 'playlist',
+        id: item.id.videoId || item.id.playlistId || item.id.channelId,
+        type: item.id.kind === 'youtube#video' ? 'video' : item.id.kind === 'youtube#playlist' ? 'playlist' : 'channel',
         title: item.snippet.title,
         description: item.snippet.description,
-        thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id.videoId || item.id.playlistId}/maxresdefault.jpg`,
-        channelTitle: item.snippet.channelTitle,
-        channelId: item.snippet.channelId,
+        thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id.videoId || item.id.playlistId || item.id.channelId}/maxresdefault.jpg`,
+        channelTitle: item.snippet.channelTitle || item.snippet.title,
+        channelId: item.snippet.channelId || item.id.channelId,
         publishedAt: item.snippet.publishedAt,
       })) || []
 
@@ -155,7 +212,33 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ error: 'videoId or playlistId required' }, { status: 400 })
+    const channelId = searchParams.get('channelId')
+    if (channelId) {
+      const response = await fetch(
+        `${YOUTUBE_API_BASE}/channels?part=snippet,statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`
+      )
+      const data = await response.json()
+
+      if (data.error) {
+        return NextResponse.json({ error: data.error.message }, { status: 400 })
+      }
+
+      if (!data.items || data.items.length === 0) {
+        return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+      }
+
+      const channel = data.items[0]
+      return NextResponse.json({
+        youtubeId: channel.id,
+        title: channel.snippet.title,
+        description: channel.snippet.description,
+        thumbnail: channel.snippet.thumbnails.maxres?.url || channel.snippet.thumbnails.high?.url || channel.snippet.thumbnails.medium?.url,
+        subscriberCount: channel.statistics.subscriberCount,
+        videoCount: channel.statistics.videoCount,
+      })
+    }
+
+    return NextResponse.json({ error: 'videoId or playlistId or channelId required' }, { status: 400 })
   } catch (error) {
     console.error('YouTube API error:', error)
     return NextResponse.json({ error: 'Failed to fetch from YouTube' }, { status: 500 })

@@ -23,6 +23,7 @@ import {
   Eye,
   EyeOff,
   Calendar,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore, useFolderStore, useAuthStore, useEyeTrackingStore, usePlaylistStore } from '@/store/useStore'
@@ -373,6 +374,14 @@ export function Sidebar({ className }: SidebarProps) {
                 collapsed={!isSidebarOpen}
                 href="/playlists"
                 active={pathname === '/playlists'}
+              />
+              <NavItem
+                id="onboarding-channels"
+                icon={Users}
+                label="Channels"
+                collapsed={!isSidebarOpen}
+                href="/channels"
+                active={pathname === '/channels' || pathname.startsWith('/channel/')}
               />
               <NavItem
                 id="onboarding-notes"

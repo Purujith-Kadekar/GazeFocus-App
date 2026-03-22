@@ -29,9 +29,21 @@ const _db =
         autoRefreshToken: false,
         persistSession: false,
       },
+      db: {
+        schema: 'public',
+      },
     }
   )
 
 export const db = _db as any
 
 if (process.env.NODE_ENV !== 'production') globalForSupabase.supabase = _db
+
+export async function refreshSchema() {
+  try {
+    await (_db.rpc as any)('pg_catalog.reload_schema')
+    console.log('[DB] Schema refreshed successfully')
+  } catch (error) {
+    console.error('[DB] Failed to refresh schema:', error)
+  }
+}

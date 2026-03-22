@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Play, Loader2, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, Plus } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { AddContentModal } from '@/components/search/AddContentModal'
 import { formatDuration } from '@/lib/utils'
 import type { Video, Playlist, Folder } from '@/types'
 import type React from 'react'
@@ -35,6 +36,12 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
   const [folders, setFolders] = useState<Folder[]>(initialFolders)
   const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
   const [videoFolderMap, setVideoFolderMap] = useState<Record<string, string | null>>({})
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const hasMounted = useRef(false)
+
+  useEffect(() => {
+    hasMounted.current = true
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -173,6 +180,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
 
   useEffect(() => {
     const handleRefresh = () => {
+      if (!hasMounted.current) return
       fetch('/api/videos')
         .then(r => r.ok ? r.json() : [])
         .then(setVideos)
@@ -214,10 +222,18 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
           </Button>
         </div>
 
-        <h1 className="text-3xl font-bold">All Videos</h1>
-        <p className="text-muted-foreground">
-          {videos.length} video{videos.length !== 1 ? 's' : ''} in your library
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">All Videos</h1>
+            <p className="text-muted-foreground">
+              {videos.length} video{videos.length !== 1 ? 's' : ''} in your library
+            </p>
+          </div>
+          <Button onClick={() => setAddModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Video
+          </Button>
+        </div>
 
         {videos.length === 0 ? (
           <Card>
@@ -330,6 +346,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
             )})}
           </div>
         )}
+        <AddContentModal open={addModalOpen} onOpenChange={setAddModalOpen} folders={folders} />
       </div>
     </MainLayout>
   )

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
@@ -86,13 +96,16 @@ export async function GET(request: NextRequest) {
     const playlistId = searchParams.get('playlistId')
     const youtubeId = searchParams.get('youtubeId')
     const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
+    const channelId = searchParams.get('channelId')
 
-    let query = db.from('Video').select('*').eq('userId', userId)
+    let query = supabase.from('Video').select('*').eq('userId', userId)
 
-    if (playlistId !== null && playlistId !== undefined && playlistId !== '') {
+    if (channelId !== null && channelId !== undefined && channelId !== '') {
+      query = query.eq('channelId', channelId)
+    } else if (playlistId !== null && playlistId !== undefined && playlistId !== '') {
       query = query.eq('playlistId', playlistId)
-    } else if (standaloneOnly && !youtubeId) {
-      query = query.is('playlistId', null)
+    } else if (standaloneOnly || youtubeId === null) {
+      query = query.is('playlistId', null).is('channelId', null)
     }
 
     if (youtubeId) {
@@ -109,7 +122,7 @@ export async function GET(request: NextRequest) {
     if (videos && videos.length > 0 && !standaloneOnly) {
       const playlistIds = videos.map(v => v.playlistId).filter((id): id is string => id !== null)
       if (playlistIds.length > 0) {
-        const { data: playlists } = await db.from('Playlist').select('*').in('id', playlistIds)
+        const { data: playlists } = await supabase.from('Playlist').select('*').in('id', playlistIds)
         const playlistMap = new Map(playlists?.map(p => [p.id, p]) || [])
         const enrichedVideos = videos.map(v => ({
           ...v,
@@ -146,7 +159,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid YouTube ID' }, { status: 400 })
     }
 
-    const { data: existing } = await db.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).single()
+    const { data: existing } = await supabase.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).single()
 
     if (existing) {
       return NextResponse.json({ error: 'This video already exists in your library' }, { status: 400 })
@@ -165,7 +178,7 @@ export async function POST(request: NextRequest) {
     const videoId = `video-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
     const now = new Date().toISOString()
 
-    const { data: video, error: videoError } = await db.from('Video').insert({
+    const { data: video, error: videoError } = await supabase.from('Video').insert({
       id: videoId,
       youtubeId,
       title: finalTitle,
@@ -185,7 +198,7 @@ export async function POST(request: NextRequest) {
     }
 
     const libraryItemId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-    await db.from('LibraryItem').upsert({
+    await supabase.from('LibraryItem').upsert({
       id: libraryItemId,
       userId,
       type: 'VIDEO',

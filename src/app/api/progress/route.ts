@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [totalVideosResult, watchedVideosResult, totalPlaylistsResult, completedPlaylistsResult, notesResult, importantNotesResult] = await Promise.all([
-      db.from('Video').select('id', { count: 'exact', head: true }).eq('userId', userId),
+      db.from('Video').select('id', { count: 'exact', head: true }).eq('userId', userId).is('channelId', null),
       db.from('VideoProgress').select('id', { count: 'exact', head: true }).eq('userId', userId).eq('completed', true),
       db.from('Playlist').select('id', { count: 'exact', head: true }).eq('userId', userId),
       db.from('PlaylistMark').select('id', { count: 'exact', head: true }).eq('userId', userId).eq('finished', true),

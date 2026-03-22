@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Search, X, Loader2, List, Video } from 'lucide-react'
+import { Search, X, Loader2, List, Video, Users } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -123,6 +123,9 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
               <TabsTrigger value="playlist">
                 Playlists ({results.filter((r) => r.type === 'playlist').length})
               </TabsTrigger>
+              <TabsTrigger value="channel">
+                Channels ({results.filter((r) => r.type === 'channel').length})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value={activeTab} className="mt-4 overflow-y-auto min-h-0 flex-1">
@@ -160,7 +163,10 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
     e.stopPropagation()
     setIsAdding(true)
     try {
-      const response = await fetch('/api/playlists', {
+      const isChannel = result.type === 'channel'
+      const apiUrl = isChannel ? '/api/channels' : '/api/playlists'
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,6 +185,7 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
         window.dispatchEvent(new CustomEvent('refresh-dashboard'))
         window.dispatchEvent(new CustomEvent('refresh-playlists'))
         window.dispatchEvent(new CustomEvent('refresh-videos'))
+        window.dispatchEvent(new CustomEvent('refresh-channels'))
       }
     } catch (error) {
       console.error('Failed to add:', error)
@@ -188,16 +195,33 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
   }
 
   return (
-    <div className="flex gap-3 p-3 rounded-lg border hover:bg-accent transition-colors cursor-pointer">
+      <div className="flex gap-3 p-3 rounded-lg border hover:bg-accent transition-colors cursor-pointer">
       <div className="relative w-32 h-20 shrink-0 rounded overflow-hidden bg-muted">
-        <img
-          src={result.thumbnail}
-          alt={result.title}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = '/placeholder.png'
-          }}
-        />
+        {result.type === 'channel' ? (
+          result.thumbnail ? (
+            <img
+              src={result.thumbnail}
+              alt={result.title}
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/placeholder.png'
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20">
+              <Users className="h-8 w-8 text-blue-500" />
+            </div>
+          )
+        ) : (
+          <img
+            src={result.thumbnail}
+            alt={result.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/placeholder.png'
+            }}
+          />
+        )}
         {result.type === 'video' && result.duration && (
           <Badge className="absolute bottom-1 right-1 text-[10px] px-1" variant="secondary">
             {result.duration}
@@ -209,6 +233,11 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
               <List className="h-4 w-4" />
               <span className="text-xs">{result.videoCount} videos</span>
             </div>
+          </div>
+        )}
+        {result.type === 'channel' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <Users className="h-6 w-6 text-white" />
           </div>
         )}
       </div>

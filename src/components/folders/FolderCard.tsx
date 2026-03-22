@@ -77,12 +77,14 @@ export function FolderCard({ folder, onClick }: FolderCardProps) {
                 />
               </div>
 
-              {/* Folder Info */}
+                {/* Folder Info */}
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold truncate">{folder.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {folder.description || 'No description'}
-                </p>
+                {folder.description && (
+                  <p className="text-sm text-muted-foreground">
+                    {folder.description}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -120,12 +122,6 @@ export function FolderCard({ folder, onClick }: FolderCardProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          {folder.description && (
-            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-              {folder.description}
-            </p>
-          )}
         </CardContent>
       </Card>
 

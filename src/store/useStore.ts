@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Folder, Playlist, Video, Note, Todo } from '@/types'
+import type { Folder, Playlist, Video, Note, Todo, Channel } from '@/types'
 
 // Settings Store - Persisted for the theme script to work instantly
 interface SettingsState {
@@ -375,6 +375,8 @@ interface DashboardStatsData {
   totalWatchTime: number
   streak: number
   longestStreak: number
+  totalChannels: number
+  liveChannels: number
 }
 
 interface DashboardState {
@@ -397,4 +399,35 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   setRecentVideos: (videos) => set({ recentVideos: videos }),
   setRecentFolders: (folders) => set({ recentFolders: folders }),
   setImportantNotes: (notes) => set({ importantNotes: notes }),
+}))
+
+// Channel Store
+interface ChannelState {
+  channels: Channel[]
+  selectedChannel: Channel | null
+  setChannels: (channels: Channel[]) => void
+  addChannel: (channel: Channel) => void
+  updateChannel: (channel: Channel) => void
+  removeChannel: (id: string) => void
+  selectChannel: (channel: Channel | null) => void
+  setChannelLiveStatus: (id: string, isLive: boolean, liveVideoId?: string | null, liveTitle?: string | null) => void
+}
+
+export const useChannelStore = create<ChannelState>((set) => ({
+  channels: [],
+  selectedChannel: null,
+  setChannels: (channels) => set({ channels }),
+  addChannel: (channel) => set((state) => ({ channels: [...state.channels, channel] })),
+  updateChannel: (channel) => set((state) => ({
+    channels: state.channels.map((c) => (c.id === channel.id ? channel : c)),
+  })),
+  removeChannel: (id) => set((state) => ({
+    channels: state.channels.filter((c) => c.id !== id),
+  })),
+  selectChannel: (channel) => set({ selectedChannel: channel }),
+  setChannelLiveStatus: (id, isLive, liveVideoId = null, liveTitle = null) => set((state) => ({
+    channels: state.channels.map((c) => 
+      c.id === id ? { ...c, isLive, liveVideoId, liveTitle } : c
+    ),
+  })),
 }))

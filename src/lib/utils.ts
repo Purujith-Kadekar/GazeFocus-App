@@ -52,8 +52,8 @@ export function formatWatchTime(seconds: number): string {
   return `${minutes}m`
 }
 
-// Extract YouTube video/playlist ID from URL
-export function extractYouTubeId(url: string): { type: 'video' | 'playlist', id: string } | null {
+// Extract YouTube video/playlist/channel ID from URL
+export function extractYouTubeId(url: string): { type: 'video' | 'playlist' | 'channel', id: string } | null {
   const value = url.trim()
   if (!value) return null
 
@@ -65,6 +65,7 @@ export function extractYouTubeId(url: string): { type: 'video' | 'playlist', id:
     const path = parsed.pathname
     const watchId = parsed.searchParams.get('v')
     const listId = parsed.searchParams.get('list')
+    const channelId = parsed.searchParams.get('channel') || parsed.searchParams.get('channelId')
 
     // Prefer explicit video URLs when both v and list are present (common shared links)
     if (watchId && (host === 'youtube.com' || host === 'm.youtube.com')) {
@@ -91,6 +92,22 @@ export function extractYouTubeId(url: string): { type: 'video' | 'playlist', id:
       if (first === 'watch' && listId) {
         return { type: 'playlist', id: listId }
       }
+
+      if (first === 'channel' && second) {
+        return { type: 'channel', id: second }
+      }
+
+      if (first === '@' && second) {
+        return { type: 'channel', id: second }
+      }
+
+      if (first === 'c' && second) {
+        return { type: 'channel', id: second }
+      }
+    }
+
+    if (channelId) {
+      return { type: 'channel', id: channelId }
     }
 
     if (listId) {
@@ -103,6 +120,7 @@ export function extractYouTubeId(url: string): { type: 'video' | 'playlist', id:
   const fallbackPatterns = [
     { type: 'video' as const, pattern: /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/(?:embed|v|shorts|live)\/)([^&?/]+)/ },
     { type: 'playlist' as const, pattern: /[?&]list=([^&]+)/ },
+    { type: 'channel' as const, pattern: /(?:youtube\.com\/channel\/|youtube\.com\/@)([^&?/]+)/ },
   ]
 
   for (const { type, pattern } of fallbackPatterns) {

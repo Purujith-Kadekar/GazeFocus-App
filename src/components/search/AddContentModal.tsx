@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link2, Loader2, Youtube, List, Video } from 'lucide-react'
+import { Link2, Loader2, Youtube, List, Video, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,13 +38,15 @@ interface AddForm {
 }
 
 interface PreviewData {
-  type: 'video' | 'playlist' | null
+  type: 'video' | 'playlist' | 'channel' | null
   id: string | null
   title: string | null
   description: string | null
   thumbnail: string | null
   channelName: string | null
   channelId: string | null
+  subscriberCount?: string | null
+  videoCount?: string | null
 }
 
 export function AddContentModal({ open, onOpenChange, folders }: AddContentModalProps) {
@@ -75,7 +77,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
 
   const urlField = register('url', { required: 'URL is required' })
 
-  const fetchYouTubeDetails = async (youtubeId: string, type: 'video' | 'playlist') => {
+  const fetchYouTubeDetails = async (youtubeId: string, type: 'video' | 'playlist' | 'channel') => {
     setIsLoadingPreview(true)
     try {
       const response = await fetch(`/api/youtube?id=${youtubeId}&type=${type}`)
@@ -84,19 +86,21 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
         setPreviewData({
           type,
           id: youtubeId,
-          title: data.title || `${type === 'playlist' ? 'Playlist' : 'Video'}`,
+          title: data.title || `${type === 'playlist' ? 'Playlist' : type === 'channel' ? 'Channel' : 'Video'}`,
           description: data.description || '',
-          thumbnail: data.thumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
-          channelName: data.channelName || 'Unknown Channel',
-          channelId: data.channelId || '',
+          thumbnail: data.thumbnail || (type === 'channel' ? '' : `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`),
+          channelName: data.channelName || data.title || 'Unknown Channel',
+          channelId: data.channelId || youtubeId,
+          subscriberCount: data.subscriberCount,
+          videoCount: data.videoCount,
         })
       } else {
         setPreviewData({
           type,
           id: youtubeId,
-          title: `${type === 'playlist' ? 'Playlist' : 'Video'}`,
+          title: `${type === 'playlist' ? 'Playlist' : type === 'channel' ? 'Channel' : 'Video'}`,
           description: null,
-          thumbnail: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+          thumbnail: type === 'channel' ? '' : `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
           channelName: null,
           channelId: null,
         })
@@ -106,9 +110,9 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
       setPreviewData({
         type,
         id: youtubeId,
-        title: `${type === 'playlist' ? 'Playlist' : 'Video'}`,
+        title: `${type === 'playlist' ? 'Playlist' : type === 'channel' ? 'Channel' : 'Video'}`,
         description: null,
-        thumbnail: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+        thumbnail: type === 'channel' ? '' : `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
         channelName: null,
         channelId: null,
       })
@@ -125,7 +129,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
         id: extracted.id,
         title: isLoadingPreview ? 'Loading...' : `Sample ${extracted.type} title`,
         description: null,
-        thumbnail: `https://img.youtube.com/vi/${extracted.id}/maxresdefault.jpg`,
+        thumbnail: extracted.type === 'channel' ? '' : `https://img.youtube.com/vi/${extracted.id}/maxresdefault.jpg`,
         channelName: null,
         channelId: null,
       })
@@ -140,7 +144,10 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
 
     setIsAdding(true)
     try {
-      const response = await fetch('/api/playlists', {
+      const isChannel = previewData.type === 'channel'
+      const apiUrl = isChannel ? '/api/channels' : '/api/playlists'
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,6 +159,8 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
           thumbnail: previewData.thumbnail,
           channelId: previewData.channelId,
           channelName: previewData.channelName,
+          subscriberCount: previewData.subscriberCount,
+          videoCount: previewData.videoCount,
         }),
       })
 
@@ -175,6 +184,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
       window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       window.dispatchEvent(new CustomEvent('refresh-playlists'))
       window.dispatchEvent(new CustomEvent('refresh-videos'))
+      window.dispatchEvent(new CustomEvent('refresh-channels'))
     } catch (error) {
       console.error('Failed to add content:', error)
       setIsAdding(false)
@@ -184,7 +194,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       reset()
-      setPreviewData({ type: null, id: null, title: null, description: null, thumbnail: null, channelName: null, channelId: null })
+      setPreviewData({ type: null, id: null, title: null, description: null, thumbnail: null, channelName: null, channelId: null, subscriberCount: null, videoCount: null })
     }
     onOpenChange(newOpen)
   }
@@ -208,7 +218,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
               <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-red-500" />
               <Input
                 id="url"
-                placeholder="https://youtube.com/watch?v=... or playlist?list=..."
+                placeholder="https://youtube.com/watch?v=... or playlist?list=... or @channel"
                 {...urlField}
                 className="w-full max-w-full pl-10 pr-3"
                 onChange={(e) => {
@@ -243,6 +253,10 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
                           (e.target as HTMLImageElement).src = 'https://img.youtube.com/vi/default/maxresdefault.jpg'
                         }}
                       />
+                    ) : previewData.type === 'channel' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20">
+                        <Users className="h-6 w-6 text-blue-500" />
+                      </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-red-100 dark:bg-red-900/20">
                         {previewData.type === 'playlist' ? (
@@ -255,6 +269,11 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
                     {previewData.type === 'playlist' && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                         <List className="h-6 w-6 text-white" />
+                      </div>
+                    )}
+                    {previewData.type === 'channel' && previewData.thumbnail && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <Users className="h-6 w-6 text-white" />
                       </div>
                     )}
                   </div>
@@ -328,6 +347,18 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
               >
                 <List className="mr-2 h-4 w-4" />
                 Demo Playlist
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setValue('url', 'https://www.youtube.com/@GoogleDevelopers')
+                  detectContentType('https://www.youtube.com/@GoogleDevelopers')
+                }}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Demo Channel
               </Button>
             </div>
           </div>

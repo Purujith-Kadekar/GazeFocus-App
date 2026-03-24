@@ -242,19 +242,19 @@ export function useFocusEngine(isActive: boolean = true) {
     }
   }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 
+  // When isActive is explicitly true (from VideoPlayer), always try to start tracking
+  // This ensures tracking works even if isEnabled is false in settings
+  const shouldTrack = isActive === true ? true : (isEnabled !== false && isActive)
+  
   useEffect(() => {
-    const shouldBeTracking = isEnabled && isActive
-
-    if (shouldBeTracking && !isTrackingRef.current) {
+    if (shouldTrack && !isTrackingRef.current) {
       startTracking()
-    } else if (!shouldBeTracking) {
-      stopTracking()
     }
 
     return () => {
       stopTracking()
     }
-  }, [isEnabled, isActive, startTracking, stopTracking])
+  }, [shouldTrack, startTracking, stopTracking])
 
   return { stream: streamRef.current, error }
 }

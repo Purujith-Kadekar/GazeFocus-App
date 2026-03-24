@@ -89,14 +89,23 @@ export function useFocusEngine(isActive: boolean = true) {
       console.log('Initializing Gaze Focus Engine...')
       
       // 1. Load settings from DB and sync to store
+      // Only use settings to configure, don't disable if we're starting tracking
       if (!settingsLoadedRef.current) {
         try {
           const res = await fetch('/api/settings')
           if (res.ok) {
             const data = await res.json()
-            useEyeTrackingStore.getState().setEnabled(data.eyeTrackingEnabled ?? true)
+            // Only update settings, don't change enabled state if we're starting
+            // This prevents disabling tracking when user has eyeTrackingEnabled: false in settings
             useEyeTrackingStore.getState().setThresholdSeconds(data.eyeTrackingThreshold ?? 3)
             useEyeTrackingStore.getState().setSensitivityMode(data.sensitivityMode ?? 'moderate')
+            // Respect user's eye tracking preference - only enable if explicitly true
+            // If undefined/null, default to enabled
+            if (data.eyeTrackingEnabled === true) {
+              useEyeTrackingStore.getState().setEnabled(true)
+            }
+            // If data.eyeTrackingEnabled is false or undefined, don't call setEnabled(false)
+            // This allows tracking to start even if settings haven't been configured yet
           }
         } catch {}
         settingsLoadedRef.current = true

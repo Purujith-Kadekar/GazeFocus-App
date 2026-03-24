@@ -26,7 +26,6 @@ export function useFocusEngine(isActive: boolean = true) {
   const rafRef = useRef<number | null>(null)
   const isTrackingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
-  const settingsLoadedRef = useRef(false)
   
   // MediaPipe strict timestamp management
   const lastTimestampRef = useRef<number>(-1)
@@ -82,34 +81,14 @@ export function useFocusEngine(isActive: boolean = true) {
   }, [setTracking, setLookingAtScreen, setIsFaceDetected, setCameraStream])
 
   const startTracking = useCallback(async () => {
-    if (isTrackingRef.current) return
+    if (isTrackingRef.current) {
+      console.log('startTracking: already tracking, returning')
+      return
+    }
     setError(null)
 
     try {
-      console.log('Initializing Gaze Focus Engine...')
-      
-      // 1. Load settings from DB and sync to store
-      // Only use settings to configure, don't disable if we're starting tracking
-      if (!settingsLoadedRef.current) {
-        try {
-          const res = await fetch('/api/settings')
-          if (res.ok) {
-            const data = await res.json()
-            // Only update settings, don't change enabled state if we're starting
-            // This prevents disabling tracking when user has eyeTrackingEnabled: false in settings
-            useEyeTrackingStore.getState().setThresholdSeconds(data.eyeTrackingThreshold ?? 3)
-            useEyeTrackingStore.getState().setSensitivityMode(data.sensitivityMode ?? 'moderate')
-            // Respect user's eye tracking preference - only enable if explicitly true
-            // If undefined/null, default to enabled
-            if (data.eyeTrackingEnabled === true) {
-              useEyeTrackingStore.getState().setEnabled(true)
-            }
-            // If data.eyeTrackingEnabled is false or undefined, don't call setEnabled(false)
-            // This allows tracking to start even if settings haven't been configured yet
-          }
-        } catch {}
-        settingsLoadedRef.current = true
-      }
+      console.log('Initializing Gaze Focus Engine...', { isActive })
       
       // 2. Setup hidden video
       const video = document.createElement('video')
@@ -242,19 +221,18 @@ export function useFocusEngine(isActive: boolean = true) {
     }
   }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 
-  // When isActive is explicitly true (from VideoPlayer), always try to start tracking
-  // This ensures tracking works even if isEnabled is false in settings
-  const shouldTrack = isActive === true ? true : (isEnabled !== false && isActive)
-  
+  // When isActive is true, always start tracking regardless of isEnabled
+  // This ensures eye tracking works when video player is open
   useEffect(() => {
-    if (shouldTrack && !isTrackingRef.current) {
+    // Always try to start when isActive is true
+    if (isActive && !isTrackingRef.current) {
       startTracking()
     }
-
-    return () => {
+    // Only stop when isActive becomes false
+    if (!isActive) {
       stopTracking()
     }
-  }, [shouldTrack, startTracking, stopTracking])
+  }, [isActive, startTracking, stopTracking])
 
   return { stream: streamRef.current, error }
 }

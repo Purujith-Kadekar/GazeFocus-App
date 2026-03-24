@@ -180,24 +180,23 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, [lastActivityTime, timeoutSeconds, isAlerting, setLastActivityTime, setTimeUntilAlert, setAlerting, soundAlertsEnabled, sessionReady, settingsHydrated])
 
+  // Eye tracking cleanup - Only stop tracking when leaving video routes
+  // This prevents race conditions with VideoPlayer's useFocusEngine
   useEffect(() => {
     const isVideoPlayerRoute =
       pathname?.startsWith('/video/') ||
       /^\/playlist\/[^/]+\/video\/[^/]+$/.test(pathname || '')
 
-    if (isVideoPlayerRoute && eyeTrackingEnabled) {
-      return
-    }
-
-    if (cameraStream) {
+    // Only stop tracking when leaving video pages, not when settings change
+    // Let VideoPlayer handle starting/stopping based on its own logic
+    if (!isVideoPlayerRoute && cameraStream) {
       cameraStream.getTracks().forEach((track) => track.stop())
+      setCameraStream(null)
+      setTracking(false)
+      setLookingAtScreen(true)
+      setIsFaceDetected(false)
     }
-
-    setCameraStream(null)
-    setTracking(false)
-    setLookingAtScreen(true)
-    setIsFaceDetected(false)
-  }, [pathname, eyeTrackingEnabled, cameraStream, setCameraStream, setTracking, setLookingAtScreen, setIsFaceDetected])
+  }, [pathname, cameraStream, setCameraStream, setTracking, setLookingAtScreen, setIsFaceDetected])
 
   return (
     <div className="min-h-screen bg-background">

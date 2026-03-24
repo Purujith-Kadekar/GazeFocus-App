@@ -123,7 +123,9 @@ export function MainLayout({ children }: MainLayoutProps) {
 
         if (typeof data.soundAlerts === 'boolean') setActive(data.soundAlerts)
         if (typeof data.inactivityTimeout === 'number') setTimeoutSeconds(data.inactivityTimeout)
-        if (typeof data.eyeTrackingEnabled === 'boolean') setEyeTrackingEnabled(data.eyeTrackingEnabled)
+        // Only enable eye tracking if explicitly true - don't disable if false
+        // This prevents disabling tracking when opening a video page
+        if (data.eyeTrackingEnabled === true) setEyeTrackingEnabled(true)
         if (typeof data.eyeTrackingThreshold === 'number') setThresholdSeconds(data.eyeTrackingThreshold)
         if (data.onboardingCompleted === false) setShowOnboarding(true)
       } catch {

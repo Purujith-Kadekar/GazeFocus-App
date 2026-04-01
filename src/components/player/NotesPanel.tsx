@@ -47,6 +47,26 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
   const [showImportantOnly, setShowImportantOnly] = useState(false)
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
 
+  // Fetch notes for this video from the API on mount
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const response = await fetch(`/api/notes?youtubeId=${encodeURIComponent(videoId)}`)
+        if (response.ok) {
+          const fetched = await response.json()
+          if (Array.isArray(fetched)) {
+            // Merge fetched notes into the store: replace notes for this video with fresh data
+            const existingOtherNotes = useNoteStore.getState().notes.filter((n) => n.youtubeId !== videoId)
+            setNotes([...existingOtherNotes, ...fetched])
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch notes:', error)
+      }
+    }
+    fetchNotes()
+  }, [videoId, setNotes])
+
   const videoNotes = notes.filter((n) => n.youtubeId === videoId)
   const filteredNotes = showImportantOnly 
     ? videoNotes.filter((n) => n.isImportant) 

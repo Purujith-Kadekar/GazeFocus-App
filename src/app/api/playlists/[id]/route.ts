@@ -49,7 +49,12 @@ export async function PUT(
     if (description !== undefined) updateData.description = description
     if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt).toISOString() : null
 
-    const playlistResult = await db.from('Playlist').update(updateData).eq('id', id).eq('userId', user.id).select().single()
+    const playlistResult = await db.from('Playlist').update({ ...updateData, updatedAt: new Date().toISOString() }).eq('id', id).eq('userId', user.id).select().single()
+
+    if (playlistResult.error || !playlistResult.data) {
+      console.error('Error updating playlist:', playlistResult.error)
+      return NextResponse.json({ error: 'Failed to update playlist' }, { status: 500 })
+    }
 
     return NextResponse.json(playlistResult.data)
   } catch (error) {

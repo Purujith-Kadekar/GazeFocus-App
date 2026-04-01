@@ -96,6 +96,52 @@ async function fetchVideosByEventType(resolvedId: string, eventType: string | nu
   return data.items?.map((item: any) => item.id.videoId).filter(Boolean) || []
 }
 
+async function fetchUploadsPlaylistId(resolvedId: string): Promise<string | null> {
+  if (!YOUTUBE_API_KEY) return null
+  try {
+    const response = await fetch(
+      `${YOUTUBE_API_BASE}/channels?part=contentDetails&id=${resolvedId}&key=${YOUTUBE_API_KEY}`
+    )
+    if (!response.ok) return null
+    const data = await response.json()
+    if (data.items && data.items.length > 0) {
+      return data.items[0].contentDetails?.relatedPlaylists?.uploads || null
+    }
+  } catch (error) {
+    console.error('Error fetching uploads playlist ID:', error)
+  }
+  return null
+}
+
+async function fetchVideoIdsFromPlaylist(playlistId: string, maxVideos = 200): Promise<string[]> {
+  if (!YOUTUBE_API_KEY) return []
+  const videoIds: string[] = []
+  let nextPageToken: string | undefined
+
+  do {
+    const params = new URLSearchParams({
+      part: 'contentDetails',
+      playlistId,
+      maxResults: '50',
+      key: YOUTUBE_API_KEY,
+    })
+    if (nextPageToken) params.set('pageToken', nextPageToken)
+
+    const response = await fetch(`${YOUTUBE_API_BASE}/playlistItems?${params.toString()}`)
+    if (!response.ok) break
+    const data = await response.json()
+    if (data.error) break
+
+    for (const item of data.items || []) {
+      const id = item.contentDetails?.videoId
+      if (id) videoIds.push(id)
+    }
+    nextPageToken = data.nextPageToken
+  } while (nextPageToken && videoIds.length < maxVideos)
+
+  return videoIds
+}
+
 async function fetchVideoDetails(videoIds: string[]): Promise<any[]> {
   if (videoIds.length === 0) return []
 
@@ -134,15 +180,23 @@ async function fetchLiveVideos(channelYoutubeId: string): Promise<LiveVideo[]> {
       return []
     }
 
-    // Fetch live, upcoming, and completed (past) live streams
-    const [liveIds, upcomingIds, completedIds] = await Promise.all([
+    // Fetch live, upcoming, and completed (past) live streams via search
+    // Also fetch from the uploads playlist for more reliable past-stream coverage,
+    // because search?eventType=completed is known to miss many past broadcasts.
+    const [liveIds, upcomingIds, completedSearchIds, uploadsPlaylistId] = await Promise.all([
       fetchVideosByEventType(resolvedId, 'live'),
       fetchVideosByEventType(resolvedId, 'upcoming'),
       fetchVideosByEventType(resolvedId, 'completed'),
+      fetchUploadsPlaylistId(resolvedId),
     ])
 
+    let uploadsIds: string[] = []
+    if (uploadsPlaylistId) {
+      uploadsIds = await fetchVideoIdsFromPlaylist(uploadsPlaylistId)
+    }
+
     // Combine all video IDs and deduplicate
-    const allIds = [...new Set([...liveIds, ...upcomingIds, ...completedIds])]
+    const allIds = [...new Set([...liveIds, ...upcomingIds, ...completedSearchIds, ...uploadsIds])]
 
     if (allIds.length === 0) {
       return []

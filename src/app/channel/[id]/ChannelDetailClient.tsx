@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Play, Loader2, Radio, Users, Grid, List, Eye } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, Radio, Users, Grid, List, Eye, RefreshCw } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +37,7 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
   const [videos, setVideos] = useState<Video[]>(initialVideos)
   const [liveVideos, setLiveVideos] = useState<LiveVideo[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [liveError, setLiveError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
@@ -47,14 +48,19 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
 
   const fetchLiveVideos = useCallback(async () => {
     setIsLoading(true)
+    setLiveError(null)
     try {
       const response = await fetch(`/api/channels/${channel.id}/live`)
       if (response.ok) {
         const data = await response.json()
         setLiveVideos(data)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        setLiveError(errorData.error || 'Failed to load live streams')
       }
     } catch (error) {
       console.error('Failed to fetch live videos:', error)
+      setLiveError('Failed to load live streams')
     } finally {
       setIsLoading(false)
     }
@@ -252,6 +258,18 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <span className="ml-2 text-muted-foreground">Checking for live videos...</span>
                 </div>
+              ) : liveError ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Radio className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground mb-2">Could not load live streams</p>
+                    <p className="text-sm text-muted-foreground/70 mb-4">{liveError}</p>
+                    <Button variant="outline" onClick={fetchLiveVideos}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Try Again
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : liveVideos.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">

@@ -34,6 +34,7 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
   const [channel, setChannel] = useState<Channel>(initialChannel)
   const [liveVideos, setLiveVideos] = useState<LiveVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -49,14 +50,19 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
 
   const fetchLiveVideos = async () => {
     setIsLoading(true)
+    setFetchError(null)
     try {
       const response = await fetch(`/api/channels/${channel.id}/live`)
       if (response.ok) {
         const data = await response.json()
         setLiveVideos(data)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        setFetchError(errorData.error || 'Failed to load live streams')
       }
     } catch (error) {
       console.error('Failed to fetch live videos:', error)
+      setFetchError('Failed to load live streams')
     } finally {
       setIsLoading(false)
     }
@@ -190,6 +196,18 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="ml-2 text-muted-foreground">Checking for live videos...</span>
             </div>
+          ) : fetchError ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Radio className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground mb-2">Could not load live streams</p>
+                <p className="text-sm text-muted-foreground/70 mb-4">{fetchError}</p>
+                <Button variant="outline" onClick={fetchLiveVideos}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
           ) : liveVideos.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">

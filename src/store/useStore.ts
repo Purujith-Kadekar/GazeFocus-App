@@ -401,6 +401,21 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   setImportantNotes: (notes) => set({ importantNotes: notes }),
 }))
 
+// Watch Break Store
+interface WatchBreakStateStore {
+  isEnabled: boolean
+  breakMinutes: number
+  setEnabled: (enabled: boolean) => void
+  setBreakMinutes: (minutes: number) => void
+}
+
+export const useWatchBreakStore = create<WatchBreakStateStore>((set) => ({
+  isEnabled: true,
+  breakMinutes: 45,
+  setEnabled: (enabled) => set({ isEnabled: enabled }),
+  setBreakMinutes: (minutes) => set({ breakMinutes: minutes }),
+}))
+
 // Channel Store
 interface ChannelState {
   channels: Channel[]

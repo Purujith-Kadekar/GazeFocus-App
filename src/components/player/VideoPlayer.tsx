@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Eye, EyeOff, FileText, CheckCircle, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, FileText, CheckCircle, Loader2, Coffee } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { usePlayerStore, useEyeTrackingStore, useUIStore } from '@/store/useStore'
+import { usePlayerStore, useEyeTrackingStore, useUIStore, useWatchBreakStore } from '@/store/useStore'
 import { useFocusEngine } from '@/hooks/useFocusEngine'
 import { formatDuration, cn } from '@/lib/utils'
 import { NotesPanel } from './NotesPanel'
@@ -71,6 +71,16 @@ export function VideoPlayer({
     isEnabled: eyeTrackingEnabled,
     isLookingAtScreen,
   } = useEyeTrackingStore()
+
+  const {
+    isEnabled: watchBreakEnabled,
+    breakMinutes,
+  } = useWatchBreakStore()
+
+  // Watch break reminder: track continuous playing time
+  const continuousPlaySecondsRef = useRef(0)
+  const lastPlayingRef = useRef(false)
+  const [showWatchBreak, setShowWatchBreak] = useState(false)
 
   // Load default playback speed from settings on mount
   useEffect(() => { playbackSpeedRef.current = playbackSpeed }, [playbackSpeed])
@@ -279,6 +289,36 @@ export function VideoPlayer({
     }
   }, [isLookingAtScreen, isPlaying, isPausedByEyeTracking, eyeTrackingEnabled, isPlayerReady])
 
+  /**
+   * 5. WATCH BREAK REMINDER (continuous watch timer)
+   * Tracks how long the user has been playing non-stop. When playing stops
+   * (paused / eye-tracking pause / tab hidden) the counter resets. When the
+   * threshold is reached an overlay is shown prompting the user to take a break.
+   */
+  useEffect(() => {
+    if (!watchBreakEnabled) return
+
+    const interval = setInterval(() => {
+      if (isPlaying && !isPausedByEyeTracking && !document.hidden) {
+        continuousPlaySecondsRef.current += 1
+        if (continuousPlaySecondsRef.current >= breakMinutes * 60) {
+          setShowWatchBreak(true)
+          continuousPlaySecondsRef.current = 0
+        }
+      } else {
+        // Reset whenever not actively playing
+        continuousPlaySecondsRef.current = 0
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [watchBreakEnabled, isPlaying, isPausedByEyeTracking, breakMinutes])
+
+  const handleDismissWatchBreak = () => {
+    setShowWatchBreak(false)
+    continuousPlaySecondsRef.current = 0
+  }
+
   const togglePlayManual = () => {
     const player = playerRef.current
     if (!player || !isPlayerReady) return
@@ -326,6 +366,28 @@ export function VideoPlayer({
                     className="px-10 h-14 text-lg font-bold rounded-full bg-primary hover:scale-105 transition-transform"
                   >
                     Resume Now
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Watch break reminder overlay */}
+            {showWatchBreak && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md z-20 transition-all animate-in fade-in duration-500">
+                <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 shadow-2xl">
+                  <div className="relative mb-6">
+                    <Coffee className="h-20 w-20 mx-auto text-orange-400 animate-bounce" />
+                  </div>
+                  <h2 className="text-white text-3xl font-bold mb-2 tracking-tight">Time for a Break!</h2>
+                  <p className="text-white/60 text-lg mb-8 max-w-xs">
+                    You&apos;ve been watching for {breakMinutes} minutes straight. Stand up, stretch, rest your eyes!
+                  </p>
+                  <Button 
+                    onClick={handleDismissWatchBreak}
+                    size="lg" 
+                    className="px-10 h-14 text-lg font-bold rounded-full bg-orange-500 hover:bg-orange-600 hover:scale-105 transition-transform"
+                  >
+                    Got it, keep going
                   </Button>
                 </div>
               </div>

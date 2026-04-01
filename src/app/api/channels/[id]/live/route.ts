@@ -34,19 +34,28 @@ async function resolveChannelId(channelId: string): Promise<string | null> {
     return channelId
   }
 
-  if (channelId.startsWith('@')) {
-    const handle = channelId.substring(1)
-    try {
-      const response = await fetch(
-        `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
-      )
-      const data = await response.json()
-      if (data.items && data.items.length > 0) {
-        return data.items[0].id
-      }
-    } catch (error) {
-      console.error('Error resolving channel handle:', error)
+  const handle = channelId.startsWith('@') ? channelId.substring(1) : channelId
+
+  try {
+    // Try resolving via handle (works for @handle format)
+    const handleResponse = await fetch(
+      `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
+    )
+    const handleData = await handleResponse.json()
+    if (handleData.items && handleData.items.length > 0) {
+      return handleData.items[0].id
     }
+
+    // Fallback: try resolving via legacy username
+    const usernameResponse = await fetch(
+      `${YOUTUBE_API_BASE}/channels?part=id&forUsername=${handle}&key=${YOUTUBE_API_KEY}`
+    )
+    const usernameData = await usernameResponse.json()
+    if (usernameData.items && usernameData.items.length > 0) {
+      return usernameData.items[0].id
+    }
+  } catch (error) {
+    console.error('Error resolving channel ID:', error)
   }
 
   return null
@@ -57,20 +66,30 @@ async function fetchVideosByEventType(resolvedId: string, eventType: string | nu
     part: 'snippet',
     channelId: resolvedId,
     type: 'video',
-    order: 'date',
     maxResults: '50',
     key: YOUTUBE_API_KEY!,
   })
 
   if (eventType) {
     params.set('eventType', eventType)
+  } else {
+    // Only add order when not filtering by eventType, as the combination
+    // can cause YouTube API to return errors for some event types
+    params.set('order', 'date')
   }
 
   const response = await fetch(`${YOUTUBE_API_BASE}/search?${params.toString()}`)
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    console.error(`YouTube API error (${response.status}) for eventType=${eventType}:`, errorData?.error?.message || response.statusText)
+    return []
+  }
+
   const data = await response.json()
 
   if (data.error) {
-    console.error('YouTube API error:', data.error)
+    console.error(`YouTube API error for eventType=${eventType}:`, data.error)
     return []
   }
 
@@ -144,7 +163,9 @@ async function fetchLiveVideos(channelYoutubeId: string): Promise<LiveVideo[]> {
 
       const isCurrentlyLive = liveBroadcastContent === 'live'
       const isUpcoming = liveBroadcastContent === 'upcoming'
-      const isPastBroadcast = actualStartTime !== null
+      // Include as a past broadcast if it has any live streaming details
+      // (actualStartTime may be absent for broadcasts that were cancelled before starting)
+      const isPastBroadcast = video.liveStreamingDetails != null
 
       // Include if it's live, upcoming, or has live streaming details (past broadcast)
       if (!isCurrentlyLive && !isUpcoming && !isPastBroadcast) {

@@ -14,7 +14,8 @@ import {
   Zap,
   CheckCircle2,
   BookOpen,
-  Target
+  Target,
+  Coffee
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
-import { useEyeTrackingStore, useSettingsStore, useInactivityStore, usePlayerStore } from '@/store/useStore'
+import { useEyeTrackingStore, useSettingsStore, useInactivityStore, usePlayerStore, useWatchBreakStore } from '@/store/useStore'
 
 export function SettingsPage() {
   const { toast } = useToast()
@@ -55,6 +56,13 @@ export function SettingsPage() {
   
   const playbackSpeed = usePlayerStore((state) => state.playbackSpeed)
   const setPlaybackSpeed = usePlayerStore((state) => state.setPlaybackSpeed)
+
+  const watchBreakEnabled = useWatchBreakStore((state) => state.isEnabled)
+  const setWatchBreakEnabled = useWatchBreakStore((state) => state.setEnabled)
+  const watchBreakMinutes = useWatchBreakStore((state) => state.breakMinutes)
+  const setWatchBreakMinutes = useWatchBreakStore((state) => state.setBreakMinutes)
+  const watchBreakDurationMinutes = useWatchBreakStore((state) => state.breakDurationMinutes)
+  const setWatchBreakDurationMinutes = useWatchBreakStore((state) => state.setBreakDurationMinutes)
   
   // Theme logic (custom data-theme system)
   const syncThemeToDom = (theme: string) => {
@@ -76,7 +84,10 @@ export function SettingsPage() {
     soundAlerts: alertsEnabled,
     defaultPlaybackSpeed: playbackSpeed,
     eyeTrackingThreshold: thresholdSeconds,
-    weeklyGoal: 10
+    weeklyGoal: 10,
+    watchBreakEnabled: watchBreakEnabled,
+    watchBreakMinutes: watchBreakMinutes,
+    watchBreakDurationMinutes: watchBreakDurationMinutes,
   })
 
   const [isLoading, setIsLoading] = useState(true)
@@ -107,7 +118,10 @@ export function SettingsPage() {
             autoPlayNext: data.autoPlayNext ?? true,
             defaultPlaybackSpeed: data.defaultPlaybackSpeed ?? 1.0,
             eyeTrackingThreshold: data.eyeTrackingThreshold ?? 0,
-            weeklyGoal: data.weeklyGoal ?? 10
+            weeklyGoal: data.weeklyGoal ?? 10,
+            watchBreakEnabled: data.watchBreakEnabled ?? true,
+            watchBreakMinutes: data.watchBreakMinutes ?? 45,
+            watchBreakDurationMinutes: data.watchBreakDurationMinutes ?? 1,
           }
           
           setLocalSettings(settings)
@@ -120,6 +134,9 @@ export function SettingsPage() {
           setThresholdSeconds(settings.eyeTrackingThreshold)
           setPlaybackSpeed(settings.defaultPlaybackSpeed)
           setSensitivityMode(settings.sensitivityMode)
+          setWatchBreakEnabled(settings.watchBreakEnabled)
+          setWatchBreakMinutes(settings.watchBreakMinutes)
+          setWatchBreakDurationMinutes(settings.watchBreakDurationMinutes)
 
           // If the DB theme differs from local, push local theme to DB to keep them in sync
           if (data.theme !== currentTheme) {
@@ -139,7 +156,7 @@ export function SettingsPage() {
     }
 
     loadSettings()
-  }, [setTimeoutSeconds, setAlertsEnabled, setTrackingEnabled, setThresholdSeconds, setPlaybackSpeed, setSensitivityMode])
+  }, [setTimeoutSeconds, setAlertsEnabled, setTrackingEnabled, setThresholdSeconds, setPlaybackSpeed, setSensitivityMode, setWatchBreakEnabled, setWatchBreakMinutes, setWatchBreakDurationMinutes])
 
   // Save a setting to the DB immediately (keepalive survives page unload)
   const saveToDb = (payload: Record<string, any>) => {
@@ -184,6 +201,12 @@ export function SettingsPage() {
       setSensitivityMode(value)
     } else if (key === 'defaultPlaybackSpeed') {
       setPlaybackSpeed(value)
+    } else if (key === 'watchBreakEnabled') {
+      setWatchBreakEnabled(value)
+    } else if (key === 'watchBreakMinutes') {
+      setWatchBreakMinutes(value)
+    } else if (key === 'watchBreakDurationMinutes') {
+      setWatchBreakDurationMinutes(value)
     }
   }
 
@@ -208,7 +231,10 @@ export function SettingsPage() {
         autoPlayNext: true,
         defaultPlaybackSpeed: 1.0,
         eyeTrackingThreshold: 0,
-        weeklyGoal: 10
+        weeklyGoal: 10,
+        watchBreakEnabled: true,
+        watchBreakMinutes: 45,
+        watchBreakDurationMinutes: 1,
       }
       
       const response = await fetch('/api/settings', {
@@ -227,6 +253,9 @@ export function SettingsPage() {
         setThresholdSeconds(0)
         setSensitivityMode('moderate')
         setPlaybackSpeed(1.0)
+        setWatchBreakEnabled(true)
+        setWatchBreakMinutes(45)
+        setWatchBreakDurationMinutes(1)
         
         toast({
           title: 'Settings reset',
@@ -563,6 +592,95 @@ export function SettingsPage() {
                 onValueChange={([val]) => updateLocal('defaultPlaybackSpeed', val)}
                 onValueCommit={([val]) => handleChange('defaultPlaybackSpeed', val)}
               />
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 shadow-sm bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Coffee className="h-5 w-5 text-orange-400" />
+                Watch Break Reminder
+              </CardTitle>
+              <CardDescription>Get reminded to take a break after watching non-stop</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Reminder Enabled</Label>
+                <Switch
+                  checked={localSettings.watchBreakEnabled}
+                  onCheckedChange={(val) => handleChange('watchBreakEnabled', val)}
+                />
+              </div>
+              <Separator className="bg-border/50 border" />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-semibold">Remind after</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Minutes of continuous playback before reminder</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={10}
+                      max={180}
+                      step={5}
+                      value={localSettings.watchBreakMinutes}
+                      onChange={(e) => {
+                        const val = Math.max(10, Math.min(180, Number(e.target.value) || 45))
+                        handleChange('watchBreakMinutes', val)
+                      }}
+                      className="w-16 h-8 text-center font-mono font-bold text-orange-400 border-2 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-sm font-semibold text-muted-foreground">min</span>
+                  </div>
+                </div>
+                <Slider
+                  value={[localSettings.watchBreakMinutes]}
+                  min={10}
+                  max={180}
+                  step={5}
+                  onValueChange={([val]) => updateLocal('watchBreakMinutes', val)}
+                  onValueCommit={([val]) => handleChange('watchBreakMinutes', val)}
+                />
+                <p className="text-xs text-muted-foreground italic mt-2">
+                  Default: 45 min. Timer resets whenever you pause.
+                </p>
+              </div>
+              <Separator className="bg-border/50 border" />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-semibold">Break duration</Label>
+                    <p className="text-xs text-muted-foreground mt-1">How long the mandatory break lasts before you can resume</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      step={1}
+                      value={localSettings.watchBreakDurationMinutes}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(5, Number(e.target.value) || 1))
+                        handleChange('watchBreakDurationMinutes', val)
+                      }}
+                      className="w-16 h-8 text-center font-mono font-bold text-orange-400 border-2 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-sm font-semibold text-muted-foreground">min</span>
+                  </div>
+                </div>
+                <Slider
+                  value={[localSettings.watchBreakDurationMinutes]}
+                  min={1}
+                  max={5}
+                  step={1}
+                  onValueChange={([val]) => updateLocal('watchBreakDurationMinutes', val)}
+                  onValueCommit={([val]) => handleChange('watchBreakDurationMinutes', val)}
+                />
+                <p className="text-xs text-muted-foreground italic mt-2">
+                  Default: 1 min. The site is locked until the countdown finishes.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -52,7 +52,10 @@ export async function PUT(request: NextRequest) {
       defaultPlaybackSpeed,
       eyeTrackingThreshold,
       onboardingCompleted,
-      weeklyGoal
+      weeklyGoal,
+      watchBreakEnabled,
+      watchBreakMinutes,
+      watchBreakDurationMinutes,
     } = body
 
     const updateData: Record<string, any> = {}
@@ -66,6 +69,9 @@ export async function PUT(request: NextRequest) {
     if (eyeTrackingThreshold !== undefined) updateData.eyeTrackingThreshold = eyeTrackingThreshold
     if (onboardingCompleted !== undefined) updateData.onboardingCompleted = onboardingCompleted
     if (weeklyGoal !== undefined) updateData.weeklyGoal = weeklyGoal
+    if (watchBreakEnabled !== undefined) updateData.watchBreakEnabled = watchBreakEnabled
+    if (watchBreakMinutes !== undefined) updateData.watchBreakMinutes = watchBreakMinutes
+    if (watchBreakDurationMinutes !== undefined) updateData.watchBreakDurationMinutes = watchBreakDurationMinutes
 
     const existingResult = await db.from('UserSettings').select('id').eq('userId', userId).maybeSingle()
 

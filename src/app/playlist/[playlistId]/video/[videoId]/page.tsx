@@ -89,11 +89,12 @@ export default function PlaylistVideoPage() {
     setIsCompleted(newCompleted)
     
     try {
-      await fetch(`/api/videos/${video.id}`, {
-        method: 'PUT',
+      const res = await fetch('/api/progress/complete', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isCompleted: newCompleted }),
+        body: JSON.stringify({ youtubeId: video.youtubeId, completed: newCompleted }),
       })
+      if (!res.ok) throw new Error('Failed')
     } catch (error) {
       console.error('Failed to update completion status:', error)
       setIsCompleted(!newCompleted)

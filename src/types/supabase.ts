@@ -526,6 +526,8 @@ export type Database = {
           theme: string
           updatedAt: string
           userId: string
+          watchBreakEnabled: boolean
+          watchBreakMinutes: number
           weeklyGoal: number
         }
         Insert: {
@@ -542,6 +544,8 @@ export type Database = {
           theme?: string
           updatedAt: string
           userId: string
+          watchBreakEnabled?: boolean
+          watchBreakMinutes?: number
           weeklyGoal?: number
         }
         Update: {
@@ -558,6 +562,8 @@ export type Database = {
           theme?: string
           updatedAt?: string
           userId?: string
+          watchBreakEnabled?: boolean
+          watchBreakMinutes?: number
           weeklyGoal?: number
         }
         Relationships: [

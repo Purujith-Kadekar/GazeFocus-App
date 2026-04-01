@@ -115,15 +115,15 @@ async function fetchLiveVideos(channelYoutubeId: string): Promise<LiveVideo[]> {
       return []
     }
 
-    // Fetch live, upcoming, and recent videos
-    const [liveIds, upcomingIds, recentIds] = await Promise.all([
+    // Fetch live, upcoming, and completed (past) live streams
+    const [liveIds, upcomingIds, completedIds] = await Promise.all([
       fetchVideosByEventType(resolvedId, 'live'),
       fetchVideosByEventType(resolvedId, 'upcoming'),
-      fetchVideosByEventType(resolvedId, null),
+      fetchVideosByEventType(resolvedId, 'completed'),
     ])
 
     // Combine all video IDs and deduplicate
-    const allIds = [...new Set([...liveIds, ...upcomingIds, ...recentIds])]
+    const allIds = [...new Set([...liveIds, ...upcomingIds, ...completedIds])]
 
     if (allIds.length === 0) {
       return []

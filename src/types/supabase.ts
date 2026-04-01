@@ -526,6 +526,7 @@ export type Database = {
           theme: string
           updatedAt: string
           userId: string
+          watchBreakDurationMinutes: number
           watchBreakEnabled: boolean
           watchBreakMinutes: number
           weeklyGoal: number
@@ -544,6 +545,7 @@ export type Database = {
           theme?: string
           updatedAt: string
           userId: string
+          watchBreakDurationMinutes?: number
           watchBreakEnabled?: boolean
           watchBreakMinutes?: number
           weeklyGoal?: number
@@ -562,6 +564,7 @@ export type Database = {
           theme?: string
           updatedAt?: string
           userId?: string
+          watchBreakDurationMinutes?: number
           watchBreakEnabled?: boolean
           watchBreakMinutes?: number
           weeklyGoal?: number

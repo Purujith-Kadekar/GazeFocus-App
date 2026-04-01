@@ -25,6 +25,16 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'UserSettings' AND column_name = 'watchBreakDurationMinutes'
+  ) THEN
+    ALTER TABLE "UserSettings" ADD COLUMN "watchBreakDurationMinutes" INTEGER NOT NULL DEFAULT 1;
+  END IF;
+END $$;
+
 -- -----------------------------------------------
 -- 2. Enable Row Level Security on all user tables
 -- -----------------------------------------------

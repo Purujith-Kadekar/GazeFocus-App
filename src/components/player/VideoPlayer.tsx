@@ -75,12 +75,15 @@ export function VideoPlayer({
   const {
     isEnabled: watchBreakEnabled,
     breakMinutes,
+    breakDurationMinutes,
   } = useWatchBreakStore()
 
   // Watch break reminder: track continuous playing time
   const continuousPlaySecondsRef = useRef(0)
   const lastPlayingRef = useRef(false)
   const [showWatchBreak, setShowWatchBreak] = useState(false)
+  // breakCountdown > 0 means the mandatory break is in progress
+  const [breakCountdown, setBreakCountdown] = useState(0)
 
   // Load default playback speed from settings on mount
   useEffect(() => { playbackSpeedRef.current = playbackSpeed }, [playbackSpeed])
@@ -293,7 +296,7 @@ export function VideoPlayer({
    * 5. WATCH BREAK REMINDER (continuous watch timer)
    * Tracks how long the user has been playing non-stop. When playing stops
    * (paused / eye-tracking pause / tab hidden) the counter resets. When the
-   * threshold is reached an overlay is shown prompting the user to take a break.
+   * threshold is reached the mandatory break countdown begins.
    */
   useEffect(() => {
     if (!watchBreakEnabled) return
@@ -302,7 +305,12 @@ export function VideoPlayer({
       if (isPlaying && !isPausedByEyeTracking && !document.hidden) {
         continuousPlaySecondsRef.current += 1
         if (continuousPlaySecondsRef.current >= breakMinutes * 60) {
+          // Pause the video and start the mandatory break
+          if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+            playerRef.current.pauseVideo()
+          }
           setShowWatchBreak(true)
+          setBreakCountdown(breakDurationMinutes * 60)
           continuousPlaySecondsRef.current = 0
         }
       } else {
@@ -312,12 +320,29 @@ export function VideoPlayer({
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [watchBreakEnabled, isPlaying, isPausedByEyeTracking, breakMinutes])
+  }, [watchBreakEnabled, isPlaying, isPausedByEyeTracking, breakMinutes, breakDurationMinutes])
 
-  const handleDismissWatchBreak = () => {
-    setShowWatchBreak(false)
-    continuousPlaySecondsRef.current = 0
-  }
+  /**
+   * 6. MANDATORY BREAK COUNTDOWN
+   * Counts down every second while the break overlay is visible.
+   * When it hits 0 the overlay is dismissed automatically.
+   */
+  useEffect(() => {
+    if (breakCountdown <= 0) return
+
+    const timer = setInterval(() => {
+      setBreakCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          setShowWatchBreak(false)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [breakCountdown])
 
   const togglePlayManual = () => {
     const player = playerRef.current
@@ -371,25 +396,44 @@ export function VideoPlayer({
               </div>
             )}
 
-            {/* Watch break reminder overlay */}
-            {showWatchBreak && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md z-20 transition-all animate-in fade-in duration-500">
-                <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 shadow-2xl">
-                  <div className="relative mb-6">
-                    <Coffee className="h-20 w-20 mx-auto text-orange-400 animate-bounce" />
+            {/* Full-page mandatory break countdown — blocks the entire site */}
+            {showWatchBreak && breakCountdown > 0 && (
+              <div
+                className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg select-none"
+                onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <Coffee className="h-24 w-24 text-orange-400 animate-bounce mb-6" />
+                <h1 className="text-white text-4xl font-extrabold mb-2 tracking-tight">
+                  Time to Rest 🧘
+                </h1>
+                <p className="text-white/60 text-lg mb-10 max-w-sm text-center">
+                  You&apos;ve been watching non-stop. Step away, stretch and rest your eyes. The app will unlock automatically.
+                </p>
+
+                {/* Circular countdown — arc drains as time passes */}
+                <div className="relative flex items-center justify-center mb-6">
+                  <svg className="h-36 w-36 -rotate-90" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="white" strokeOpacity="0.08" strokeWidth="8" />
+                    <circle
+                      cx="60" cy="60" r="54"
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 54}`}
+                      strokeDashoffset={`${2 * Math.PI * 54 * (1 - breakCountdown / (breakDurationMinutes * 60))}`}
+                      className="transition-all duration-1000 ease-linear"
+                    />
+                  </svg>
+                  <div className="absolute text-center">
+                    <span className="text-white text-4xl font-extrabold font-mono tabular-nums">
+                      {Math.floor(breakCountdown / 60).toString().padStart(2, '0')}:{(breakCountdown % 60).toString().padStart(2, '0')}
+                    </span>
                   </div>
-                  <h2 className="text-white text-3xl font-bold mb-2 tracking-tight">Time for a Break!</h2>
-                  <p className="text-white/60 text-lg mb-8 max-w-xs">
-                    You&apos;ve been watching for {breakMinutes} minutes straight. Stand up, stretch, rest your eyes!
-                  </p>
-                  <Button 
-                    onClick={handleDismissWatchBreak}
-                    size="lg" 
-                    className="px-10 h-14 text-lg font-bold rounded-full bg-orange-500 hover:bg-orange-600 hover:scale-105 transition-transform"
-                  >
-                    Got it, keep going
-                  </Button>
                 </div>
+
+                <p className="text-white/30 text-sm">Come back when the timer ends</p>
               </div>
             )}
           </div>

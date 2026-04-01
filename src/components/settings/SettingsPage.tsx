@@ -61,6 +61,8 @@ export function SettingsPage() {
   const setWatchBreakEnabled = useWatchBreakStore((state) => state.setEnabled)
   const watchBreakMinutes = useWatchBreakStore((state) => state.breakMinutes)
   const setWatchBreakMinutes = useWatchBreakStore((state) => state.setBreakMinutes)
+  const watchBreakDurationMinutes = useWatchBreakStore((state) => state.breakDurationMinutes)
+  const setWatchBreakDurationMinutes = useWatchBreakStore((state) => state.setBreakDurationMinutes)
   
   // Theme logic (custom data-theme system)
   const syncThemeToDom = (theme: string) => {
@@ -85,6 +87,7 @@ export function SettingsPage() {
     weeklyGoal: 10,
     watchBreakEnabled: watchBreakEnabled,
     watchBreakMinutes: watchBreakMinutes,
+    watchBreakDurationMinutes: watchBreakDurationMinutes,
   })
 
   const [isLoading, setIsLoading] = useState(true)
@@ -118,6 +121,7 @@ export function SettingsPage() {
             weeklyGoal: data.weeklyGoal ?? 10,
             watchBreakEnabled: data.watchBreakEnabled ?? true,
             watchBreakMinutes: data.watchBreakMinutes ?? 45,
+            watchBreakDurationMinutes: data.watchBreakDurationMinutes ?? 1,
           }
           
           setLocalSettings(settings)
@@ -132,6 +136,7 @@ export function SettingsPage() {
           setSensitivityMode(settings.sensitivityMode)
           setWatchBreakEnabled(settings.watchBreakEnabled)
           setWatchBreakMinutes(settings.watchBreakMinutes)
+          setWatchBreakDurationMinutes(settings.watchBreakDurationMinutes)
 
           // If the DB theme differs from local, push local theme to DB to keep them in sync
           if (data.theme !== currentTheme) {
@@ -151,7 +156,7 @@ export function SettingsPage() {
     }
 
     loadSettings()
-  }, [setTimeoutSeconds, setAlertsEnabled, setTrackingEnabled, setThresholdSeconds, setPlaybackSpeed, setSensitivityMode, setWatchBreakEnabled, setWatchBreakMinutes])
+  }, [setTimeoutSeconds, setAlertsEnabled, setTrackingEnabled, setThresholdSeconds, setPlaybackSpeed, setSensitivityMode, setWatchBreakEnabled, setWatchBreakMinutes, setWatchBreakDurationMinutes])
 
   // Save a setting to the DB immediately (keepalive survives page unload)
   const saveToDb = (payload: Record<string, any>) => {
@@ -200,6 +205,8 @@ export function SettingsPage() {
       setWatchBreakEnabled(value)
     } else if (key === 'watchBreakMinutes') {
       setWatchBreakMinutes(value)
+    } else if (key === 'watchBreakDurationMinutes') {
+      setWatchBreakDurationMinutes(value)
     }
   }
 
@@ -227,6 +234,7 @@ export function SettingsPage() {
         weeklyGoal: 10,
         watchBreakEnabled: true,
         watchBreakMinutes: 45,
+        watchBreakDurationMinutes: 1,
       }
       
       const response = await fetch('/api/settings', {
@@ -247,6 +255,7 @@ export function SettingsPage() {
         setPlaybackSpeed(1.0)
         setWatchBreakEnabled(true)
         setWatchBreakMinutes(45)
+        setWatchBreakDurationMinutes(1)
         
         toast({
           title: 'Settings reset',
@@ -635,6 +644,41 @@ export function SettingsPage() {
                 />
                 <p className="text-xs text-muted-foreground italic mt-2">
                   Default: 45 min. Timer resets whenever you pause.
+                </p>
+              </div>
+              <Separator className="bg-border/50 border" />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-semibold">Break duration</Label>
+                    <p className="text-xs text-muted-foreground mt-1">How long the mandatory break lasts before you can resume</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      step={1}
+                      value={localSettings.watchBreakDurationMinutes}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(5, Number(e.target.value) || 1))
+                        handleChange('watchBreakDurationMinutes', val)
+                      }}
+                      className="w-16 h-8 text-center font-mono font-bold text-orange-400 border-2 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-sm font-semibold text-muted-foreground">min</span>
+                  </div>
+                </div>
+                <Slider
+                  value={[localSettings.watchBreakDurationMinutes]}
+                  min={1}
+                  max={5}
+                  step={1}
+                  onValueChange={([val]) => updateLocal('watchBreakDurationMinutes', val)}
+                  onValueCommit={([val]) => handleChange('watchBreakDurationMinutes', val)}
+                />
+                <p className="text-xs text-muted-foreground italic mt-2">
+                  Default: 1 min. The site is locked until the countdown finishes.
                 </p>
               </div>
             </CardContent>

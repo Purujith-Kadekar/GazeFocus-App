@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid YouTube ID' }, { status: 400 })
     }
 
-    const { data: existing } = await supabase.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).single()
+    const { data: existing } = await supabase.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
 
     if (existing) {
       return NextResponse.json({ error: 'This video already exists in your library' }, { status: 400 })

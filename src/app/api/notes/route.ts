@@ -55,13 +55,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const now = new Date().toISOString()
     const noteResult = await db.from('Note').insert({
+      id: crypto.randomUUID(),
       content,
       timestampSeconds: timestamp || 0,
       isImportant: isImportant || false,
       youtubeId,
       userId,
+      createdAt: now,
+      updatedAt: now,
     }).select().single()
+
+    if (noteResult.error || !noteResult.data) {
+      console.error('Error creating note:', noteResult.error)
+      return NextResponse.json({ error: 'Failed to create note' }, { status: 500 })
+    }
 
     return NextResponse.json(noteResult.data, { status: 201 })
   } catch (error) {

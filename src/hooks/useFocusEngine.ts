@@ -219,7 +219,7 @@ export function useFocusEngine(isActive: boolean = true) {
 
       stopTracking()
     }
-  }, [thresholdSeconds, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
+  }, [thresholdSeconds, sensitivityMode, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 
   // When isActive is true, always start tracking regardless of isEnabled
   // This ensures eye tracking works when video player is open
@@ -230,6 +230,10 @@ export function useFocusEngine(isActive: boolean = true) {
     }
     // Only stop when isActive becomes false
     if (!isActive) {
+      stopTracking()
+    }
+    // Cleanup when the component using this hook unmounts
+    return () => {
       stopTracking()
     }
   }, [isActive, startTracking, stopTracking])

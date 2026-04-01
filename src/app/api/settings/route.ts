@@ -16,6 +16,10 @@ export async function GET() {
 
     if (!settings) {
       const newSettingsResult = await db.from('UserSettings').insert({ userId }).select().single()
+      if (newSettingsResult.error || !newSettingsResult.data) {
+        console.error('Error creating settings:', newSettingsResult.error)
+        return NextResponse.json({ error: 'Failed to create settings' }, { status: 500 })
+      }
       settings = newSettingsResult.data
     }
 

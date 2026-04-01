@@ -357,7 +357,9 @@ export async function POST(request: NextRequest) {
     const finalDuration = videoData?.duration ?? 0
 
     if (type === 'playlist') {
+      const now = new Date().toISOString()
       const playlistResult = await db.from('Playlist').insert({
+        id: crypto.randomUUID(),
         youtubeId,
         title: finalTitle,
         description: finalDescription,
@@ -366,16 +368,26 @@ export async function POST(request: NextRequest) {
         channelName: finalChannelName,
         userId,
         totalDuration: 0,
+        updatedAt: now,
+        createdAt: now,
       }).select().single()
+
+      if (playlistResult.error || !playlistResult.data) {
+        console.error('Error creating playlist:', playlistResult.error)
+        return NextResponse.json({ error: 'Failed to create playlist' }, { status: 500 })
+      }
 
       const playlist = playlistResult.data
 
       await db.from('LibraryItem').insert({
+        id: crypto.randomUUID(),
         userId,
-        externalId: playlist!.id,
+        externalId: playlist.id,
         type: 'PLAYLIST',
         title: finalTitle,
         folderId: folderId || null,
+        updatedAt: now,
+        createdAt: now,
       })
 
       if (playlistVideos.length > 0) {
@@ -383,20 +395,23 @@ export async function POST(request: NextRequest) {
         
         for (const video of playlistVideos) {
           await db.from('Video').upsert({
+            id: crypto.randomUUID(),
             youtubeId: video.youtubeId,
             title: video.title,
             description: video.description || '',
             thumbnail: video.thumbnail || `https://img.youtube.com/vi/${video.youtubeId}/maxresdefault.jpg`,
             duration: video.duration || 0,
-            playlistId: playlist!.id,
+            playlistId: playlist.id,
             userId,
             position: video.position || 0,
+            updatedAt: now,
+            createdAt: now,
           }, { onConflict: 'youtubeId,userId' })
         }
         
-        await db.from('Playlist').update({ totalDuration }).eq('id', playlist!.id)
+        await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)
 
-        const videoCountResult = await db.from('Video').select('id', { count: 'exact', head: true }).eq('playlistId', playlist!.id).eq('userId', userId)
+        const videoCountResult = await db.from('Video').select('id', { count: 'exact', head: true }).eq('playlistId', playlist.id).eq('userId', userId)
         const videoCount = videoCountResult.count || 0
 
         return NextResponse.json({ 
@@ -413,7 +428,9 @@ export async function POST(request: NextRequest) {
       }, { status: 201 })
     }
 
+    const now = new Date().toISOString()
     const videoResult = await db.from('Video').insert({
+      id: crypto.randomUUID(),
       youtubeId,
       title: finalTitle,
       description: finalDescription,
@@ -422,20 +439,30 @@ export async function POST(request: NextRequest) {
       playlistId: null,
       userId,
       position: 0,
+      updatedAt: now,
+      createdAt: now,
     }).select().single()
+
+    if (videoResult.error || !videoResult.data) {
+      console.error('Error creating video:', videoResult.error)
+      return NextResponse.json({ error: 'Failed to create video' }, { status: 500 })
+    }
 
     const video = videoResult.data
 
     const existingItemResult = await db.from('LibraryItem').select('id').eq('userId', userId).eq('type', 'VIDEO').eq('externalId', youtubeId).maybeSingle()
     if (existingItemResult.data) {
-      await db.from('LibraryItem').update({ title: finalTitle, folderId: folderId || null }).eq('id', existingItemResult.data.id)
+      await db.from('LibraryItem').update({ title: finalTitle, folderId: folderId || null, updatedAt: now }).eq('id', existingItemResult.data.id)
     } else {
       await db.from('LibraryItem').insert({
+        id: crypto.randomUUID(),
         userId,
         externalId: youtubeId,
         type: 'VIDEO',
         title: finalTitle,
         folderId: folderId || null,
+        updatedAt: now,
+        createdAt: now,
       })
     }
 

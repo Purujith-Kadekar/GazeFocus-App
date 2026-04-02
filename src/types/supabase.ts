@@ -400,16 +400,19 @@ export type Database = {
           id: string
           signupEnabled: boolean
           updatedAt: string
+          adminPasswordHash: string | null
         }
         Insert: {
           id?: string
           signupEnabled?: boolean
           updatedAt: string
+          adminPasswordHash?: string | null
         }
         Update: {
           id?: string
           signupEnabled?: boolean
           updatedAt?: string
+          adminPasswordHash?: string | null
         }
         Relationships: []
       }

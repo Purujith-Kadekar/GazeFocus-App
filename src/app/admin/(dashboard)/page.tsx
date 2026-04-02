@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Shield, Users, Bell, Settings, LogOut, Loader2,
   Ban, CheckCircle, Send, ToggleLeft, ToggleRight,
-  Mail, Clock, Trash2, ChevronDown, MoreVertical, AlertTriangle, Undo2
+  Mail, Clock, Trash2, ChevronDown, MoreVertical, AlertTriangle, Undo2, KeyRound, Eye, EyeOff
 } from 'lucide-react'
 
 interface UserData {
@@ -50,6 +50,16 @@ export default function AdminDashboard() {
   const [notifTarget, setNotifTarget] = useState<string>('all')
   const [sendingNotif, setSendingNotif] = useState(false)
   const [deletingNotif, setDeletingNotif] = useState<string | null>(null)
+
+  // Password change form
+  const [pwCurrent, setPwCurrent] = useState('')
+  const [pwNew, setPwNew] = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [showPwCurrent, setShowPwCurrent] = useState(false)
+  const [showPwNew, setShowPwNew] = useState(false)
+  const [changingPw, setChangingPw] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwSuccess, setPwSuccess] = useState('')
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -201,6 +211,40 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     await fetch('/api/admin/auth', { method: 'DELETE' })
     router.push('/admin/login')
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPwError('')
+    setPwSuccess('')
+    if (pwNew !== pwConfirm) {
+      setPwError('New passwords do not match')
+      return
+    }
+    if (pwNew.length < 8) {
+      setPwError('New password must be at least 8 characters')
+      return
+    }
+    setChangingPw(true)
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setPwError(data.error || 'Failed to change password')
+      } else {
+        setPwSuccess('Password changed successfully')
+        setPwCurrent('')
+        setPwNew('')
+        setPwConfirm('')
+      }
+    } catch {
+      setPwError('Something went wrong')
+    }
+    setChangingPw(false)
   }
 
   if (isLoading) {
@@ -408,7 +452,7 @@ export default function AdminDashboard() {
                                       )}
                                       <button
                                         onClick={() => setConfirmDelete(user.id)}
-                                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left bg-destructive text-white hover:bg-destructive/80 transition-colors border-t border-slate-600"
+                                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left bg-red-600 text-white hover:bg-red-700 transition-colors border-t border-slate-600"
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
                                         Delete Immediately
@@ -518,7 +562,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => deleteNotification(n.id)}
                       disabled={deletingNotif === n.id}
-                      className="shrink-0 p-1.5 rounded bg-destructive text-white hover:bg-destructive/80 transition-colors disabled:opacity-50"
+                      className="shrink-0 p-1.5 rounded bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                       title="Delete notification"
                     >
                       {deletingNotif === n.id ? (
@@ -567,6 +611,89 @@ export default function AdminDashboard() {
                     <ToggleLeft className="h-8 w-8 text-slate-500" />
                   )}
                 </button>
+              </div>
+
+              {/* Change Password */}
+              <div className="border-t border-slate-700 pt-6">
+                <h4 className="text-base font-semibold mb-4 flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-red-400" />
+                  Change Admin Password
+                </h4>
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPwCurrent ? 'text' : 'password'}
+                        value={pwCurrent}
+                        onChange={e => setPwCurrent(e.target.value)}
+                        className="w-full px-3 py-2 pr-10 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50"
+                        placeholder="Enter current password"
+                        required
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPwCurrent(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                      >
+                        {showPwCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPwNew ? 'text' : 'password'}
+                        value={pwNew}
+                        onChange={e => setPwNew(e.target.value)}
+                        className="w-full px-3 py-2 pr-10 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50"
+                        placeholder="New password (min 8 characters)"
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPwNew(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                      >
+                        {showPwNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={pwConfirm}
+                      onChange={e => setPwConfirm(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50"
+                      placeholder="Confirm new password"
+                      required
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  {pwError && (
+                    <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                      {pwError}
+                    </p>
+                  )}
+                  {pwSuccess && (
+                    <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                      {pwSuccess}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={changingPw}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+                  >
+                    {changingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                    Update Password
+                  </button>
+                </form>
               </div>
             </div>
           </div>

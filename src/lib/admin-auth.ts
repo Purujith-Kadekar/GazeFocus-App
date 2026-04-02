@@ -1,8 +1,11 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import bcrypt from 'bcryptjs'
+import { db } from '@/lib/db'
 
 const ADMIN_COOKIE = 'admin_session'
+const BCRYPT_ROUNDS = 12
 
 function getSecret(): Uint8Array {
   // Prefer a dedicated ADMIN_SECRET so the admin portal works even when
@@ -48,12 +51,91 @@ function safeStringEqual(a: string, b: string): boolean {
   return result === 0
 }
 
-export function verifyAdminCredentials(username: string, password: string): boolean {
+/**
+ * Returns the bcrypt-hashed password stored in the DB (if any).
+ * Returns null when the column is missing or the row doesn't exist.
+ */
+async function getStoredPasswordHash(): Promise<string | null> {
+  try {
+    const result = await db
+      .from('SiteSettings')
+      .select('adminPasswordHash')
+      .eq('id', 'global')
+      .maybeSingle()
+    return result.data?.adminPasswordHash ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function verifyAdminCredentials(username: string, password: string): Promise<boolean> {
   const creds = getAdminCredentials()
   if (!creds) return false
-  const usernameMatch = safeStringEqual(username, creds.username)
-  const passwordMatch = safeStringEqual(password, creds.password)
-  return usernameMatch && passwordMatch
+
+  // Username is always checked against the env var.
+  if (!safeStringEqual(username, creds.username)) return false
+
+  // Check whether a DB-stored bcrypt hash exists (set via the portal's
+  // "Change Password" feature). If so, use it; otherwise fall back to the
+  // plain-text env var.
+  const hash = await getStoredPasswordHash()
+  if (hash) {
+    return bcrypt.compare(password, hash)
+  }
+  return safeStringEqual(password, creds.password)
+}
+
+/**
+ * Change the admin password.
+ * Verifies `currentPassword` first, then stores a bcrypt hash of
+ * `newPassword` in the SiteSettings table.
+ * Returns an error string on failure, or null on success.
+ */
+export async function changeAdminPassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<string | null> {
+  const creds = getAdminCredentials()
+  if (!creds) return 'Admin portal is not configured'
+
+  // Verify current password.
+  const hash = await getStoredPasswordHash()
+  let currentValid: boolean
+  if (hash) {
+    currentValid = await bcrypt.compare(currentPassword, hash)
+  } else {
+    currentValid = safeStringEqual(currentPassword, creds.password)
+  }
+  if (!currentValid) return 'Current password is incorrect'
+
+  if (!newPassword || newPassword.length < 8) {
+    return 'New password must be at least 8 characters'
+  }
+
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS)
+
+  try {
+    // Upsert: ensure the row exists, then store the hash.
+    const existing = await db
+      .from('SiteSettings')
+      .select('id')
+      .eq('id', 'global')
+      .maybeSingle()
+
+    if (existing.data) {
+      await db
+        .from('SiteSettings')
+        .update({ adminPasswordHash: newHash })
+        .eq('id', 'global')
+    } else {
+      await db
+        .from('SiteSettings')
+        .insert({ id: 'global', signupEnabled: true, adminPasswordHash: newHash, updatedAt: new Date().toISOString() })
+    }
+    return null
+  } catch {
+    return 'Failed to save new password'
+  }
 }
 
 export async function createAdminToken(): Promise<string> {
@@ -85,3 +167,4 @@ export async function getAdminSession(): Promise<boolean> {
   if (!token) return false
   return verifyAdminToken(token)
 }
+

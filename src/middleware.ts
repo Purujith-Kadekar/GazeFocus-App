@@ -13,11 +13,10 @@ export async function middleware(request: NextRequest) {
 
   const isStaticFile = pathname.includes(".") || pathname.startsWith("/_next")
   const isApiAuth = pathname.startsWith("/api/auth/")
-  const isTestRoute = pathname.startsWith("/api/test-")
 
-    if (isStaticFile || isTestRoute) {
-      return supabaseResponse
-    }
+  if (isStaticFile) {
+    return supabaseResponse
+  }
 
   // --- Admin routes ---
     if (pathname.startsWith("/admin")) {

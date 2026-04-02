@@ -1,9 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { initializePlaylistSync } from '@/lib/schedulers/playlistSync'
 
 let initialized = false
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+
+  if (!cronSecret) {
+    console.error('[cron/init] CRON_SECRET is not configured - endpoint disabled')
+    return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     if (!initialized) {
       initializePlaylistSync()

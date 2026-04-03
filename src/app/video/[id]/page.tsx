@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -18,6 +18,7 @@ export default function VideoPage() {
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
   const videoId = params.id as string
+  const lastProgressSaveRef = useRef(0)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -78,8 +79,7 @@ export default function VideoPage() {
     setIsCompleted(newCompleted)
     
     try {
-      // Use the unified progress API to update completion status
-      await fetch(`/api/progress`, {
+      const res = await fetch(`/api/progress/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -87,6 +87,7 @@ export default function VideoPage() {
           completed: newCompleted 
         }),
       })
+      if (!res.ok) throw new Error('Server error')
     } catch (error) {
       console.error('Failed to update completion status:', error)
       setIsCompleted(!newCompleted) // Rollback on error
@@ -162,7 +163,10 @@ export default function VideoPage() {
             isCompleted={isCompleted}
             onMarkComplete={handleMarkComplete}
             onProgress={(currentTime, duration) => {
-              // Throttling handled by VideoPlayer's internal interval
+              // Save progress at most once every 5 seconds to avoid excessive API calls
+              const now = Date.now()
+              if (now - lastProgressSaveRef.current < 5000) return
+              lastProgressSaveRef.current = now
               fetch('/api/progress', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

@@ -47,7 +47,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const isCompleted = completed ?? (duration && currentTime >= duration - 10)
+    // Build a conditional update payload so that a regular progress save
+    // (which only sends currentTime + duration) never accidentally overwrites
+    // a manually-set completed status.
+    const updatePayload: Record<string, unknown> = {}
+
+    if (currentTime !== undefined) updatePayload.secondsWatched = currentTime
+    if (duration !== undefined) updatePayload.durationSeconds = duration
+
+    let isCompleted: boolean | undefined
+    if (completed !== undefined) {
+      // Explicit completion toggle
+      isCompleted = completed
+      updatePayload.completed = completed
+      updatePayload.completedAt = completed ? new Date().toISOString() : null
+    } else if (duration && currentTime !== undefined && currentTime >= duration - 10) {
+      // Auto-complete when the video is within 10 seconds of the end
+      isCompleted = true
+      updatePayload.completed = true
+      updatePayload.completedAt = new Date().toISOString()
+    }
+    // else: don't touch the completed / completedAt fields
 
     const userDataResult = await db.from('User').select('weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
     const userData = userDataResult.data
@@ -71,12 +91,8 @@ export async function POST(request: NextRequest) {
 
     let progress
     if (existingProgressResult.data) {
-      const updateResult = await db.from('VideoProgress').update({
-        secondsWatched: currentTime,
-        durationSeconds: duration,
-        completed: isCompleted,
-        completedAt: isCompleted ? new Date().toISOString() : null,
-      }).eq('id', existingProgressResult.data.id).select().single()
+      const updateResult = await db.from('VideoProgress').update(updatePayload)
+        .eq('id', existingProgressResult.data.id).select().single()
       progress = updateResult.data
     } else {
       const insertResult = await db.from('VideoProgress').insert({

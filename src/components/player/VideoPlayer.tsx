@@ -47,6 +47,10 @@ export function VideoPlayer({
   const initialTimeRef = useRef(initialTime)
   const playbackSpeedRef = useRef(1)
   const isPlayerReadyRef = useRef(false)
+  // Tracks whether we have already seeked to the initial position after load.
+  // Using a ref (not state) so that the seek logic inside initPlayer's closure
+  // always reads the latest value without needing re-renders.
+  const hasSeekedRef = useRef(false)
 
   useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
@@ -134,12 +138,19 @@ export function VideoPlayer({
           }
           if (initialTimeRef.current > 0) {
             event.target.seekTo(initialTimeRef.current, true)
+            hasSeekedRef.current = true
           }
         },
         onStateChange: (event: any) => {
           if (event.data === 1) {
             setIsPlaying(true)
             setPausedByEyeTracking(false)
+            // Backup seek on first PLAYING event in case onReady seek was ignored
+            // (newer YouTube player sometimes defers buffering until first play)
+            if (!hasSeekedRef.current && initialTimeRef.current > 0) {
+              event.target.seekTo(initialTimeRef.current, true)
+              hasSeekedRef.current = true
+            }
           } else if (event.data === 2) {
             setIsPlaying(false)
           } else if (event.data === 0) {
@@ -229,6 +240,7 @@ export function VideoPlayer({
 
   // Cleanup player only when videoId changes or component unmounts
   useEffect(() => {
+    hasSeekedRef.current = false
     return () => {
       if (playerRef.current) {
         try {

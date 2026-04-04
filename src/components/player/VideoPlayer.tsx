@@ -21,6 +21,8 @@ interface VideoPlayerProps {
   thumbnail?: string
   initialTime?: number
   onProgress?: (currentTime: number, duration: number) => void
+  /** Called immediately whenever the video transitions to the paused state */
+  onPause?: (currentTime: number, duration: number) => void
   onComplete?: () => void
   isCompleted?: boolean
   onMarkComplete?: () => void
@@ -57,6 +59,7 @@ export function VideoPlayer({
   description,
   initialTime = 0,
   onProgress,
+  onPause,
   onComplete,
   isCompleted = false,
   onMarkComplete,
@@ -71,6 +74,7 @@ export function VideoPlayer({
   // Refs for callbacks to prevent re-initialization cycles
   const onProgressRef = useRef(onProgress)
   const onCompleteRef = useRef(onComplete)
+  const onPauseRef = useRef(onPause)
   const initialTimeRef = useRef(initialTime)
   const playbackSpeedRef = useRef(1)
   const isPlayerReadyRef = useRef(false)
@@ -78,6 +82,10 @@ export function VideoPlayer({
 
   useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
+  useEffect(() => { onPauseRef.current = onPause }, [onPause])
+  // Keep initialTimeRef in sync so the player can seek even if the prop
+  // arrives slightly after the first render (defensive measure).
+  useEffect(() => { initialTimeRef.current = initialTime }, [initialTime])
 
   // ─── Player state ─────────────────────────────────────────────────────────────
   const [isPlayerReady, setIsPlayerReady] = useState(false)
@@ -127,6 +135,7 @@ export function VideoPlayer({
 
   const {
     isEnabled: eyeTrackingEnabled,
+    isTracking: eyeIsTracking,
     isLookingAtScreen,
   } = useEyeTrackingStore()
 
@@ -175,8 +184,21 @@ export function VideoPlayer({
     fetchSettings()
   }, [setPlaybackSpeed])
 
-  // 1. Initialize Focus Engine (Camera)
-  useFocusEngine(true)
+  // 1. Initialize Focus Engine (Camera) — only when eye tracking is enabled
+  useFocusEngine(eyeTrackingEnabled)
+
+  // Defensive: if the player became ready after initialTime arrived, seek now.
+  // Also handles the edge case where initialTime prop updates while the player
+  // is already ready — reset the seek flag and seek to the new position.
+  useEffect(() => {
+    if (!initialTime) return
+    // Reset seek flag so a new initialTime always triggers a fresh seek.
+    hasSeekedRef.current = false
+    if (isPlayerReady && playerRef.current) {
+      playerRef.current.seekTo(initialTime, true)
+      hasSeekedRef.current = true
+    }
+  }, [initialTime]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Controls visibility helpers ─────────────────────────────────────────────
   const showControlsTemporarily = useCallback(() => {
@@ -251,6 +273,10 @@ export function VideoPlayer({
             setCurrentQualityLocal(event.target.getPlaybackQuality?.() ?? 'auto')
           } else if (event.data === 2) {
             setIsPlaying(false)
+            // Save progress immediately on pause
+            const pausedTime = event.target.getCurrentTime?.() ?? 0
+            const pausedDur = event.target.getDuration?.() ?? 0
+            onPauseRef.current?.(pausedTime, pausedDur)
           } else if (event.data === 0) {
             setIsPlaying(false)
             onCompleteRef.current?.()
@@ -1020,10 +1046,19 @@ export function VideoPlayer({
                 <h2 className="font-bold text-2xl tracking-tight text-foreground">{title}</h2>
                 <div className="flex flex-wrap items-center gap-3 mt-2">
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
-                    <div className={cn("h-2 w-2 rounded-full animate-pulse", isLookingAtScreen ? "bg-green-500" : "bg-red-500")} />
-                    {isLookingAtScreen ? 'Tracking Active' : 'Waiting for focus...'}
+                    <div className={cn(
+                      "h-2 w-2 rounded-full animate-pulse",
+                      !eyeTrackingEnabled ? "bg-gray-400" :
+                      !eyeIsTracking ? "bg-yellow-500" :
+                      isLookingAtScreen ? "bg-green-500" : "bg-red-500"
+                    )} />
+                    {!eyeTrackingEnabled
+                      ? 'Eye tracking disabled'
+                      : !eyeIsTracking
+                        ? 'Camera starting…'
+                        : isLookingAtScreen ? 'Tracking Active' : 'Waiting for focus...'}
                   </div>
-                  {eyeTrackingEnabled && (
+                  {eyeTrackingEnabled && eyeIsTracking && (
                     <span className="text-xs text-muted-foreground italic">Smart-pause active</span>
                   )}
                   <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-mono">

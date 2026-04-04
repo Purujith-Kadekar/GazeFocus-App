@@ -19,7 +19,7 @@ export default function VideoPage() {
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
   const videoId = params.id as string
-  const lastProgressSaveRef = useRef(0)
+  const lastProgressSaveRef = useRef(Date.now())
 
   useEffect(() => {
     if (status === 'unauthenticated') {

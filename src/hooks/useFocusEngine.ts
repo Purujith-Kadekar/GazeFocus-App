@@ -27,6 +27,10 @@ export function useFocusEngine(isActive: boolean = true) {
   const isTrackingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   
+  // Use a ref for thresholdSeconds so changes don't cause the tracking loop to restart
+  const thresholdSecondsRef = useRef(thresholdSeconds)
+  useEffect(() => { thresholdSecondsRef.current = thresholdSeconds }, [thresholdSeconds])
+
   // MediaPipe strict timestamp management
   const lastTimestampRef = useRef<number>(-1)
   
@@ -142,7 +146,7 @@ export function useFocusEngine(isActive: boolean = true) {
 
       // 3. Init engine
       const engine = new GazeEngine({
-        unfocusPauseDelay: thresholdSeconds * 1000,
+        unfocusPauseDelay: thresholdSecondsRef.current * 1000,
         sensitivityMode: sensitivityMode,
       })
       await engine.initialize()
@@ -181,8 +185,10 @@ export function useFocusEngine(isActive: boolean = true) {
               lastLookingStateRef.current = true
             }
           } else {
+            // Read threshold from ref so changes take effect without restarting tracking
+            const currentThreshold = thresholdSecondsRef.current
             // IMMEDIATE RESPONSE if threshold is 0
-            if (thresholdSeconds === 0) {
+            if (currentThreshold === 0) {
               if (lastLookingStateRef.current) {
                 setLookingAtScreen(false)
                 lastLookingStateRef.current = false
@@ -195,7 +201,7 @@ export function useFocusEngine(isActive: boolean = true) {
               }
 
               const elapsed = timestamp - unfocusStartRef.current
-              if (elapsed >= (thresholdSeconds * 1000)) {
+              if (elapsed >= (currentThreshold * 1000)) {
                 if (lastLookingStateRef.current) {
                   setLookingAtScreen(false)
                   lastLookingStateRef.current = false
@@ -219,7 +225,7 @@ export function useFocusEngine(isActive: boolean = true) {
 
       stopTracking()
     }
-  }, [thresholdSeconds, sensitivityMode, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
+  }, [sensitivityMode, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 
   // When isActive is true, always start tracking regardless of isEnabled
   // This ensures eye tracking works when video player is open

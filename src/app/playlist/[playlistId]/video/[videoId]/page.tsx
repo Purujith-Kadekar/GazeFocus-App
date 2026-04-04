@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -24,6 +24,7 @@ export default function PlaylistVideoPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
+  const lastProgressSaveRef = useRef(Date.now())
   
   const playlistId = params.playlistId as string
   const videoId = params.videoId as string
@@ -106,6 +107,19 @@ export default function PlaylistVideoPage() {
     const targetVideo = playlistVideos[index]
     router.push(`/playlist/${playlistId}/video/${targetVideo.youtubeId}`)
   }
+
+  const saveProgress = useCallback((currentTime: number, duration: number) => {
+    if (!video) return
+    fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        youtubeId: video.youtubeId,
+        currentTime: Math.floor(currentTime),
+        duration: Math.floor(duration),
+      }),
+    })
+  }, [video])
 
   const handlePrevious = () => {
     navigateToVideo(currentIndex - 1)
@@ -194,15 +208,16 @@ export default function PlaylistVideoPage() {
           isCompleted={isCompleted}
           onMarkComplete={handleMarkComplete}
           onProgress={(currentTime, duration) => {
-            fetch('/api/progress', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                youtubeId: video.youtubeId,
-                currentTime: Math.floor(currentTime),
-                duration: Math.floor(duration),
-              }),
-            })
+            // Throttle periodic saves to once every 10 seconds
+            const now = Date.now()
+            if (now - lastProgressSaveRef.current < 10000) return
+            lastProgressSaveRef.current = now
+            saveProgress(currentTime, duration)
+          }}
+          onPause={(currentTime, duration) => {
+            // Save immediately when the video is paused, independently of
+            // the periodic throttle so both mechanisms stay on their own schedules.
+            saveProgress(currentTime, duration)
           }}
           onComplete={() => {
             // Auto-advance to next video

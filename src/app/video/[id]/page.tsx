@@ -28,7 +28,8 @@ export default function VideoPage() {
   }, [status, router])
 
   useEffect(() => {
-    if (!videoId) return
+    // Wait until auth is confirmed so the API call is always authenticated.
+    if (!videoId || status !== 'authenticated') return
 
     const fetchData = async () => {
       try {
@@ -83,7 +84,7 @@ export default function VideoPage() {
     }
 
     fetchData()
-  }, [videoId])
+  }, [videoId, status])
 
   const handleMarkComplete = async () => {
     if (!video) return
@@ -110,6 +111,20 @@ export default function VideoPage() {
   const handleNavigateToVideo = useCallback((youtubeId: string) => {
     router.push(`/video/${youtubeId}`)
   }, [router])
+
+  /** Shared helper to avoid duplicating the fetch call */
+  const saveProgress = useCallback((currentTime: number, duration: number) => {
+    if (!video) return
+    fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        youtubeId: video.youtubeId,
+        currentTime: Math.floor(currentTime),
+        duration: Math.floor(duration),
+      }),
+    })
+  }, [video])
 
   if (status === 'loading') {
     return (
@@ -182,19 +197,16 @@ export default function VideoPage() {
             playlistVideos={playlistVideos.length > 0 ? playlistVideos : undefined}
             onNavigateToVideo={handleNavigateToVideo}
             onProgress={(currentTime, duration) => {
-              // Save progress at most once every 5 seconds to avoid excessive API calls
+              // Throttle periodic saves to once every 5 seconds
               const now = Date.now()
               if (now - lastProgressSaveRef.current < 5000) return
               lastProgressSaveRef.current = now
-              fetch('/api/progress', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  youtubeId: video.youtubeId,
-                  currentTime: Math.floor(currentTime),
-                  duration: Math.floor(duration),
-                }),
-              })
+              saveProgress(currentTime, duration)
+            }}
+            onPause={(currentTime, duration) => {
+              // Save immediately when the video is paused, independently of
+              // the periodic throttle so both mechanisms stay on their own schedules.
+              saveProgress(currentTime, duration)
             }}
             onComplete={() => {
               console.log('Video completed!')

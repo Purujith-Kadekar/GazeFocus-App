@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -20,6 +20,19 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const lastProgressSaveRef = useRef(Date.now())
+
+  const saveProgress = useCallback((currentTime: number, duration: number) => {
+    fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        youtubeId: video.youtubeId,
+        currentTime: Math.floor(currentTime),
+        duration: Math.floor(duration),
+      }),
+    })
+  }, [video.youtubeId])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -105,15 +118,16 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
           isCompleted={isCompleted}
           onMarkComplete={handleMarkComplete}
           onProgress={(currentTime, duration) => {
-            fetch('/api/progress', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                youtubeId: video.youtubeId,
-                currentTime: Math.floor(currentTime),
-                duration: Math.floor(duration),
-              }),
-            })
+            // Throttle periodic saves to once every 10 seconds
+            const now = Date.now()
+            if (now - lastProgressSaveRef.current < 10000) return
+            lastProgressSaveRef.current = now
+            saveProgress(currentTime, duration)
+          }}
+          onPause={(currentTime, duration) => {
+            // Save immediately when the video is paused, independently of
+            // the periodic throttle so both mechanisms stay on their own schedules.
+            saveProgress(currentTime, duration)
           }}
           onComplete={() => {
             console.log('Video completed!')

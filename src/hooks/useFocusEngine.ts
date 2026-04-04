@@ -26,6 +26,9 @@ export function useFocusEngine(isActive: boolean = true) {
   const rafRef = useRef<number | null>(null)
   const isTrackingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
+  // Cancellation flag: set to true by stopTracking so any in-progress
+  // startTracking async steps can abort cleanly.
+  const isCancelledRef = useRef(false)
   
   // Use a ref for thresholdSeconds so changes don't cause the tracking loop to restart
   const thresholdSecondsRef = useRef(thresholdSeconds)
@@ -39,6 +42,8 @@ export function useFocusEngine(isActive: boolean = true) {
   const lastLookingStateRef = useRef(true)
 
   const stopTracking = useCallback(() => {
+    // Signal any in-progress startTracking to abort
+    isCancelledRef.current = true
     isTrackingRef.current = false
     setTracking(false)
     setLookingAtScreen(true)
@@ -90,6 +95,8 @@ export function useFocusEngine(isActive: boolean = true) {
       return
     }
     setError(null)
+    // Reset cancellation flag for this attempt
+    isCancelledRef.current = false
 
     try {
       console.log('Initializing Gaze Focus Engine...', { isActive })
@@ -114,6 +121,14 @@ export function useFocusEngine(isActive: boolean = true) {
         },
         audio: false
       })
+
+      // Abort if stopTracking was called while we awaited camera permission
+      if (isCancelledRef.current) {
+        mediaStream.getTracks().forEach(t => t.stop())
+        if (video.parentNode) video.parentNode.removeChild(video)
+        videoRef.current = null
+        return
+      }
       
       streamRef.current = mediaStream
       setCameraStream(mediaStream)
@@ -131,6 +146,10 @@ export function useFocusEngine(isActive: boolean = true) {
           reject(new Error('Video load error'))
         }
       })
+
+      // Abort if stopTracking was called while we awaited video metadata.
+      // stopTracking already cleaned up streamRef and videoRef, so just return.
+      if (isCancelledRef.current) return
       
       // Ensure video is playing
       if (video.paused) {
@@ -138,6 +157,10 @@ export function useFocusEngine(isActive: boolean = true) {
           console.warn('Video autoplay failed, continuing anyway')
         })
       }
+
+      // Abort if stopTracking was called while video.play() was awaited.
+      // stopTracking already cleaned up streamRef and videoRef, so just return.
+      if (isCancelledRef.current) return
 
       // Verify video is actually ready
       if (video.readyState < 2) {
@@ -150,6 +173,13 @@ export function useFocusEngine(isActive: boolean = true) {
         sensitivityMode: sensitivityMode,
       })
       await engine.initialize()
+
+      // Abort if stopTracking was called while MediaPipe models were loading
+      if (isCancelledRef.current) {
+        engine.dispose()
+        return
+      }
+
       engineRef.current = engine
 
       // 4. Start loop
@@ -219,11 +249,13 @@ export function useFocusEngine(isActive: boolean = true) {
 
       rafRef.current = requestAnimationFrame(loop)
     } catch (err: any) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start eye tracking'
-      console.error('Focus Engine Error:', errorMessage)
-      setError(errorMessage)
-
-      stopTracking()
+      // Only report/cleanup if this attempt wasn't already cancelled by stopTracking
+      if (!isCancelledRef.current) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to start eye tracking'
+        console.error('Focus Engine Error:', errorMessage)
+        setError(errorMessage)
+        stopTracking()
+      }
     }
   }, [sensitivityMode, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
 

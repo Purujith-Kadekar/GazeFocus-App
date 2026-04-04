@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -14,6 +14,7 @@ export default function VideoPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [video, setVideo] = useState<Video | null>(null)
+  const [playlistVideos, setPlaylistVideos] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
@@ -28,7 +29,7 @@ export default function VideoPage() {
 
   useEffect(() => {
     if (!videoId) return
-    
+
     const fetchData = async () => {
       try {
         const [videoRes, progressRes] = await Promise.all([
@@ -38,8 +39,7 @@ export default function VideoPage() {
 
         if (videoRes.ok) {
           const videoData = await videoRes.json()
-          // API returns an array for list view, check if we got our specific video
-          let foundVideo = Array.isArray(videoData) 
+          let foundVideo = Array.isArray(videoData)
             ? videoData.find((v: Video) => v.youtubeId === videoId)
             : videoData;
 
@@ -49,9 +49,22 @@ export default function VideoPage() {
               foundVideo = await directVideoRes.json()
             }
           }
-            
+
           if (foundVideo) {
             setVideo(foundVideo)
+
+            // Fetch playlist siblings for prev/next navigation
+            if (foundVideo.playlistId) {
+              try {
+                const siblingRes = await fetch(`/api/videos?playlistId=${foundVideo.playlistId}`)
+                if (siblingRes.ok) {
+                  const siblings: Video[] = await siblingRes.json()
+                  setPlaylistVideos(siblings)
+                }
+              } catch {
+                // Non-critical; prev/next just won't show
+              }
+            }
           }
         }
 
@@ -74,17 +87,17 @@ export default function VideoPage() {
 
   const handleMarkComplete = async () => {
     if (!video) return
-    
+
     const newCompleted = !isCompleted
     setIsCompleted(newCompleted)
-    
+
     try {
       const res = await fetch(`/api/progress/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           youtubeId: video.youtubeId,
-          completed: newCompleted 
+          completed: newCompleted
         }),
       })
       if (!res.ok) throw new Error('Server error')
@@ -93,6 +106,10 @@ export default function VideoPage() {
       setIsCompleted(!newCompleted) // Rollback on error
     }
   }
+
+  const handleNavigateToVideo = useCallback((youtubeId: string) => {
+    router.push(`/video/${youtubeId}`)
+  }, [router])
 
   if (status === 'loading') {
     return (
@@ -118,7 +135,7 @@ export default function VideoPage() {
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <h1 className="text-2xl font-bold mb-4">Video Not Found</h1>
-          <p className="text-muted-foreground mb-4">The video you're looking for doesn't exist.</p>
+          <p className="text-muted-foreground mb-4">The video you&apos;re looking for doesn&apos;t exist.</p>
           <Button onClick={() => router.push('/')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -144,15 +161,15 @@ export default function VideoPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={() => router.push('/')}
           className="hover:bg-accent/50"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
-        
+
         {video && (
           <VideoPlayer
             videoId={video.youtubeId}
@@ -162,6 +179,8 @@ export default function VideoPage() {
             initialTime={initialTime}
             isCompleted={isCompleted}
             onMarkComplete={handleMarkComplete}
+            playlistVideos={playlistVideos.length > 0 ? playlistVideos : undefined}
+            onNavigateToVideo={handleNavigateToVideo}
             onProgress={(currentTime, duration) => {
               // Save progress at most once every 5 seconds to avoid excessive API calls
               const now = Date.now()

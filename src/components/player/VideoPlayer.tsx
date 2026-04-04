@@ -79,6 +79,9 @@ export function VideoPlayer({
   const playbackSpeedRef = useRef(1)
   const isPlayerReadyRef = useRef(false)
   const hasSeekedRef = useRef(false)
+  // Becomes true after the first onStateChange(playing) event so we never
+  // save progress from the spurious pause fired at t=0 during initialisation.
+  const hasPlayedRef = useRef(false)
 
   useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
@@ -260,6 +263,7 @@ export function VideoPlayer({
         onStateChange: (event: any) => {
           if (event.data === 1) {
             // Playing
+            hasPlayedRef.current = true
             setIsPlaying(true)
             setPausedByEyeTracking(false)
             // Backup seek on first PLAYING event
@@ -273,10 +277,15 @@ export function VideoPlayer({
             setCurrentQualityLocal(event.target.getPlaybackQuality?.() ?? 'auto')
           } else if (event.data === 2) {
             setIsPlaying(false)
-            // Save progress immediately on pause
-            const pausedTime = event.target.getCurrentTime?.() ?? 0
-            const pausedDur = event.target.getDuration?.() ?? 0
-            onPauseRef.current?.(pausedTime, pausedDur)
+            // Only save progress after the video has actually started playing.
+            // The YouTube player can fire an initial pause event at t=0 during
+            // initialisation (before seekTo takes effect), which would overwrite
+            // the real saved position with 0 and break resume-from-saved-position.
+            if (hasPlayedRef.current) {
+              const pausedTime = event.target.getCurrentTime?.() ?? 0
+              const pausedDur = event.target.getDuration?.() ?? 0
+              onPauseRef.current?.(pausedTime, pausedDur)
+            }
           } else if (event.data === 0) {
             setIsPlaying(false)
             onCompleteRef.current?.()
@@ -369,6 +378,7 @@ export function VideoPlayer({
   // Cleanup player only when videoId changes or component unmounts
   useEffect(() => {
     hasSeekedRef.current = false
+    hasPlayedRef.current = false
     return () => {
       if (playerRef.current) {
         try {

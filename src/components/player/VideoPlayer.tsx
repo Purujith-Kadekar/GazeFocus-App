@@ -122,6 +122,7 @@ export function VideoPlayer({
     setPausedByEyeTracking,
     playbackSpeed,
     setPlaybackSpeed,
+    setCurrentTime: setStoreCurrentTime,
   } = usePlayerStore()
 
   const {
@@ -326,6 +327,7 @@ export function VideoPlayer({
           const time = playerRef.current.getCurrentTime()
           const dur = playerRef.current.getDuration()
           setCurrentTime(time)
+          setStoreCurrentTime(time)
           if (dur > 0) setDuration(dur)
           onProgressRef.current?.(time, dur)
         } catch (e) {}
@@ -1066,7 +1068,7 @@ export function VideoPlayer({
                 onClick={onMarkComplete}
               >
                 <CheckCircle className={cn("h-5 w-5", isCompleted && "fill-green-500 text-white")} />
-                <span className="font-semibold">{isCompleted ? 'Completed' : 'Mark Lesson Done'}</span>
+                <span className="font-semibold">{isCompleted ? 'Mark as Incomplete' : 'Mark Lesson Done'}</span>
               </Button>
 
               <Button

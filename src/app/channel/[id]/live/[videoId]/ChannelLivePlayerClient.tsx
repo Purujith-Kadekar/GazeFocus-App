@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Loader2, Radio } from 'lucide-react'
@@ -30,6 +30,44 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
   const router = useRouter()
   const [videoInfo, setVideoInfo] = useState<LiveVideoInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [initialTime, setInitialTime] = useState(0)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const lastProgressSaveRef = useRef(Date.now())
+  const latestTimeRef = useRef(0)
+  const latestDurationRef = useRef(0)
+
+  const saveProgress = useCallback((currentTime: number, duration: number) => {
+    fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        youtubeId: videoId,
+        currentTime: Math.floor(currentTime),
+        duration: Math.floor(duration),
+      }),
+    }).catch((error) => console.error('Failed to save progress:', error))
+  }, [videoId])
+
+  /** Fire-and-forget progress save suitable for page-unload / unmount. */
+  const sendProgressBeacon = useCallback(() => {
+    if (latestTimeRef.current > 0) {
+      const body = JSON.stringify({
+        youtubeId: videoId,
+        currentTime: Math.floor(latestTimeRef.current),
+        duration: Math.floor(latestDurationRef.current),
+      })
+      navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+    }
+  }, [videoId])
+
+  // Save progress on SPA navigation and tab/window close.
+  useEffect(() => {
+    window.addEventListener('beforeunload', sendProgressBeacon)
+    return () => {
+      window.removeEventListener('beforeunload', sendProgressBeacon)
+      sendProgressBeacon()
+    }
+  }, [sendProgressBeacon])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -38,23 +76,35 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
   }, [status, router])
 
   useEffect(() => {
-    const fetchLiveVideoInfo = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`/api/channels/${channel.id}/live`)
-        if (response.ok) {
-          const videos = await response.json()
+        const [liveRes, progressRes] = await Promise.all([
+          fetch(`/api/channels/${channel.id}/live`),
+          fetch(`/api/progress?youtubeId=${videoId}`),
+        ])
+
+        if (liveRes.ok) {
+          const videos = await liveRes.json()
           const found = videos.find((v: LiveVideoInfo) => v.youtubeId === videoId)
           if (found) {
             setVideoInfo(found)
           }
         }
+
+        if (progressRes.ok) {
+          const progressData = await progressRes.json()
+          if (progressData.progress) {
+            setInitialTime(progressData.progress.secondsWatched || 0)
+            setIsCompleted(progressData.progress.completed || false)
+          }
+        }
       } catch (error) {
-        console.error('Failed to fetch live video info:', error)
+        console.error('Failed to fetch live video info or progress:', error)
       } finally {
         setIsLoading(false)
       }
     }
-    fetchLiveVideoInfo()
+    fetchData()
   }, [channel.id, videoId])
 
   if (status === 'loading' || isLoading) {
@@ -121,11 +171,40 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
           title={videoInfo?.title || 'Live Stream'}
           description={videoInfo?.description || undefined}
           thumbnail={videoInfo?.thumbnail || undefined}
-          initialTime={0}
-          isCompleted={false}
-          onMarkComplete={() => {}}
-          onProgress={() => {}}
-          onComplete={() => {}}
+          // Resume from saved position only for past/recorded streams, not for
+          // currently-live or upcoming streams where seeking to a past time is
+          // either unsupported or misleading.
+          initialTime={isLive || isUpcoming ? 0 : initialTime}
+          isCompleted={isCompleted}
+          onMarkComplete={() => {
+            const newCompleted = !isCompleted
+            setIsCompleted(newCompleted)
+            fetch('/api/progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ youtubeId: videoId, completed: newCompleted }),
+            }).catch((error) => {
+              console.error('Failed to update completion status:', error)
+              setIsCompleted(!newCompleted)
+            })
+          }}
+          onProgress={(currentTime, duration) => {
+            latestTimeRef.current = currentTime
+            latestDurationRef.current = duration
+            // Throttle periodic saves to once every 10 seconds
+            const now = Date.now()
+            if (now - lastProgressSaveRef.current < 10000) return
+            lastProgressSaveRef.current = now
+            saveProgress(currentTime, duration)
+          }}
+          onPause={(currentTime, duration) => {
+            // Save immediately when the video is paused, independently of
+            // the periodic throttle so both mechanisms stay on their own schedules.
+            saveProgress(currentTime, duration)
+          }}
+          onComplete={() => {
+            setIsCompleted(true)
+          }}
         />
       </div>
     </MainLayout>

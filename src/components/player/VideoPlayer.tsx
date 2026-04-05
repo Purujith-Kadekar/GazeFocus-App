@@ -75,6 +75,7 @@ export function VideoPlayer({
   const videoAreaRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
   const playerElementId = useRef(`yt-player-${Math.random().toString(36).substring(2, 9)}`)
+  const cameraPreviewRef = useRef<HTMLVideoElement>(null)
 
   // Refs for callbacks to prevent re-initialization cycles
   const onProgressRef = useRef(onProgress)
@@ -151,6 +152,8 @@ export function VideoPlayer({
     isEnabled: eyeTrackingEnabled,
     isTracking: eyeIsTracking,
     isLookingAtScreen,
+    isFaceDetected: eyeIsFaceDetected,
+    cameraStream,
   } = useEyeTrackingStore()
 
   const {
@@ -200,6 +203,13 @@ export function VideoPlayer({
 
   // 1. Initialize Focus Engine (Camera) — only when eye tracking is enabled
   const { error: eyeTrackingError } = useFocusEngine(eyeTrackingEnabled)
+
+  // Sync camera stream to the preview video element in the tracking panel
+  useEffect(() => {
+    if (cameraPreviewRef.current) {
+      cameraPreviewRef.current.srcObject = cameraStream ?? null
+    }
+  }, [cameraStream])
 
   // Defensive: if the player became ready after initialTime arrived, seek now.
   // Also handles the edge case where initialTime prop updates while the player
@@ -1086,13 +1096,16 @@ export function VideoPlayer({
                       "h-2 w-2 rounded-full animate-pulse",
                       !eyeTrackingEnabled ? "bg-gray-400" :
                       !eyeIsTracking ? "bg-yellow-500" :
+                      !eyeIsFaceDetected ? "bg-orange-500" :
                       isLookingAtScreen ? "bg-green-500" : "bg-red-500"
                     )} />
                     {!eyeTrackingEnabled
                       ? 'Eye tracking disabled'
                       : !eyeIsTracking
                         ? 'Camera starting…'
-                        : isLookingAtScreen ? 'Tracking Active' : 'Waiting for focus...'}
+                        : !eyeIsFaceDetected
+                          ? 'No face detected'
+                          : isLookingAtScreen ? 'Tracking Active' : 'Waiting for focus...'}
                   </div>
                   {eyeTrackingEnabled && eyeIsTracking && (
                     <span className="text-xs text-muted-foreground italic">Smart-pause active</span>
@@ -1214,6 +1227,26 @@ export function VideoPlayer({
                       {eyeTrackingEnabled ? 'Enabled' : 'Disabled'}
                     </Button>
                   </div>
+
+                  {/* Camera preview */}
+                  {eyeTrackingEnabled && (
+                    <div className="rounded-lg overflow-hidden bg-black aspect-video">
+                      {cameraStream ? (
+                        <video
+                          ref={cameraPreviewRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover scale-x-[-1]"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs gap-2">
+                          <EyeOff className="h-4 w-4" />
+                          {eyeIsTracking ? 'No camera feed' : 'Camera initializing…'}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="pt-2">
                     <div className="flex justify-between text-xs mb-2">

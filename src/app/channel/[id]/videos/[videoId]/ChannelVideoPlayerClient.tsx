@@ -21,6 +21,9 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
   const [initialTime, setInitialTime] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const lastProgressSaveRef = useRef(Date.now())
+  // Track latest playback position for unmount / beforeunload saves.
+  const latestTimeRef = useRef(0)
+  const latestDurationRef = useRef(0)
 
   const saveProgress = useCallback((currentTime: number, duration: number) => {
     fetch('/api/progress', {
@@ -32,6 +35,33 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
         duration: Math.floor(duration),
       }),
     })
+  }, [video.youtubeId])
+
+  // Save progress on SPA navigation and tab/window close.
+  useEffect(() => {
+    const youtubeId = video.youtubeId
+    const handleBeforeUnload = () => {
+      if (latestTimeRef.current > 0) {
+        const body = JSON.stringify({
+          youtubeId,
+          currentTime: Math.floor(latestTimeRef.current),
+          duration: Math.floor(latestDurationRef.current),
+        })
+        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (latestTimeRef.current > 0) {
+        const body = JSON.stringify({
+          youtubeId,
+          currentTime: Math.floor(latestTimeRef.current),
+          duration: Math.floor(latestDurationRef.current),
+        })
+        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+      }
+    }
   }, [video.youtubeId])
 
   useEffect(() => {
@@ -118,6 +148,9 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
           isCompleted={isCompleted}
           onMarkComplete={handleMarkComplete}
           onProgress={(currentTime, duration) => {
+            // Always track latest position for unmount / beforeunload saves.
+            latestTimeRef.current = currentTime
+            latestDurationRef.current = duration
             // Throttle periodic saves to once every 10 seconds
             const now = Date.now()
             if (now - lastProgressSaveRef.current < 10000) return

@@ -23,28 +23,30 @@ export const DEFAULT_CONFIG: EyeTrackingConfig = {
 };
 
 export const SENSITIVITY_THRESHOLDS = {
+  // Strict: smaller allowed deviations → pauses for any minor head/eye movement
   strict: {
-    headYawNormal: 0.30,
-    headPitchNormal: 0.22,
-    headYawSide: 0.12,
-    headPitchSide: 0.12,
+    headYawNormal: 0.18,
+    headPitchNormal: 0.14,
+    headYawSide: 0.08,
+    headPitchSide: 0.08,
     sideThreshold: 0.55,
-    upThreshold: 0.42,
-    downThreshold: 0.58,
-    irisXDev: 0.35,
-    irisYDev: 0.38,
+    upThreshold: 0.44,
+    downThreshold: 0.56,
+    irisXDev: 0.22,
+    irisYDev: 0.25,
     useEyeTracking: true,
   },
+  // Moderate: medium thresholds — requires a noticeable head or eye movement to trigger
   moderate: {
-    headYawNormal: 0.30,
-    headPitchNormal: 0.22,
+    headYawNormal: 0.26,
+    headPitchNormal: 0.20,
     headYawSide: 0.12,
     headPitchSide: 0.12,
     sideThreshold: 0.55,
     upThreshold: 0.42,
     downThreshold: 0.58,
-    irisXDev: 0.35,
-    irisYDev: 0.38,
+    irisXDev: 0.30,
+    irisYDev: 0.33,
     useEyeTracking: true,
   },
   light: {

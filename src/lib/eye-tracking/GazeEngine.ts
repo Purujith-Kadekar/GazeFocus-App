@@ -144,7 +144,14 @@ export class GazeEngine {
         irisResult = this.analyzeIris(landmarks);
       }
 
-      const isLooking = headPose.isFront || (irisResult.isLookingAtScreen && headPose.confidence > 0.35);
+      // For modes that use iris tracking (strict / moderate), the user must be
+      // looking at the screen with BOTH their head AND their eyes.  Using OR
+      // here meant that a frontal head pose alone was always sufficient, so the
+      // video never paused when the user looked away with only their eyes.
+      // For light mode (head-pose only) we fall back to the head check alone.
+      const isLooking = t.useEyeTracking
+        ? headPose.isFront && irisResult.isLookingAtScreen
+        : headPose.isFront;
 
       return {
         isLookingAtScreen: isLooking,

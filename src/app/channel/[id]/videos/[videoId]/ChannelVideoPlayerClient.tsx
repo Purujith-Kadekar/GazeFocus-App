@@ -37,32 +37,26 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
     })
   }, [video.youtubeId])
 
-  // Save progress on SPA navigation and tab/window close.
-  useEffect(() => {
-    const youtubeId = video.youtubeId
-    const handleBeforeUnload = () => {
-      if (latestTimeRef.current > 0) {
-        const body = JSON.stringify({
-          youtubeId,
-          currentTime: Math.floor(latestTimeRef.current),
-          duration: Math.floor(latestDurationRef.current),
-        })
-        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      if (latestTimeRef.current > 0) {
-        const body = JSON.stringify({
-          youtubeId,
-          currentTime: Math.floor(latestTimeRef.current),
-          duration: Math.floor(latestDurationRef.current),
-        })
-        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
-      }
+  /** Fire-and-forget progress save suitable for page-unload / unmount. */
+  const sendProgressBeacon = useCallback(() => {
+    if (latestTimeRef.current > 0) {
+      const body = JSON.stringify({
+        youtubeId: video.youtubeId,
+        currentTime: Math.floor(latestTimeRef.current),
+        duration: Math.floor(latestDurationRef.current),
+      })
+      navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
     }
   }, [video.youtubeId])
+
+  // Save progress on SPA navigation and tab/window close.
+  useEffect(() => {
+    window.addEventListener('beforeunload', sendProgressBeacon)
+    return () => {
+      window.removeEventListener('beforeunload', sendProgressBeacon)
+      sendProgressBeacon()
+    }
+  }, [sendProgressBeacon])
 
   useEffect(() => {
     if (status === 'unauthenticated') {

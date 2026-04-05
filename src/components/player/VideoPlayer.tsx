@@ -53,6 +53,11 @@ const QUALITY_LABELS: Record<string, string> = {
 
 const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5]
 
+// How close (in seconds) the player's reported time must be to the initial
+// seek position before we consider the seek "confirmed" and unlock onPause
+// progress saves for all positions.
+const SEEK_POSITION_TOLERANCE_SECONDS = 5
+
 export function VideoPlayer({
   videoId,
   title,
@@ -297,7 +302,7 @@ export function VideoPlayer({
               // Allow saving if the player has confirmed being at/past initialTime,
               // OR if pausedTime is already close enough to initialTime (covers the
               // case where the first progress interval hasn't run yet).
-              if (hasMovedPastInitialRef.current || pausedTime >= initialTimeRef.current - 5) {
+              if (hasMovedPastInitialRef.current || pausedTime >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS) {
                 onPauseRef.current?.(pausedTime, pausedDur)
               }
             }
@@ -381,7 +386,7 @@ export function VideoPlayer({
           if (dur > 0) setDuration(dur)
           // Confirm the player has reached (or passed) the initial seek position.
           // Once confirmed, progress saves via onPause are unconditionally allowed.
-          if (!hasMovedPastInitialRef.current && time >= initialTimeRef.current - 5) {
+          if (!hasMovedPastInitialRef.current && time >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS) {
             hasMovedPastInitialRef.current = true
           }
           onProgressRef.current?.(time, dur)

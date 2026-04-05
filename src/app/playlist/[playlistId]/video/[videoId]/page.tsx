@@ -25,6 +25,10 @@ export default function PlaylistVideoPage() {
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
   const lastProgressSaveRef = useRef(Date.now())
+  // Track latest playback position for unmount / beforeunload saves.
+  const latestTimeRef = useRef(0)
+  const latestDurationRef = useRef(0)
+  const videoStateRef = useRef<VideoWithPlaylist | null>(null)
   
   const playlistId = params.playlistId as string
   const videoId = params.videoId as string
@@ -121,6 +125,30 @@ export default function PlaylistVideoPage() {
     })
   }, [video])
 
+  // Keep videoStateRef in sync so the unmount effect can read the latest video.
+  useEffect(() => { videoStateRef.current = video }, [video])
+
+  /** Fire-and-forget progress save suitable for page-unload / unmount. */
+  const sendProgressBeacon = useCallback(() => {
+    if (latestTimeRef.current > 0 && videoStateRef.current) {
+      const body = JSON.stringify({
+        youtubeId: videoStateRef.current.youtubeId,
+        currentTime: Math.floor(latestTimeRef.current),
+        duration: Math.floor(latestDurationRef.current),
+      })
+      navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+    }
+  }, [])
+
+  // Save progress on SPA navigation and tab/window close.
+  useEffect(() => {
+    window.addEventListener('beforeunload', sendProgressBeacon)
+    return () => {
+      window.removeEventListener('beforeunload', sendProgressBeacon)
+      sendProgressBeacon()
+    }
+  }, [sendProgressBeacon])
+
   const handlePrevious = () => {
     navigateToVideo(currentIndex - 1)
   }
@@ -208,6 +236,9 @@ export default function PlaylistVideoPage() {
           isCompleted={isCompleted}
           onMarkComplete={handleMarkComplete}
           onProgress={(currentTime, duration) => {
+            // Always track latest position for unmount / beforeunload saves.
+            latestTimeRef.current = currentTime
+            latestDurationRef.current = duration
             // Throttle periodic saves to once every 10 seconds
             const now = Date.now()
             if (now - lastProgressSaveRef.current < 10000) return

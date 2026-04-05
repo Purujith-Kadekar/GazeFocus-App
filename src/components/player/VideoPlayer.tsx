@@ -82,6 +82,12 @@ export function VideoPlayer({
   // Becomes true after the first onStateChange(playing) event so we never
   // save progress from the spurious pause fired at t=0 during initialisation.
   const hasPlayedRef = useRef(false)
+  // Becomes true once the progress interval confirms the player has reached
+  // (or passed) the initial seek position.  Until then, onPause is blocked for
+  // positions far below initialTime to prevent a spurious early pause (e.g.
+  // from eye-tracking before the seek completes) from overwriting the real
+  // saved position with t≈0.
+  const hasMovedPastInitialRef = useRef(false)
 
   useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
@@ -188,15 +194,17 @@ export function VideoPlayer({
   }, [setPlaybackSpeed])
 
   // 1. Initialize Focus Engine (Camera) — only when eye tracking is enabled
-  useFocusEngine(eyeTrackingEnabled)
+  const { error: eyeTrackingError } = useFocusEngine(eyeTrackingEnabled)
 
   // Defensive: if the player became ready after initialTime arrived, seek now.
   // Also handles the edge case where initialTime prop updates while the player
   // is already ready — reset the seek flag and seek to the new position.
   useEffect(() => {
     if (!initialTime) return
-    // Reset seek flag so a new initialTime always triggers a fresh seek.
+    // Reset seek flag and the "moved past initial" guard so a new initialTime
+    // always triggers a fresh seek and re-enables the save guard.
     hasSeekedRef.current = false
+    hasMovedPastInitialRef.current = false
     if (isPlayerReady && playerRef.current) {
       playerRef.current.seekTo(initialTime, true)
       hasSeekedRef.current = true
@@ -277,14 +285,21 @@ export function VideoPlayer({
             setCurrentQualityLocal(event.target.getPlaybackQuality?.() ?? 'auto')
           } else if (event.data === 2) {
             setIsPlaying(false)
-            // Only save progress after the video has actually started playing.
-            // The YouTube player can fire an initial pause event at t=0 during
-            // initialisation (before seekTo takes effect), which would overwrite
-            // the real saved position with 0 and break resume-from-saved-position.
+            // Only save progress after the video has actually started playing
+            // AND we have confirmed the player has reached the initial seek
+            // position.  YouTube can fire a STATE_PLAYING event briefly before
+            // the seek to `initialTime` completes; if something (e.g. eye-
+            // tracking) pauses the video in that small window getCurrentTime()
+            // may still report ~0, which would overwrite the real saved position.
             if (hasPlayedRef.current) {
               const pausedTime = event.target.getCurrentTime?.() ?? 0
               const pausedDur = event.target.getDuration?.() ?? 0
-              onPauseRef.current?.(pausedTime, pausedDur)
+              // Allow saving if the player has confirmed being at/past initialTime,
+              // OR if pausedTime is already close enough to initialTime (covers the
+              // case where the first progress interval hasn't run yet).
+              if (hasMovedPastInitialRef.current || pausedTime >= initialTimeRef.current - 5) {
+                onPauseRef.current?.(pausedTime, pausedDur)
+              }
             }
           } else if (event.data === 0) {
             setIsPlaying(false)
@@ -364,6 +379,11 @@ export function VideoPlayer({
           setCurrentTime(time)
           setStoreCurrentTime(time)
           if (dur > 0) setDuration(dur)
+          // Confirm the player has reached (or passed) the initial seek position.
+          // Once confirmed, progress saves via onPause are unconditionally allowed.
+          if (!hasMovedPastInitialRef.current && time >= initialTimeRef.current - 5) {
+            hasMovedPastInitialRef.current = true
+          }
           onProgressRef.current?.(time, dur)
         } catch (e) {}
       }
@@ -373,12 +393,13 @@ export function VideoPlayer({
       cancelled = true
       clearInterval(progressInterval)
     }
-  }, [videoId, initPlayer, isPlayerReady, ensureYouTubeApiReady])
+  }, [videoId, initPlayer, ensureYouTubeApiReady])
 
   // Cleanup player only when videoId changes or component unmounts
   useEffect(() => {
     hasSeekedRef.current = false
     hasPlayedRef.current = false
+    hasMovedPastInitialRef.current = false
     return () => {
       if (playerRef.current) {
         try {
@@ -1158,11 +1179,23 @@ export function VideoPlayer({
                   <h3 className="font-bold text-sm tracking-tight">Eye Tracking</h3>
                   <div className={cn(
                     "px-2 py-1 rounded text-[10px] font-bold uppercase",
-                    isLookingAtScreen ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                    eyeTrackingError ? "bg-orange-500/10 text-orange-500"
+                      : isLookingAtScreen ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
                   )}>
-                    {isLookingAtScreen ? 'Focused' : 'Distracted'}
+                    {eyeTrackingError ? 'Error' : isLookingAtScreen ? 'Focused' : 'Distracted'}
                   </div>
                 </div>
+
+                {eyeTrackingError && (
+                  <div className="text-xs text-orange-500 bg-orange-500/10 rounded-lg px-3 py-2 leading-relaxed">
+                    {eyeTrackingError.includes('Permission') || eyeTrackingError.includes('NotAllowed') || eyeTrackingError.includes('permission')
+                      ? 'Camera permission denied. Please allow camera access and reload.'
+                      : eyeTrackingError.includes('MediaPipe') || eyeTrackingError.includes('WASM') || eyeTrackingError.includes('Failed to load')
+                        ? 'Could not load eye-tracking models. Check your internet connection.'
+                        : `Eye tracking failed: ${eyeTrackingError}`
+                    }
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">

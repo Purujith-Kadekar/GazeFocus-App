@@ -20,6 +20,10 @@ export default function VideoPage() {
   const [initialTime, setInitialTime] = useState(0)
   const videoId = params.id as string
   const lastProgressSaveRef = useRef(Date.now())
+  // Track latest playback position so we can save on SPA navigation / tab close.
+  const latestTimeRef = useRef(0)
+  const latestDurationRef = useRef(0)
+  const videoStateRef = useRef<Video | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -126,6 +130,38 @@ export default function VideoPage() {
     })
   }, [video])
 
+  // Keep videoStateRef in sync so the unmount effect can access the latest video.
+  useEffect(() => { videoStateRef.current = video }, [video])
+
+  // Save progress when the user navigates away (SPA route change) or closes the
+  // tab.  navigator.sendBeacon is used for the beforeunload case because fetch()
+  // is often cancelled during page unload.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (latestTimeRef.current > 0 && videoStateRef.current) {
+        const body = JSON.stringify({
+          youtubeId: videoStateRef.current.youtubeId,
+          currentTime: Math.floor(latestTimeRef.current),
+          duration: Math.floor(latestDurationRef.current),
+        })
+        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      // Save on SPA navigation (component unmount)
+      if (latestTimeRef.current > 0 && videoStateRef.current) {
+        const body = JSON.stringify({
+          youtubeId: videoStateRef.current.youtubeId,
+          currentTime: Math.floor(latestTimeRef.current),
+          duration: Math.floor(latestDurationRef.current),
+        })
+        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+      }
+    }
+  }, []) // Empty deps — runs once on mount, cleanup on unmount
+
   if (status === 'loading') {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -197,6 +233,9 @@ export default function VideoPage() {
             playlistVideos={playlistVideos.length > 0 ? playlistVideos : undefined}
             onNavigateToVideo={handleNavigateToVideo}
             onProgress={(currentTime, duration) => {
+              // Always track the latest position for unmount/beforeunload saves.
+              latestTimeRef.current = currentTime
+              latestDurationRef.current = duration
               // Throttle periodic saves to once every 5 seconds
               const now = Date.now()
               if (now - lastProgressSaveRef.current < 5000) return

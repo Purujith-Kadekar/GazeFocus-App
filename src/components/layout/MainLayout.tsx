@@ -50,6 +50,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     setLookingAtScreen,
     setIsFaceDetected,
     setCameraStream,
+    setSensitivityMode,
   } = useEyeTrackingStore()
   const [mounted, setMounted] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
@@ -127,6 +128,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         // This prevents disabling tracking when opening a video page
         if (data.eyeTrackingEnabled === true) setEyeTrackingEnabled(true)
         if (typeof data.eyeTrackingThreshold === 'number') setThresholdSeconds(data.eyeTrackingThreshold)
+        if (data.sensitivityMode) setSensitivityMode(data.sensitivityMode)
         if (data.onboardingCompleted === false) setShowOnboarding(true)
       } catch {
         // ignore and keep defaults
@@ -140,7 +142,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => {
       isMounted = false
     }
-  }, [setActive, setTimeoutSeconds, setEyeTrackingEnabled, setThresholdSeconds])
+  }, [setActive, setTimeoutSeconds, setEyeTrackingEnabled, setThresholdSeconds, setSensitivityMode, setShowOnboarding])
 
   // Inactivity detection
   useEffect(() => {
@@ -187,7 +189,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   useEffect(() => {
     const isVideoPlayerRoute =
       pathname?.startsWith('/video/') ||
-      /^\/playlist\/[^/]+\/video\/[^/]+$/.test(pathname || '')
+      /^\/playlist\/[^/]+\/video\/[^/]+$/.test(pathname || '') ||
+      /^\/channel\/[^/]+\/videos\/[^/]+$/.test(pathname || '') ||
+      /^\/channel\/[^/]+\/live\/[^/]+$/.test(pathname || '')
 
     // Only stop tracking when leaving video pages, not when settings change
     // Let VideoPlayer handle starting/stopping based on its own logic

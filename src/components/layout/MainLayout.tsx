@@ -142,7 +142,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => {
       isMounted = false
     }
-  }, [setActive, setTimeoutSeconds, setEyeTrackingEnabled, setThresholdSeconds, setSensitivityMode])
+  }, [setActive, setTimeoutSeconds, setEyeTrackingEnabled, setThresholdSeconds, setSensitivityMode, setShowOnboarding])
 
   // Inactivity detection
   useEffect(() => {

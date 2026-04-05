@@ -133,34 +133,29 @@ export default function VideoPage() {
   // Keep videoStateRef in sync so the unmount effect can access the latest video.
   useEffect(() => { videoStateRef.current = video }, [video])
 
+  /** Fire-and-forget progress save suitable for page-unload / unmount. */
+  const sendProgressBeacon = useCallback(() => {
+    if (latestTimeRef.current > 0 && videoStateRef.current) {
+      const body = JSON.stringify({
+        youtubeId: videoStateRef.current.youtubeId,
+        currentTime: Math.floor(latestTimeRef.current),
+        duration: Math.floor(latestDurationRef.current),
+      })
+      navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
+    }
+  }, [])
+
   // Save progress when the user navigates away (SPA route change) or closes the
   // tab.  navigator.sendBeacon is used for the beforeunload case because fetch()
   // is often cancelled during page unload.
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (latestTimeRef.current > 0 && videoStateRef.current) {
-        const body = JSON.stringify({
-          youtubeId: videoStateRef.current.youtubeId,
-          currentTime: Math.floor(latestTimeRef.current),
-          duration: Math.floor(latestDurationRef.current),
-        })
-        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('beforeunload', sendProgressBeacon)
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('beforeunload', sendProgressBeacon)
       // Save on SPA navigation (component unmount)
-      if (latestTimeRef.current > 0 && videoStateRef.current) {
-        const body = JSON.stringify({
-          youtubeId: videoStateRef.current.youtubeId,
-          currentTime: Math.floor(latestTimeRef.current),
-          duration: Math.floor(latestDurationRef.current),
-        })
-        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
-      }
+      sendProgressBeacon()
     }
-  }, []) // Empty deps — runs once on mount, cleanup on unmount
+  }, [sendProgressBeacon]) // sendProgressBeacon is stable (no deps)
 
   if (status === 'loading') {
     return (

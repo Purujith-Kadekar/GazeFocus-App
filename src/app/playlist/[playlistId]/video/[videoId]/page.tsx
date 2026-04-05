@@ -128,32 +128,26 @@ export default function PlaylistVideoPage() {
   // Keep videoStateRef in sync so the unmount effect can read the latest video.
   useEffect(() => { videoStateRef.current = video }, [video])
 
-  // Save progress on SPA navigation and tab/window close.
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (latestTimeRef.current > 0 && videoStateRef.current) {
-        const body = JSON.stringify({
-          youtubeId: videoStateRef.current.youtubeId,
-          currentTime: Math.floor(latestTimeRef.current),
-          duration: Math.floor(latestDurationRef.current),
-        })
-        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      // SPA navigation: component unmounts while still on the app.
-      if (latestTimeRef.current > 0 && videoStateRef.current) {
-        const body = JSON.stringify({
-          youtubeId: videoStateRef.current.youtubeId,
-          currentTime: Math.floor(latestTimeRef.current),
-          duration: Math.floor(latestDurationRef.current),
-        })
-        navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
-      }
+  /** Fire-and-forget progress save suitable for page-unload / unmount. */
+  const sendProgressBeacon = useCallback(() => {
+    if (latestTimeRef.current > 0 && videoStateRef.current) {
+      const body = JSON.stringify({
+        youtubeId: videoStateRef.current.youtubeId,
+        currentTime: Math.floor(latestTimeRef.current),
+        duration: Math.floor(latestDurationRef.current),
+      })
+      navigator.sendBeacon('/api/progress', new Blob([body], { type: 'application/json' }))
     }
   }, [])
+
+  // Save progress on SPA navigation and tab/window close.
+  useEffect(() => {
+    window.addEventListener('beforeunload', sendProgressBeacon)
+    return () => {
+      window.removeEventListener('beforeunload', sendProgressBeacon)
+      sendProgressBeacon()
+    }
+  }, [sendProgressBeacon])
 
   const handlePrevious = () => {
     navigateToVideo(currentIndex - 1)

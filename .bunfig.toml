@@ -1,0 +1,5 @@
+[install]
+prefer = "npm"
+
+[env]
+NODE_ENV = "development"

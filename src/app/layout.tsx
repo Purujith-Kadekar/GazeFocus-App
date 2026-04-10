@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   description: "Your distraction-free learning companion with eye tracking. Auto-pauses video when you look away.",
   keywords: ["GazeFocus", "eye tracking", "learning", "YouTube", "focus", "distraction-free"],
   authors: [{ name: "Purujith Kadekar" }],
+  verification: {
+    google: "5vFUyvgyOv-f4f4J_3IoaW4EQBeCLiaUkp8e8Vj8EaU",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },

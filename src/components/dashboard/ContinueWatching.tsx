@@ -146,12 +146,12 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
 
   if (localVideos.length === 0) {
     return (
-      <Card>
+      <Card className="h-[500px] flex flex-col overflow-hidden shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Videos</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
+        <CardContent className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center text-center">
             <Play className="h-12 w-12 text-muted-foreground/50 mb-2" />
             <p className="text-muted-foreground">No videos yet</p>
             <p className="text-sm text-muted-foreground">

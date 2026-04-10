@@ -467,6 +467,7 @@ export type Database = {
           id: string
           image: string | null
           isBlocked: boolean
+          isPremium: boolean
           lastActiveDate: string | null
           lastLoginDate: string | null
           lastWeeklyReset: string | null
@@ -485,6 +486,7 @@ export type Database = {
           id: string
           image?: string | null
           isBlocked?: boolean
+          isPremium?: boolean
           lastActiveDate?: string | null
           lastLoginDate?: string | null
           lastWeeklyReset?: string | null
@@ -503,6 +505,7 @@ export type Database = {
           id?: string
           image?: string | null
           isBlocked?: boolean
+          isPremium?: boolean
           lastActiveDate?: string | null
           lastLoginDate?: string | null
           lastWeeklyReset?: string | null

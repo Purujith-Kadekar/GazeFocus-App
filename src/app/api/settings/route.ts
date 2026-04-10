@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { randomUUID } from 'crypto'
 
 export async function GET() {
   try {
@@ -15,7 +16,14 @@ export async function GET() {
     let settings = settingsResult.data
 
     if (!settings) {
-      const newSettingsResult = await db.from('UserSettings').insert({ userId }).select().single()
+      const nowIso = new Date().toISOString()
+      const newSettingsResult = await db.from('UserSettings').insert({
+        id: randomUUID(),
+        userId,
+        onboardingCompleted: false,
+        updatedAt: nowIso,
+        createdAt: nowIso,
+      }).select().single()
       if (newSettingsResult.error || !newSettingsResult.data) {
         console.error('Error creating settings:', newSettingsResult.error)
         return NextResponse.json({ error: 'Failed to create settings' }, { status: 500 })
@@ -80,7 +88,14 @@ export async function PUT(request: NextRequest) {
       const updateResult = await db.from('UserSettings').update(updateData).eq('userId', userId).select().single()
       settings = updateResult.data
     } else {
-      const insertResult = await db.from('UserSettings').insert({ userId, ...updateData }).select().single()
+      const nowIso = new Date().toISOString()
+      const insertResult = await db.from('UserSettings').insert({
+        id: randomUUID(),
+        userId,
+        updatedAt: nowIso,
+        createdAt: nowIso,
+        ...updateData,
+      }).select().single()
       settings = insertResult.data
     }
 

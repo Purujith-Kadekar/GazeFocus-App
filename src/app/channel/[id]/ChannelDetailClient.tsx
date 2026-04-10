@@ -33,12 +33,10 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
   const { data: session, status } = useSession()
   const router = useRouter()
   const [channel, setChannel] = useState<Channel>(initialChannel)
-  const [activeTab, setActiveTab] = useState<'videos' | 'live'>('videos')
   const [videos, setVideos] = useState<Video[]>(initialVideos)
   const [liveVideos, setLiveVideos] = useState<LiveVideo[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [liveError, setLiveError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -46,14 +44,28 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
     }
   }, [status, router])
 
+  // If initialVideos is empty, try to fetch from API as fallback
+  useEffect(() => {
+    if (initialVideos.length === 0 && channel.id) {
+      fetch(`/api/videos?channelId=${channel.id}`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          if (data.length > 0) {
+            setVideos(data)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [initialVideos.length, channel.id])
+
   const fetchLiveVideos = useCallback(async () => {
     setIsLoading(true)
     setLiveError(null)
     try {
-      const response = await fetch(`/api/channels/${channel.id}/live`)
+      const response = await fetch(`/api/channels/${channel.id}/live?mode=refresh`)
       if (response.ok) {
         const data = await response.json()
-        setLiveVideos(data)
+        setLiveVideos(Array.isArray(data) ? data : (data.videos || []))
       } else {
         const errorData = await response.json().catch(() => ({}))
         setLiveError(errorData.error || 'Failed to load live streams')
@@ -67,10 +79,9 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
   }, [channel.id])
 
   useEffect(() => {
-    if (activeTab === 'live') {
-      fetchLiveVideos()
-    }
-  }, [activeTab, fetchLiveVideos])
+    // Auto-fetch live videos on load to check for live status
+    fetchLiveVideos()
+  }, [fetchLiveVideos])
 
   if (status === 'loading') {
     return (
@@ -103,17 +114,17 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
           </Button>
           <div className="flex items-center gap-2">
             <Button
-              variant={activeTab === 'videos' ? 'secondary' : 'outline'}
+              variant="outline"
               size="sm"
-              onClick={() => setActiveTab('videos')}
+              onClick={() => router.push(`/channel/${channel.id}/videos`)}
             >
               <Play className="h-4 w-4 mr-2" />
               Videos
             </Button>
             <Button
-              variant={activeTab === 'live' ? 'secondary' : 'outline'}
+              variant="outline"
               size="sm"
-              onClick={() => setActiveTab('live')}
+              onClick={() => router.push(`/channel/${channel.id}/live`)}
             >
               <Radio className="h-4 w-4 mr-2" />
               Live
@@ -185,112 +196,86 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
         </div>
 
         <div className="border-t pt-4">
-          {activeTab === 'videos' ? (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Play className="h-5 w-5" />
-                  Videos
-                </h2>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setViewMode('grid')}
-                  >
-                    <Grid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setViewMode('list')}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {videos.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Play className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground mb-4">No videos synced yet</p>
-                    <Button variant="outline" onClick={() => router.push(`/channel/${channel.id}/videos`)}>
-                      Go to Videos Page
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {videos.map((video) => (
-                    <VideoCard
-                      key={video.id}
-                      video={video}
-                      onClick={() => router.push(`/channel/${channel.id}/videos/${video.youtubeId}`)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {videos.map((video) => (
-                    <VideoListItem
-                      key={video.id}
-                      video={video}
-                      onClick={() => router.push(`/channel/${channel.id}/videos/${video.youtubeId}`)}
-                    />
-                  ))}
-                </div>
-              )}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                Recent Videos
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => router.push(`/channel/${channel.id}/videos`)}>
+                View All Videos
+              </Button>
             </div>
-          ) : (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Radio className="h-5 w-5" />
-                  Live & Past Streams
-                </h2>
-              </div>
 
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <span className="ml-2 text-muted-foreground">Checking for live videos...</span>
-                </div>
-              ) : liveError ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Radio className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground mb-2">Could not load live streams</p>
-                    <p className="text-sm text-muted-foreground/70 mb-4">{liveError}</p>
-                    <Button variant="outline" onClick={fetchLiveVideos}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Try Again
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : liveVideos.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Radio className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground mb-2">No live streams found</p>
-                    <p className="text-sm text-muted-foreground/70 mb-4">This channel has no current or recent live streams</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {liveVideos.map((video) => (
-                    <LiveVideoCard
-                      key={video.youtubeId}
-                      video={video}
-                      onClick={() => router.push(`/channel/${channel.id}/live/${video.youtubeId}`)}
-                    />
-                  ))}
-                </div>
-              )}
+            {videos.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <Play className="h-8 w-8 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground mb-2">No videos synced yet</p>
+                  <Button variant="outline" size="sm" onClick={() => router.push(`/channel/${channel.id}/videos`)}>
+                    Go to Videos Page
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {videos.slice(0, 8).map((video) => (
+                  <VideoCard
+                    key={video.id}
+                    video={video}
+                    onClick={() => router.push(`/channel/${channel.id}/videos/${video.youtubeId}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 mt-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Radio className="h-5 w-5" />
+                Live & Past Streams
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => router.push(`/channel/${channel.id}/live`)}>
+                View All Live
+              </Button>
             </div>
-          )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-sm text-muted-foreground">Checking for live videos...</span>
+              </div>
+            ) : liveError ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <Radio className="h-8 w-8 text-muted-foreground/50 mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">{liveError}</p>
+                  <Button variant="outline" size="sm" onClick={fetchLiveVideos}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : liveVideos.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <Radio className="h-8 w-8 text-muted-foreground/50 mb-4" />
+                  <p className="text-sm text-muted-foreground">No current or recent live streams</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {liveVideos.slice(0, 4).map((video) => (
+                  <LiveVideoCard
+                    key={video.youtubeId}
+                    video={video}
+                    onClick={() => router.push(`/channel/${channel.id}/live/${video.youtubeId}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </MainLayout>

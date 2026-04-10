@@ -5,14 +5,18 @@ import {
   Eye, EyeOff, FileText, CheckCircle, Loader2, Coffee,
   Play, Pause, Volume2, VolumeX, Volume1, Maximize2, Minimize2,
   SkipBack, SkipForward, Settings, Link2, Check, Captions, CaptionsOff,
-  Gauge,
+  Gauge, ThumbsUp, ThumbsDown, Share2, Download, MoreHorizontal, Camera,
+  ChevronDown, ChevronUp, List
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePlayerStore, useEyeTrackingStore, useWatchBreakStore } from '@/store/useStore'
 import { useFocusEngine } from '@/hooks/useFocusEngine'
 import { formatDuration, cn } from '@/lib/utils'
 import { NotesPanel } from './NotesPanel'
-import type { Video } from '@/types'
+import type { Video, Channel } from '@/types'
+import { formatDistanceToNow } from 'date-fns'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
 
 interface VideoPlayerProps {
   videoId: string
@@ -30,6 +34,9 @@ interface VideoPlayerProps {
   playlistVideos?: Video[]
   /** Called when user navigates to a different video */
   onNavigateToVideo?: (youtubeId: string) => void
+  channel?: Channel
+  viewCount?: string | null
+  publishedAt?: string | null
 }
 
 declare global {
@@ -70,6 +77,9 @@ export function VideoPlayer({
   onMarkComplete,
   playlistVideos,
   onNavigateToVideo,
+  channel,
+  viewCount,
+  publishedAt,
 }: VideoPlayerProps) {
   // ─── Core player refs ────────────────────────────────────────────────────────
   const videoAreaRef = useRef<HTMLDivElement>(null)
@@ -126,6 +136,8 @@ export function VideoPlayer({
   const [showNotes, setShowNotes] = useState(false)
   const [showDescriptionFull, setShowDescriptionFull] = useState(false)
   const [showTracking, setShowTracking] = useState(false)
+  const [showPlaylistVideos, setShowPlaylistVideos] = useState(false)
+  const [showFlash, setShowFlash] = useState(false)
 
   // ─── Watch break state ────────────────────────────────────────────────────────
   const continuousPlaySecondsRef = useRef(0)
@@ -312,7 +324,12 @@ export function VideoPlayer({
               // Allow saving if the player has confirmed being at/past initialTime,
               // OR if pausedTime is already close enough to initialTime (covers the
               // case where the first progress interval hasn't run yet).
-              if (hasMovedPastInitialRef.current || pausedTime >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS) {
+              // For Live streams, we relax this even further: if we've played (hasPlayedRef.current),
+              // we trust the user's intent to save the current position.
+              if (hasMovedPastInitialRef.current || 
+                  pausedTime >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS ||
+                  hasPlayedRef.current) {
+                console.log(`[PAUSE] Saving position: ${pausedTime}`)
                 onPauseRef.current?.(pausedTime, pausedDur)
               }
             }
@@ -397,6 +414,7 @@ export function VideoPlayer({
           // Confirm the player has reached (or passed) the initial seek position.
           // Once confirmed, progress saves via onPause are unconditionally allowed.
           if (!hasMovedPastInitialRef.current && time >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS) {
+            console.log(`[SEEK] Confirmed: Player reached initial position ${initialTimeRef.current} (current: ${time})`)
             hasMovedPastInitialRef.current = true
           }
           onProgressRef.current?.(time, dur)
@@ -580,6 +598,91 @@ export function VideoPlayer({
       // Browser may not support fullscreen; silently ignore
     }
   }, [])
+
+  const handleSnapshot = useCallback(async () => {
+    if (!videoId) return
+    
+    // Trigger Camera Flash UX
+    setShowFlash(true)
+    setTimeout(() => setShowFlash(false), 300)
+    
+    // Use our internal proxy to bypass CORS restrictions on YouTube thumbnails
+    const proxyUrl = `/api/thumbnail?videoId=${videoId}`
+    
+    try {
+      const img = new Image()
+      img.crossOrigin = 'anonymous' // Now works because our proxy sends ACAO: *
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = proxyUrl
+      })
+
+      // Create a canvas to draw the snapshot
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      canvas.width = img.width
+      canvas.height = img.height
+
+      // 1. Draw the background image
+      ctx.drawImage(img, 0, 0)
+
+      // 2. Add a sleek gradient scrim at the bottom
+      const gradient = ctx.createLinearGradient(0, canvas.height * 0.7, 0, canvas.height)
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0)')
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)')
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // 3. Add Video Title
+      ctx.fillStyle = 'white'
+      ctx.font = `bold ${Math.floor(canvas.height / 20)}px Inter, system-ui, sans-serif`
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'
+      ctx.shadowBlur = 10
+      ctx.fillText(title, canvas.width * 0.05, canvas.height * 0.88)
+
+      // 4. Add Timestamp and Logo
+      ctx.font = `${Math.floor(canvas.height / 30)}px monospace`
+      const timeStr = `TIME: ${formatDuration(currentTime)}`
+      ctx.fillText(timeStr, canvas.width * 0.05, canvas.height * 0.94)
+      
+      ctx.textAlign = 'right'
+      ctx.font = `italic ${Math.floor(canvas.height / 35)}px Inter, sans-serif`
+      ctx.fillText('GAZEFOCUS APP   AI FOCUS ENGINE', canvas.width * 0.95, canvas.height * 0.94)
+
+      // 5. Download the result safely using Blob (prevents large base64 href limits in browsers)
+      const safeTitle = title.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 30) || 'Video'
+      const timeStrSafe = formatDuration(currentTime).replace(/:/g, '-')
+      
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          console.error("Canvas toBlob failed.");
+          return;
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `GazeFocus_${safeTitle}_${timeStrSafe}.png`;
+        
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 100);
+      }, 'image/png');
+
+    } catch (e) {
+      console.error('Snapshot failed via proxy, falling back to direct download:', e)
+      // Final fallback
+      window.open(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, '_blank')
+    }
+  }, [videoId, title, currentTime])
 
   const handleSetQuality = useCallback((quality: string) => {
     playerRef.current?.setPlaybackQuality?.(quality)
@@ -775,6 +878,14 @@ export function VideoPlayer({
           >
             {/* YouTube iframe — no native controls */}
             <div id={playerElementId.current} className="absolute inset-0 w-full h-full" />
+
+            {/* Flash Effect Overlay for Snapshot */}
+            <div 
+              className={cn(
+                "absolute inset-0 z-50 bg-white pointer-events-none transition-opacity duration-300 ease-out",
+                showFlash ? "opacity-100 mix-blend-screen" : "opacity-0"
+              )} 
+            />
 
             {/* Transparent click-capture layer — sits above iframe to intercept play/pause clicks */}
             <div
@@ -983,6 +1094,14 @@ export function VideoPlayer({
                   <div className="flex-1" />
 
                   {/* ── Right controls ────────────────────────── */}
+                  <button
+                    onClick={handleSnapshot}
+                    className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                    aria-label="Take snapshot"
+                    title="Snapshot"
+                  >
+                    <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
 
                   {/* Captions toggle */}
                   <button
@@ -1087,57 +1206,54 @@ export function VideoPlayer({
           {/* ── Below-video content (hidden in fullscreen) ──────────────────── */}
           {!isFullscreen && (
             <>
-              {/* Video Title & metadata */}
-              <div className="mt-6">
-                <h2 className="font-bold text-2xl tracking-tight text-foreground">{title}</h2>
-                <div className="flex flex-wrap items-center gap-3 mt-2">
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
-                    <div className={cn(
-                      "h-2 w-2 rounded-full animate-pulse",
-                      !eyeTrackingEnabled ? "bg-gray-400" :
-                      !eyeIsTracking ? "bg-yellow-500" :
-                      !eyeIsFaceDetected ? "bg-orange-500" :
-                      isLookingAtScreen ? "bg-green-500" : "bg-red-500"
-                    )} />
-                    {!eyeTrackingEnabled
-                      ? 'Eye tracking disabled'
-                      : !eyeIsTracking
-                        ? 'Camera starting…'
-                        : !eyeIsFaceDetected
-                          ? 'No face detected'
-                          : isLookingAtScreen ? 'Tracking Active' : 'Waiting for focus...'}
-                  </div>
-                  {eyeTrackingEnabled && eyeIsTracking && (
-                    <span className="text-xs text-muted-foreground italic">Smart-pause active</span>
-                  )}
-                  <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-mono">
-                    {playbackSpeed}×
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              {description && (
+              {/* YouTube Style Metadata & Description */}
+              <div className="mt-4 space-y-4">
+                {/* 1. Description Box */}
                 <div
-                  className="mt-4 bg-secondary/30 hover:bg-secondary/50 rounded-xl p-4 transition-colors cursor-pointer"
-                  onClick={() => setShowDescriptionFull(!showDescriptionFull)}
+                  className={cn(
+                    "bg-secondary/30 rounded-xl p-3 transition-colors hover:bg-secondary/40 cursor-default",
+                    !showDescriptionFull && "cursor-pointer"
+                  )}
+                  onClick={() => !showDescriptionFull && setShowDescriptionFull(true)}
                 >
-                  <div className={cn("text-sm text-foreground/80 whitespace-pre-wrap break-words", !showDescriptionFull && "line-clamp-3")}>
-                    {description.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
-                      /^https?:\/\//.test(part) ? (
-                        <a key={i} href={part} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">{part}</a>
-                      ) : (
-                        <span key={i}>{part}</span>
-                      )
-                    )}
+                  <div className="flex items-center justify-end mb-2">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-background/10 px-2 py-0.5 rounded-full border border-border/10">
+                      <div className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        !eyeTrackingEnabled ? "bg-gray-500" :
+                        isLookingAtScreen ? "bg-green-500 animate-pulse" : "bg-red-500"
+                      )} />
+                      {eyeTrackingEnabled ? (isLookingAtScreen ? 'Focus Active' : 'Gaze Lost') : 'Tracking Off'}
+                    </div>
                   </div>
-                  {description.length > 200 && (
-                    <button className="text-xs font-semibold text-primary mt-2 hover:underline">
-                      {showDescriptionFull ? 'Show less' : 'Show more'}
+                  <div className={cn(
+                    "text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed",
+                    !showDescriptionFull && "line-clamp-2"
+                  )}>
+                    {description ? (
+                      description.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+                        /^https?:\/\//.test(part) ? (
+                          <a key={i} href={part} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:underline">{part}</a>
+                        ) : (
+                          <span key={i}>{part}</span>
+                        )
+                      )
+                    ) : 'No description provided.'}
+                  </div>
+
+                  {description && description.length > 100 && (
+                    <button
+                      className="text-sm font-bold mt-2 text-foreground/80 hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDescriptionFull(!showDescriptionFull);
+                      }}
+                    >
+                      {showDescriptionFull ? 'Show less' : '...more'}
                     </button>
                   )}
                 </div>
-              )}
+              </div>
             </>
           )}
         </div>
@@ -1261,6 +1377,74 @@ export function VideoPlayer({
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Playlist Videos Accordion */}
+            {playlistVideos && playlistVideos.length > 0 && (
+              <div className="bg-card/50 backdrop-blur-sm border rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                <button
+                  onClick={() => setShowPlaylistVideos(!showPlaylistVideos)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-secondary/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                      <List className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold text-sm">Playlist Videos</span>
+                      <span className="text-xs text-muted-foreground">{playlistVideos.length} videos</span>
+                    </div>
+                  </div>
+                  {showPlaylistVideos ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground mr-1" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground mr-1" />
+                  )}
+                </button>
+
+                {showPlaylistVideos && (
+                  <div className="border-t max-h-[400px] overflow-y-auto">
+                    <div className="p-2 space-y-1">
+                      {sortedPlaylist.map((v, idx) => {
+                        const isCurrent = v.youtubeId === videoId;
+                        return (
+                          <button
+                            key={v.youtubeId}
+                            onClick={() => onNavigateToVideo && onNavigateToVideo(v.youtubeId)}
+                            className={cn(
+                              "w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors group",
+                              isCurrent ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-secondary"
+                            )}
+                          >
+                            <div className="flex-shrink-0 w-6 text-center text-xs font-medium text-muted-foreground">
+                              {isCurrent ? (
+                                <Play className="h-3 w-3 inline text-primary" />
+                              ) : (
+                                idx + 1
+                              )}
+                            </div>
+                            <div className="flex-shrink-0 w-24 aspect-video rounded overflow-hidden bg-black/20 flex items-center justify-center">
+                              {v.thumbnail ? (
+                                <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                              <span className={cn(
+                                "text-sm font-medium leading-tight line-clamp-2",
+                                isCurrent ? "text-primary" : "text-foreground group-hover:text-primary transition-colors"
+                              )}>
+                                {v.title}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,45 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Logo } from '@/components/layout/Logo'
 
-function IrisMotif({ size = 56 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      style={{ filter: 'drop-shadow(0 0 12px rgba(212,135,10,0.45))' }}
-    >
-      <ellipse cx="32" cy="32" rx="28" ry="17" stroke="#D4870A" strokeWidth="1.5" />
-      <line x1="4" y1="32" x2="10" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="54" y1="32" x2="60" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="13" stroke="#D4870A" strokeWidth="1" opacity="0.4" />
-      <circle cx="32" cy="32" r="8" fill="#0C0A07" stroke="#D4870A" strokeWidth="1.5" />
-      <line x1="40.5"  y1="32"    x2="44.5"  y2="32"    stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="38.01" y1="38.01" x2="40.84" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="32"    y1="40.5"  x2="32"    y2="44.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="25.99" y1="38.01" x2="23.16" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <circle cx="35" cy="29" r="2" fill="#D4870A" opacity="0.7" />
-    </svg>
-  )
-}
+
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const authError = searchParams.get('error')
+    if (authError === 'Blocked') {
+      setError('Your account has been blocked. Please contact support.')
+      return
+    }
+    if (authError === 'AccessDenied') {
+      setError('Access denied. You may be blocked or signups are currently disabled.')
+      return
+    }
+    if (authError) {
+      setError('Authentication failed. Please try again.')
+    }
+  }, [searchParams])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,7 +130,7 @@ export default function LoginPage() {
               <motion.div
                 whileHover={{ scale: 1.05, rotate: 5 }}
               >
-                <IrisMotif size={56} />
+                <Logo size={56} style={{ filter: 'drop-shadow(0 0 12px rgba(212,135,10,0.45))' }} />
               </motion.div>
             </div>
 

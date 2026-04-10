@@ -67,15 +67,15 @@ Google OAuth and email/password via NextAuth.js. Protected admin portal at `/adm
 # clone and install
 git clone https://github.com/Purujith-Kadekar/GazeFocus-App
 cd GazeFocus-App
-bun install
+npm install
 
 # set up environment
 cp .env .env.local
 # fill in the values (see below)
 
 # push the schema and run
-bun run db:push
-bun run dev
+npx prisma db push
+npm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -111,7 +111,6 @@ Open `http://localhost:3000`.
 | Drag and drop | dnd-kit |
 | Video | YouTube IFrame API |
 | Background jobs | node-cron |
-| Desktop | Electron |
 
 ---
 

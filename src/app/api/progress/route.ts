@@ -19,6 +19,12 @@ function isNewWeek(lastResetDate: string | null): boolean {
   return lastReset < currentMonday
 }
 
+const generateId = () => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 6);
+  return `cmm${timestamp}${random}`; // Matches the cuid format found in the DB (e.g. cmm3ghj9x...)
+}
+
 function getMondayDate(): string {
   const now = new Date()
   const dayOfWeek = now.getDay()
@@ -39,6 +45,7 @@ export async function POST(request: NextRequest) {
     const userId = user.id
     const body = await request.json()
     const { youtubeId, currentTime, duration, completed } = body
+    console.log(`[DEBUG] POST /api/progress - user: ${user.email}, video: ${youtubeId}, time: ${currentTime}/${duration}, done: ${completed}`)
 
     if (!youtubeId) {
       return NextResponse.json(
@@ -90,19 +97,32 @@ export async function POST(request: NextRequest) {
     const existingProgressResult = await db.from('VideoProgress').select('id').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
 
     let progress
+    const now = new Date().toISOString()
     if (existingProgressResult.data) {
-      const updateResult = await db.from('VideoProgress').update(updatePayload)
+      const updateResult = await db.from('VideoProgress').update({
+        ...updatePayload,
+        updatedAt: now
+      })
         .eq('id', existingProgressResult.data.id).select().single()
       progress = updateResult.data
     } else {
+      const generatedId = generateId()
       const insertResult = await db.from('VideoProgress').insert({
+        id: generatedId,
         userId,
         youtubeId,
         secondsWatched: currentTime || 0,
         durationSeconds: duration || 0,
         completed: isCompleted || false,
-        completedAt: isCompleted ? new Date().toISOString() : null,
+        completedAt: isCompleted ? now : null,
+        updatedAt: now,
+        createdAt: now
       }).select().single()
+      
+      if (insertResult.error) {
+        console.error(`[ERROR] Failed to insert progress:`, insertResult.error)
+        throw new Error(`DB Insert Error: ${insertResult.error.message}`)
+      }
       progress = insertResult.data
     }
 

@@ -12,8 +12,9 @@ import {
 import {
   Eye, Play, FolderOpen, FileText,
   BarChart2, RefreshCw, Lock, CheckSquare,
-  ArrowRight, Settings, Zap,
+  ArrowRight, Settings, Zap, Info, CircleHelp, Tv,
 } from 'lucide-react'
+import { Logo } from '@/components/layout/Logo'
 
 /* ── Fonts + global selection theming ── */
 const FONTS = `
@@ -50,31 +51,6 @@ function Reveal({
     >
       {children}
     </motion.div>
-  )
-}
-
-/* ── Iris SVG motif ── */
-function IrisMotif({ size = 64, glow = false }: { size?: number; glow?: boolean }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      style={glow ? { filter: 'drop-shadow(0 0 12px rgba(212,135,10,0.45))' } : undefined}
-    >
-      <ellipse cx="32" cy="32" rx="28" ry="17" stroke="#D4870A" strokeWidth="1.5" />
-      <line x1="4" y1="32" x2="10" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="54" y1="32" x2="60" y2="32" stroke="#D4870A" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="13" stroke="#D4870A" strokeWidth="1" opacity="0.4" />
-      <circle cx="32" cy="32" r="8" fill="#0C0A07" stroke="#D4870A" strokeWidth="1.5" />
-      {/* Pre-computed iris detail lines at 0°, 45°, 90°, 135° — static to avoid hydration mismatch */}
-      <line x1="40.5"  y1="32"    x2="44.5"  y2="32"    stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="38.01" y1="38.01" x2="40.84" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="32"    y1="40.5"  x2="32"    y2="44.5"  stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <line x1="25.99" y1="38.01" x2="23.16" y2="40.84" stroke="#D4870A" strokeWidth="0.8" opacity="0.5" />
-      <circle cx="35" cy="29" r="2" fill="#D4870A" opacity="0.7" />
-    </svg>
   )
 }
 
@@ -179,7 +155,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 mb-5"
       style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#D0C0A0', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-      <IrisMotif size={14} />
+      <Logo size={14} />
       {children}
     </div>
   )
@@ -224,7 +200,7 @@ export default function LandingPage() {
       >
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <button onClick={() => scrollTo(heroRef)} className="flex items-center gap-3 cursor-pointer">
-            <IrisMotif size={26} />
+            <Logo size={26} />
             <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '1.05rem', color: '#F2EDE4' }}>
               GazeFocus
             </span>
@@ -389,6 +365,7 @@ export default function LandingPage() {
               { icon: Zap, title: 'Configurable Threshold', desc: 'Set your pause sensitivity from 1 to 10 seconds. Short sessions? Hair-trigger. Marathon study block? Give yourself a little slack.' },
               { icon: BarChart2, title: 'Focus & Distraction Tracking', desc: 'A live focus-state indicator shows whether you\'re in-zone. Your distraction count is logged per session so you can trend over time.' },
               { icon: FolderOpen, title: 'Folders & Playlists', desc: 'Organise everything into folders. Import entire YouTube playlists with one paste — full playlist sync support included.' },
+              { icon: Tv, title: 'Add Channels via URL', desc: 'Paste YouTube channel URLs to import and organize all their content. New uploads sync automatically in the background every 30 minutes.' },
               { icon: FileText, title: 'Timestamped Notes', tag: 'Popular', desc: 'Capture notes while watching. Each note is pinned to the exact video timestamp — click any note to jump straight back to that moment.' },
               { icon: RefreshCw, title: 'Playlist Auto-Sync', desc: 'Background scheduler syncs your playlists for new YouTube uploads every 30 minutes. Hit Refresh any time for a manual pull.' },
               { icon: CheckSquare, title: 'Todo List', desc: 'Attach a learning to-do list to your session. Track tasks, tick off concepts, and stay on top of what you planned to cover.' },
@@ -423,7 +400,7 @@ export default function LandingPage() {
             {/* Right: steps */}
             <div className="flex flex-col gap-10">
               {[
-                { n: '01', title: 'Paste a YouTube video or playlist', desc: 'Drop any YouTube URL. Full playlists are imported in one go and sync automatically in the background every 30 minutes.' },
+                { n: '01', title: 'Paste a YouTube video, playlist, or channel', desc: 'Drop any YouTube URL — video, playlist, or channel. Content is imported in one go and synced automatically in the background every 30 minutes.' },
                 { n: '02', title: 'Pick your focus mode', desc: 'Choose Light, Moderate, or Strict. Light gives you a longer grace period before pausing — Strict pauses the moment your gaze drifts. Switch any time.' },
                 { n: '03', title: 'Enable eye tracking and start watching', desc: 'One toggle activates the focus engine. Look away — it pauses. Look back — it resumes. Take timestamped notes throughout.' },
               ].map(({ n, title, desc }, i) => (
@@ -525,20 +502,40 @@ export default function LandingPage() {
 
       {/* ── FOOTER ── */}
       <footer style={{ borderTop: '1px solid rgba(212,135,10,0.07)', padding: '36px 0' }}>
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <IrisMotif size={20} />
-            <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '0.95rem', color: '#F2EDE4' }}>GazeFocus</span>
+            <Logo size={28} />
+            <div className="flex flex-col">
+              <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '1.05rem', color: '#F2EDE4' }}>
+                GazeFocus
+              </span>
+              <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#A89878', letterSpacing: '0.06em' }}>
+                © {new Date().getFullYear()} GazeFocus. All rights reserved.
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-6"
-            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            <button onClick={() => scrollTo(featuresRef)} className="hover:text-[#D4870A] transition-colors">Features</button>
-            <button onClick={() => scrollTo(howItWorksRef)} className="hover:text-[#D4870A] transition-colors">How It Works</button>
-            <Link href="/auth/login" className="hover:text-[#D4870A] transition-colors">Sign In</Link>
-          </div>
-          <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#A89878', letterSpacing: '0.06em' }}>
-            © {new Date().getFullYear()} GazeFocus. All rights reserved.
-          </p>
+          <nav
+            aria-label="Footer links"
+            className="flex flex-wrap items-center justify-start gap-x-7 gap-y-3 md:justify-end"
+            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.05em' }}
+          >
+            <Link href="/privacy-policy" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
+              <Lock size={14} />
+              Privacy
+            </Link>
+            <Link href="/terms-and-conditions" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
+              <FileText size={14} />
+              Terms
+            </Link>
+            <Link href="/about" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
+              <Info size={14} />
+              About
+            </Link>
+            <Link href="/fyq" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
+              <CircleHelp size={14} />
+              FYQ
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Plus,
   Calendar,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -100,6 +101,15 @@ const steps: Step[] = [
     iconBg: 'bg-amber-500/10',
     title: 'Playlists',
     description: 'Add full YouTube playlists and work through them one video at a time.',
+    position: 'right',
+  },
+  {
+    targetId: 'onboarding-channels',
+    icon: Users,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Channels',
+    description: 'Subscribe to YouTube channels and get organized access to all their videos.',
     position: 'right',
   },
   {

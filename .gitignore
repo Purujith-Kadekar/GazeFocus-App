@@ -34,6 +34,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+*.dump
+*.bundle
 
 # vercel
 .vercel
@@ -53,12 +55,31 @@ cookies.txt
 db/
 # Skills directory
 /skills/
-# Electron build output
-electron-dist/
-electron-builder.yml
-electron/
+
+# consolidated backups
+backups/
+
+# consolidated caches
+cache/
+supabase/.temp/
+
+# archived root maintenance files
+Caddyfile
+dev.log
+nul
+nul.txt
+tsc_out.txt
+tsc-errors.txt
 
 GazeFocus-App.code-workspace
 nul
 Template-Theme
 .vercel
+.aider*
+
+# installed AI tool skills (local/generated)
+.zencoder
+.agents
+.continue
+.windsurf
+unused_files_report.txt

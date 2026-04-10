@@ -15,6 +15,7 @@ interface UserData {
   image: string | null
   isBlocked: boolean
   createdAt: string
+  lastLoginDate: string | null
   lastActiveDate: string | null
   deletionScheduledAt: string | null
   accounts: { provider: string }[]
@@ -31,6 +32,8 @@ interface NotificationData {
 }
 
 type Tab = 'users' | 'notifications' | 'settings'
+
+const ACTIVE_WINDOW_HOURS = 168
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -88,7 +91,29 @@ export default function AdminDashboard() {
     }
   }, [router])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    loadData()
+    // Poll for new users every 5 seconds
+    const interval = setInterval(async () => {
+      const usersRes = await fetch('/api/admin/users')
+      if (usersRes.ok) setUsers(await usersRes.json())
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [loadData])
+
+  const getLastSeenAt = (user: UserData): Date | null => {
+    const value = user.lastLoginDate || user.lastActiveDate
+    if (!value) return null
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? null : date
+  }
+
+  const isUserActive = (user: UserData): boolean => {
+    const lastSeen = getLastSeenAt(user)
+    if (!lastSeen) return false
+    const elapsedMs = Date.now() - lastSeen.getTime()
+    return elapsedMs <= ACTIVE_WINDOW_HOURS * 60 * 60 * 1000
+  }
 
   const toggleBlock = async (userId: string, block: boolean) => {
     setActionLoading(userId)
@@ -289,7 +314,7 @@ export default function AdminDashboard() {
           </div>
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
             <p className="text-sm text-slate-400">Active Users</p>
-            <p className="text-2xl font-bold">{users.filter(u => !u.isBlocked).length}</p>
+            <p className="text-2xl font-bold">{users.filter(u => !u.isBlocked && !u.deletionScheduledAt && isUserActive(u)).length}</p>
           </div>
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
             <p className="text-sm text-slate-400">Blocked Users</p>
@@ -367,8 +392,10 @@ export default function AdminDashboard() {
                           <span className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400">Blocked</span>
                         ) : user.deletionScheduledAt ? (
                           <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">Deleting</span>
-                        ) : (
+                        ) : isUserActive(user) ? (
                           <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">Active</span>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded bg-slate-500/20 text-slate-300">Inactive</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-400">

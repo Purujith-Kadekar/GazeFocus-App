@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth-helper'
 
 export async function POST() {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+    const user = await getCurrentUser()
+
+    if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized', debug: 'No session' }, { status: 401 })
     }
-    
-    const userId = session.user.id
+
+    const userId = user.id
     const prefix = userId.slice(0, 8)
     const now = new Date().toISOString()
 

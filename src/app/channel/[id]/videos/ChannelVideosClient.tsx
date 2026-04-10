@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Play, Loader2, RefreshCw, Users, Grid, List } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, RefreshCw, Users, Grid, List, ChevronDown } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,12 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
   const [channel, setChannel] = useState<Channel>(initialChannel)
   const [videos, setVideos] = useState<Video[]>(initialVideos)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [quotaExhausted, setQuotaExhausted] = useState(false)
+  const [lastSource, setLastSource] = useState<'api' | 'cache' | 'rss' | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -30,7 +35,7 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
     }
   }, [status, router])
 
-  const handleSyncChannel = async () => {
+  const handleSyncChannel = useCallback(async () => {
     setIsSyncing(true)
     try {
       const response = await fetch('/api/channels/sync', {
@@ -39,6 +44,8 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
         body: JSON.stringify({ channelId: channel.id }),
       })
       if (response.ok) {
+        const data = await response.json()
+        setQuotaExhausted(data.quotaExhausted || false)
         fetchVideos()
       }
     } catch (error) {
@@ -46,19 +53,90 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
     } finally {
       setIsSyncing(false)
     }
-  }
+  }, [channel.id])
 
-  const fetchVideos = async () => {
+  const handleLoadMore = useCallback(async () => {
+    if (!nextPageToken || isLoadingMore) return
+    
+    setIsLoadingMore(true)
     try {
+      const response = await fetch(
+        `/api/channels/videos/fetch?channelId=${channel.id}&mode=loadMore&pageToken=${nextPageToken}&maxResults=50`
+      )
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Convert to Video format and add to list
+        const newVideos: Video[] = data.videos.map((v: any) => ({
+          id: v.youtubeId,
+          youtubeId: v.youtubeId,
+          title: v.title,
+          description: v.description,
+          thumbnail: v.thumbnail,
+          duration: v.duration,
+          userId: '',
+          channelId: channel.id,
+          createdAt: v.publishedAt,
+          updatedAt: v.publishedAt,
+        }))
+        
+        setVideos(prev => [...prev, ...newVideos])
+        setNextPageToken(data.nextPageToken)
+        setHasMore(data.hasMore)
+        setQuotaExhausted(data.quotaExhausted || false)
+        setLastSource(data.source)
+      }
+    } catch (error) {
+      console.error('Failed to load more videos:', error)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [channel.id, nextPageToken, isLoadingMore])
+
+  const fetchVideos = useCallback(async () => {
+    try {
+      // First, try to get from user's Video table (already synced)
       const response = await fetch(`/api/videos?channelId=${channel.id}`)
       if (response.ok) {
         const data = await response.json()
-        setVideos(data)
+        if (data.length > 0) {
+          setVideos(data)
+          setLastSource('cache')
+          setHasMore(false) // If we have videos from sync, no need to load more initially
+          return
+        }
+      }
+      
+      // If no videos in user's table, use smart fetch to get from cache/API
+      const smartResponse = await fetch(
+        `/api/channels/videos/fetch?channelId=${channel.id}&mode=initial&maxResults=50`
+      )
+      if (smartResponse.ok) {
+        const data = await smartResponse.json()
+        
+        const fetchedVideos: Video[] = data.videos.map((v: any) => ({
+          id: v.youtubeId,
+          youtubeId: v.youtubeId,
+          title: v.title,
+          description: v.description,
+          thumbnail: v.thumbnail,
+          duration: v.duration,
+          userId: '',
+          channelId: channel.id,
+          createdAt: v.publishedAt,
+          updatedAt: v.publishedAt,
+        }))
+        
+        setVideos(fetchedVideos)
+        setNextPageToken(data.nextPageToken)
+        setHasMore(data.hasMore)
+        setQuotaExhausted(data.quotaExhausted || false)
+        setLastSource(data.source)
       }
     } catch (error) {
       console.error('Failed to fetch videos:', error)
     }
-  }
+  }, [channel.id])
 
   const handleVideoClick = (youtubeId: string) => {
     router.push(`/channel/${channel.id}/videos/${youtubeId}`)
@@ -138,7 +216,15 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
               {channel.videoCount && (
                 <span>{channel.videoCount} videos</span>
               )}
-              <span>{videos.length} synced videos</span>
+              <span>{videos.length} loaded videos</span>
+              {lastSource && (
+                <Badge variant={lastSource === 'api' ? 'default' : lastSource === 'cache' ? 'secondary' : 'outline'}>
+                  {lastSource === 'api' ? 'API' : lastSource === 'cache' ? 'Cached' : 'RSS'}
+                </Badge>
+              )}
+              {quotaExhausted && (
+                <Badge variant="destructive">Quota Exhausted</Badge>
+              )}
             </div>
           </div>
         </div>
@@ -187,17 +273,73 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
               </CardContent>
             </Card>
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {videos.map((video) => (
-                <VideoCard key={video.id} video={video} onClick={() => handleVideoClick(video.youtubeId)} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {videos.map((video) => (
+                  <VideoCard key={video.id} video={video} onClick={() => handleVideoClick(video.youtubeId)} />
+                ))}
+              </div>
+              {hasMore && (
+                <div className="flex justify-center mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleLoadMore} 
+                    disabled={isLoadingMore || quotaExhausted}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading...
+                      </>
+                    ) : quotaExhausted ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Cannot Load More (Quota Exhausted)
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        Load More Videos
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="space-y-2">
-              {videos.map((video) => (
-                <VideoListItem key={video.id} video={video} onClick={() => handleVideoClick(video.youtubeId)} />
-              ))}
-            </div>
+            <>
+              <div className="space-y-2">
+                {videos.map((video) => (
+                  <VideoListItem key={video.id} video={video} onClick={() => handleVideoClick(video.youtubeId)} />
+                ))}
+              </div>
+              {hasMore && (
+                <div className="flex justify-center mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleLoadMore} 
+                    disabled={isLoadingMore || quotaExhausted}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading...
+                      </>
+                    ) : quotaExhausted ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Cannot Load More (Quota Exhausted)
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        Load More Videos
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

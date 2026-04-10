@@ -1,16 +1,16 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { 
-  Eye, 
-  EyeOff, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle,
   Target,
   Loader2,
   Video,
   VideoOff,
-  X
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,13 +37,11 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
   const videoPreviewRef = useRef<HTMLVideoElement>(null)
   const calibrationVideoRef = useRef<HTMLVideoElement>(null)
   const [showPreview, setShowPreview] = useState(true)
-  
-  // Calibration Local State
+
   const [isCalibrating, setIsCalibrating] = useState(false)
 
-  // Initialize Focus Engine (Camera) - Only active during calibration in settings
   useFocusEngine(isCalibrating)
-  
+
   const {
     isEnabled,
     isCalibrated,
@@ -60,11 +58,11 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
     setCalibrated,
     setCalibrationProgress,
   } = useEyeTrackingStore()
-  
+
   const { isCalibrationModalOpen, setCalibrationModalOpen } = useUIStore()
-  
+
   const [currentCalibrationPoint, setCurrentCalibrationPoint] = useState(0)
-  
+
   const calibrationPoints = [
     { x: 0.1, y: 0.1 },
     { x: 0.5, y: 0.1 },
@@ -77,14 +75,12 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
     { x: 0.9, y: 0.9 },
   ]
 
-  // Mirror the video preview when tracking is active
   useEffect(() => {
     if (isTracking && cameraStream && videoPreviewRef.current) {
       videoPreviewRef.current.srcObject = cameraStream
     }
   }, [isTracking, cameraStream])
 
-  // Mirror video in calibration modal
   useEffect(() => {
     if (isCalibrating && cameraStream && calibrationVideoRef.current) {
       calibrationVideoRef.current.srcObject = cameraStream
@@ -121,7 +117,6 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
 
   return (
     <>
-      {/* Status Indicator */}
       <Card className="w-full">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -137,7 +132,6 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Status */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Status</span>
             <div className="flex items-center gap-2">
@@ -159,31 +153,28 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
             </div>
           </div>
 
-          {/* Toggle */}
           <div className="flex items-center justify-between">
             <span className="text-sm">Enable Eye Tracking</span>
             <Button
-              variant={isEnabled ? "default" : "outline"}
+              variant={isEnabled ? 'default' : 'outline'}
               size="sm"
               onClick={() => setEnabled(!isEnabled)}
             >
-              {isEnabled ? "On" : "Off"}
+              {isEnabled ? 'On' : 'Off'}
             </Button>
           </div>
 
-          {/* Calibration Button */}
           {isEnabled && (
-            <Button 
-              variant={isCalibrated ? "outline" : "default"}
-              className="w-full" 
+            <Button
+              variant={isCalibrated ? 'outline' : 'default'}
+              className="w-full"
               onClick={handleStartCalibration}
             >
               <Target className="h-4 w-4 mr-2" />
-              {isCalibrated ? "Recalibrate" : "Start Calibration"}
+              {isCalibrated ? 'Recalibrate' : 'Start Calibration'}
             </Button>
           )}
 
-          {/* Webcam Preview Area - In stats */}
           {isEnabled && isCalibrated && (
             <div className="space-y-2 pt-3 border-t">
               <div className="flex items-center justify-between">
@@ -201,7 +192,7 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
                   )}
                 </Button>
               </div>
-              
+
               {showPreview && (
                 <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
                   {isTracking ? (
@@ -225,22 +216,22 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
             </div>
           )}
 
-          {/* Stats */}
           {isEnabled && isCalibrated && (
             <div className="space-y-3 pt-3 border-t">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Focus State</span>
-                <span className={cn(
-                  "font-medium px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider",
-                  isLookingAtScreen ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
-                )}>
-                  {isLookingAtScreen ? "High Focus" : "Distracted"}
+                <span
+                  className={cn(
+                    'font-medium px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider',
+                    isLookingAtScreen ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                  )}
+                >
+                  {isLookingAtScreen ? 'High Focus' : 'Distracted'}
                 </span>
               </div>
 
               <Separator />
 
-              {/* Threshold Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Pause Threshold</span>
@@ -263,17 +254,18 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
         </CardContent>
       </Card>
 
-      {/* Calibration Modal */}
-      <Dialog open={isCalibrationModalOpen} onOpenChange={(open) => {
-        setCalibrationModalOpen(open)
-        if (!open) setIsCalibrating(false)
-      }}>
+      <Dialog
+        open={isCalibrationModalOpen}
+        onOpenChange={(open) => {
+          setCalibrationModalOpen(open)
+          if (!open) setIsCalibrating(false)
+        }}
+      >
         <DialogContent className="max-w-none w-screen h-screen p-0 border-none bg-black/95 backdrop-blur-xl">
           <DialogTitle className="sr-only">Eye Tracking Calibration</DialogTitle>
-          
+
           {isCalibrating && currentCalibrationPoint < calibrationPoints.length && (
             <div className="relative w-full h-full">
-              {/* Close button */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -283,23 +275,21 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
                 <X className="h-6 w-6" />
               </Button>
 
-              {/* Instructions */}
               <div className="absolute top-12 left-1/2 -translate-x-1/2 text-center text-white z-40 w-full px-4">
                 <h2 className="text-3xl font-bold tracking-tight">Calibrate Your Vision</h2>
                 <p className="text-white/60 mt-2 text-lg">
                   Follow the target with your eyes and click it to lock focus.
                 </p>
                 <div className="mt-6 flex justify-center">
-                   <div className="w-64">
-                      <Progress value={calibrationProgress} className="h-1.5 bg-white/10" />
-                      <p className="text-[10px] uppercase font-bold tracking-widest mt-2 text-white/40 text-center">
-                        Point {currentCalibrationPoint + 1} of {calibrationPoints.length}
-                      </p>
-                   </div>
+                  <div className="w-64">
+                    <Progress value={calibrationProgress} className="h-1.5 bg-white/10" />
+                    <p className="text-[10px] uppercase font-bold tracking-widest mt-2 text-white/40 text-center">
+                      Point {currentCalibrationPoint + 1} of {calibrationPoints.length}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Calibration Point */}
               <div
                 className="absolute w-16 h-16 rounded-full bg-primary shadow-[0_0_40px_rgba(59,130,246,0.6)] cursor-pointer flex items-center justify-center transition-all duration-500 ease-in-out group"
                 style={{
@@ -312,7 +302,6 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
                 <Target className="absolute h-8 w-8 text-white opacity-50 group-hover:scale-110 transition-transform" />
               </div>
 
-              {/* Webcam Preview Area */}
               <div className="absolute bottom-8 right-8 w-64 h-48 bg-slate-900 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
                 {cameraStream ? (
                   <video
@@ -332,7 +321,6 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
             </div>
           )}
 
-          {/* Calibration Complete */}
           {currentCalibrationPoint >= calibrationPoints.length && (
             <div className="w-full h-full flex items-center justify-center bg-slate-950">
               <div className="text-center max-w-md px-6 animate-in zoom-in-95 duration-500">
@@ -344,8 +332,8 @@ export function EyeTracker({ onCalibrationComplete }: EyeTrackerProps) {
                 <p className="text-white/60 text-lg mb-10 leading-relaxed">
                   GazeFocus has successfully mapped your eye movements. Your distraction-free environment is now active.
                 </p>
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="w-full h-14 text-lg font-bold rounded-xl shadow-lg shadow-green-500/20"
                   onClick={handleCalibrationComplete}
                 >

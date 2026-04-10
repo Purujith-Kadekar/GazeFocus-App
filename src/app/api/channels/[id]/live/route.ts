@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { createClient } from '@supabase/supabase-js'
+import { QuotaEngine, isQuotaExhausted, VideoMetadata } from '@/lib/youtube/quota-engine'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
@@ -21,255 +20,20 @@ interface LiveVideo {
   thumbnail: string
   publishedAt: string
   liveBroadcastContent: string
-  actualStartTime?: string
-  actualEndTime?: string
-  scheduledStartTime?: string
   viewerCount?: string | null
 }
 
-async function resolveChannelId(channelId: string): Promise<string | null> {
-  if (!YOUTUBE_API_KEY) return null
-
-  if (channelId.startsWith('UC')) {
-    return channelId
-  }
-
-  const handle = channelId.startsWith('@') ? channelId.substring(1) : channelId
-
-  try {
-    // Try resolving via handle (works for @handle format)
-    const handleResponse = await fetch(
-      `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
-    )
-    const handleData = await handleResponse.json()
-    if (handleData.items && handleData.items.length > 0) {
-      return handleData.items[0].id
-    }
-
-    // Fallback: try resolving via legacy username
-    const usernameResponse = await fetch(
-      `${YOUTUBE_API_BASE}/channels?part=id&forUsername=${handle}&key=${YOUTUBE_API_KEY}`
-    )
-    const usernameData = await usernameResponse.json()
-    if (usernameData.items && usernameData.items.length > 0) {
-      return usernameData.items[0].id
-    }
-  } catch (error) {
-    console.error('Error resolving channel ID:', error)
-  }
-
-  return null
-}
-
-async function fetchVideosByEventType(resolvedId: string, eventType: string | null): Promise<string[]> {
-  const params = new URLSearchParams({
-    part: 'snippet',
-    channelId: resolvedId,
-    type: 'video',
-    maxResults: '50',
-    key: YOUTUBE_API_KEY!,
-  })
-
-  if (eventType) {
-    params.set('eventType', eventType)
-  } else {
-    // Only add order when not filtering by eventType, as the combination
-    // can cause YouTube API to return errors for some event types
-    params.set('order', 'date')
-  }
-
-  const response = await fetch(`${YOUTUBE_API_BASE}/search?${params.toString()}`)
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    console.error(`YouTube API error (${response.status}) for eventType=${eventType}:`, errorData?.error?.message || response.statusText)
-    return []
-  }
-
-  const data = await response.json()
-
-  if (data.error) {
-    console.error(`YouTube API error for eventType=${eventType}:`, data.error)
-    return []
-  }
-
-  return data.items?.map((item: any) => item.id.videoId).filter(Boolean) || []
-}
-
-async function fetchUploadsPlaylistId(resolvedId: string): Promise<string | null> {
-  if (!YOUTUBE_API_KEY) return null
-  try {
-    const response = await fetch(
-      `${YOUTUBE_API_BASE}/channels?part=contentDetails&id=${resolvedId}&key=${YOUTUBE_API_KEY}`
-    )
-    if (!response.ok) return null
-    const data = await response.json()
-    if (data.items && data.items.length > 0) {
-      return data.items[0].contentDetails?.relatedPlaylists?.uploads || null
-    }
-  } catch (error) {
-    console.error('Error fetching uploads playlist ID:', error)
-  }
-  return null
-}
-
-async function fetchVideoIdsFromPlaylist(playlistId: string, maxVideos = 200): Promise<string[]> {
-  if (!YOUTUBE_API_KEY) return []
-  const videoIds: string[] = []
-  let nextPageToken: string | undefined
-
-  do {
-    const params = new URLSearchParams({
-      part: 'contentDetails',
-      playlistId,
-      maxResults: '50',
-      key: YOUTUBE_API_KEY,
-    })
-    if (nextPageToken) params.set('pageToken', nextPageToken)
-
-    const response = await fetch(`${YOUTUBE_API_BASE}/playlistItems?${params.toString()}`)
-    if (!response.ok) break
-    const data = await response.json()
-    if (data.error) break
-
-    for (const item of data.items || []) {
-      const id = item.contentDetails?.videoId
-      if (id) videoIds.push(id)
-    }
-    nextPageToken = data.nextPageToken
-  } while (nextPageToken && videoIds.length < maxVideos)
-
-  return videoIds
-}
-
-async function fetchVideoDetails(videoIds: string[]): Promise<any[]> {
-  if (videoIds.length === 0) return []
-
-  const batches: string[][] = []
-  for (let i = 0; i < videoIds.length; i += 50) {
-    batches.push(videoIds.slice(i, i + 50))
-  }
-
-  const allDetails: any[] = []
-
-  for (const batch of batches) {
-    const response = await fetch(
-      `${YOUTUBE_API_BASE}/videos?part=snippet,liveStreamingDetails&id=${batch.join(',')}&key=${YOUTUBE_API_KEY}`
-    )
-    const data = await response.json()
-    if (data.items) {
-      allDetails.push(...data.items)
-    }
-  }
-
-  return allDetails
-}
-
-async function fetchLiveVideos(channelYoutubeId: string): Promise<LiveVideo[]> {
-  const liveVideos: LiveVideo[] = []
-
-  if (!YOUTUBE_API_KEY) {
-    console.error('YouTube API key not configured')
-    return []
-  }
-
-  try {
-    const resolvedId = await resolveChannelId(channelYoutubeId)
-    if (!resolvedId) {
-      console.error('Could not resolve channel ID:', channelYoutubeId)
-      return []
-    }
-
-    // Fetch live, upcoming, and completed (past) live streams via search
-    // Also fetch from the uploads playlist for more reliable past-stream coverage,
-    // because search?eventType=completed is known to miss many past broadcasts.
-    const [liveIds, upcomingIds, completedSearchIds, uploadsPlaylistId] = await Promise.all([
-      fetchVideosByEventType(resolvedId, 'live'),
-      fetchVideosByEventType(resolvedId, 'upcoming'),
-      fetchVideosByEventType(resolvedId, 'completed'),
-      fetchUploadsPlaylistId(resolvedId),
-    ])
-
-    let uploadsIds: string[] = []
-    if (uploadsPlaylistId) {
-      uploadsIds = await fetchVideoIdsFromPlaylist(uploadsPlaylistId)
-    }
-
-    // Combine all video IDs and deduplicate
-    const allIds = [...new Set([...liveIds, ...upcomingIds, ...completedSearchIds, ...uploadsIds])]
-
-    if (allIds.length === 0) {
-      return []
-    }
-
-    // Fetch details for all videos
-    const videoDetails = await fetchVideoDetails(allIds)
-
-    for (const video of videoDetails) {
-      const snippet = video.snippet
-      const liveDetails = video.liveStreamingDetails || {}
-
-      const liveBroadcastContent = snippet.liveBroadcastContent || 'none'
-      const actualStartTime = liveDetails.actualStartTime || null
-      const actualEndTime = liveDetails.actualEndTime || null
-      const scheduledStartTime = liveDetails.scheduledStartTime || null
-      const concurrentViewers = liveDetails.concurrentViewers
-
-      const isCurrentlyLive = liveBroadcastContent === 'live'
-      const isUpcoming = liveBroadcastContent === 'upcoming'
-      // Include as a past broadcast if it has any live streaming details
-      // (actualStartTime may be absent for broadcasts that were cancelled before starting)
-      const isPastBroadcast = video.liveStreamingDetails != null
-
-      // Include if it's live, upcoming, or has live streaming details (past broadcast)
-      if (!isCurrentlyLive && !isUpcoming && !isPastBroadcast) {
-        continue
-      }
-
-      const thumbnail = snippet.thumbnails?.maxres?.url ||
-        snippet.thumbnails?.high?.url ||
-        snippet.thumbnails?.medium?.url ||
-        `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`
-
-      let broadcastStatus = 'completed'
-      if (isCurrentlyLive) {
-        broadcastStatus = 'live'
-      } else if (isUpcoming) {
-        broadcastStatus = 'upcoming'
-      }
-
-      liveVideos.push({
-        youtubeId: video.id,
-        title: snippet.title || 'Untitled',
-        description: snippet.description || '',
-        thumbnail,
-        publishedAt: snippet.publishedAt || '',
-        liveBroadcastContent: broadcastStatus,
-        actualStartTime: actualStartTime || undefined,
-        actualEndTime: actualEndTime || undefined,
-        scheduledStartTime: scheduledStartTime || undefined,
-        viewerCount: concurrentViewers ? String(concurrentViewers) : null,
-      })
-    }
-
-    // Sort: live first, then upcoming, then completed by date
-    liveVideos.sort((a, b) => {
-      const aTime = a.actualStartTime || a.scheduledStartTime || a.publishedAt
-      const bTime = b.actualStartTime || b.scheduledStartTime || b.publishedAt
-
-      if (a.liveBroadcastContent === 'live' && b.liveBroadcastContent !== 'live') return -1
-      if (a.liveBroadcastContent !== 'live' && b.liveBroadcastContent === 'live') return 1
-      if (a.liveBroadcastContent === 'upcoming' && b.liveBroadcastContent === 'completed') return -1
-      if (a.liveBroadcastContent === 'completed' && b.liveBroadcastContent === 'upcoming') return 1
-
-      return new Date(bTime).getTime() - new Date(aTime).getTime()
-    })
-
-  } catch (error) {
-    console.error('Error fetching live videos:', error)
-  }
-
-  return liveVideos
+function toLiveVideos(videos: VideoMetadata[]): LiveVideo[] {
+  return videos
+    .map((video) => ({
+      youtubeId: video.youtubeId,
+      title: video.title,
+      description: video.description,
+      thumbnail: video.thumbnail,
+      publishedAt: video.publishedAt,
+      liveBroadcastContent: video.liveBroadcastContent || 'none',
+    }))
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
 }
 
 export async function GET(
@@ -283,6 +47,10 @@ export async function GET(
     }
 
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const mode = (searchParams.get('mode') as 'initial' | 'refresh' | 'loadMore') || 'initial'
+    const pageToken = searchParams.get('pageToken')
+    const maxResults = parseInt(searchParams.get('maxResults') || '50')
 
     const { data: channel } = await supabase
       .from('Channel')
@@ -295,9 +63,64 @@ export async function GET(
       return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
-    const liveVideos = await fetchLiveVideos(channel.youtubeId)
+    let result: {
+      videos: VideoMetadata[]
+      nextPageToken: string | null
+      source: 'api' | 'cache' | 'rss'
+      hasMore: boolean
+    }
 
-    return NextResponse.json(liveVideos)
+    if (mode === 'loadMore') {
+      const resolvedPageToken = pageToken || (await QuotaEngine.getChannelCacheState(channel.youtubeId))?.nextPageToken
+      if (!resolvedPageToken) {
+        result = {
+          videos: [],
+          nextPageToken: null,
+          source: 'api',
+          hasMore: false,
+        }
+      } else {
+        result = await QuotaEngine.loadMoreVideos(channel.youtubeId, resolvedPageToken, maxResults, user.id)
+      }
+    } else {
+      result = await QuotaEngine.smartFetchVideos(channel.youtubeId, mode, maxResults, user.id)
+    }
+
+    const liveVideos = toLiveVideos(result.videos)
+
+    // Enrich live videos with progress data for the current user
+    if (liveVideos.length > 0) {
+      const videoIds = liveVideos.map(v => v.youtubeId)
+      const { data: progressData } = await supabase
+        .from('VideoProgress')
+        .select('*')
+        .eq('userId', user.id)
+        .in('youtubeId', videoIds)
+      
+      if (progressData && progressData.length > 0) {
+        const progressMap = new Map(progressData.map(p => [p.youtubeId, p]))
+        
+        liveVideos.forEach(video => {
+          const progress = progressMap.get(video.youtubeId)
+          if (progress) {
+            (video as any).progress = {
+              secondsWatched: progress.secondsWatched,
+              durationSeconds: progress.durationSeconds,
+              completed: progress.completed,
+              completedAt: progress.completedAt
+            }
+          }
+        })
+      }
+    }
+
+    return NextResponse.json({
+      videos: liveVideos,
+      nextPageToken: result.nextPageToken,
+      source: result.source,
+      hasMore: result.hasMore,
+      quotaExhausted: isQuotaExhausted()
+    })
   } catch (error) {
     console.error('Error fetching live videos:', error)
     return NextResponse.json({ error: 'Failed to fetch live videos' }, { status: 500 })

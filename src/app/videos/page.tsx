@@ -27,10 +27,17 @@ export default async function VideosPage() {
     },
   })
 
-  const [{ data: videos }, { data: folders }] = await Promise.all([
-    supabase.from('Video').select('*, playlist(*)').eq('userId', user.id).is('playlistId', null).is('channelId', null).order('createdAt', { ascending: false }),
+  const [{ data: libraryItems }, { data: folders }] = await Promise.all([
+    supabase
+      .from('LibraryItem')
+      .select('*, video:Video!Video_youtubeId_userId_fkey(*)')
+      .eq('userId', user.id)
+      .eq('type', 'VIDEO')
+      .order('createdAt', { ascending: false }),
     supabase.from('Folder').select('*').eq('userId', user.id).order('title', { ascending: true }),
   ])
+
+  const videos = libraryItems?.map(item => item.video).filter(Boolean) || []
 
   return <VideosPageClient initialVideos={videos || []} initialFolders={folders || []} />
 }

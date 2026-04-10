@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Play, Loader2, Radio, RefreshCw, Users, Eye } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, Radio, RefreshCw, Users, Eye, CheckCircle, ChevronDown } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,12 @@ interface LiveVideo {
   actualEndTime?: string
   scheduledStartTime?: string
   viewerCount?: string | null
+  progress?: {
+    secondsWatched: number
+    durationSeconds: number
+    completed: boolean
+    completedAt: string | null
+  }
 }
 
 interface ChannelLiveClientProps {
@@ -35,6 +41,11 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
   const [liveVideos, setLiveVideos] = useState<LiveVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [quotaExhausted, setQuotaExhausted] = useState(false)
+  const [lastSource, setLastSource] = useState<'api' | 'cache' | 'rss' | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -44,18 +55,24 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
 
   useEffect(() => {
     if (channel.id) {
-      fetchLiveVideos()
+      fetchLiveVideos('initial')
     }
   }, [channel.id])
 
-  const fetchLiveVideos = async () => {
-    setIsLoading(true)
+  const fetchLiveVideos = useCallback(async (mode: 'initial' | 'loadMore' | 'refresh' = 'initial') => {
+    const shouldLoad = mode === 'initial' || mode === 'refresh'
+    if (shouldLoad) {
+      setIsLoading(true)
+    } else {
+      setIsLoadingMore(true)
+    }
     setFetchError(null)
     try {
-      const response = await fetch(`/api/channels/${channel.id}/live`)
+      const response = await fetch(`/api/channels/${channel.id}/live?mode=${mode}`)
       if (response.ok) {
         const data = await response.json()
-        setLiveVideos(data)
+        setLiveVideos(data.videos || data || [])
+        setQuotaExhausted(data.quotaExhausted || false)
       } else {
         const errorData = await response.json().catch(() => ({}))
         setFetchError(errorData.error || 'Failed to load live streams')
@@ -65,8 +82,9 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
       setFetchError('Failed to load live streams')
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
-  }
+  }, [channel.id])
 
   const handleVideoClick = (youtubeId: string) => {
     router.push(`/channel/${channel.id}/live/${youtubeId}`)
@@ -185,7 +203,7 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
               <Radio className="h-5 w-5" />
               Live & Past Streams
             </h2>
-            <Button variant="outline" size="sm" onClick={fetchLiveVideos} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={() => fetchLiveVideos('refresh')} disabled={isLoading}>
               <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
               Refresh
             </Button>
@@ -202,7 +220,7 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
                 <Radio className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground mb-2">Could not load live streams</p>
                 <p className="text-sm text-muted-foreground/70 mb-4">{fetchError}</p>
-                <Button variant="outline" onClick={fetchLiveVideos}>
+                <Button variant="outline" onClick={() => fetchLiveVideos('refresh')}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
@@ -214,7 +232,7 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
                 <Radio className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground mb-2">No live streams found</p>
                 <p className="text-sm text-muted-foreground/70 mb-4">This channel has no current or recent live streams</p>
-                <Button variant="outline" onClick={fetchLiveVideos}>
+                <Button variant="outline" onClick={() => fetchLiveVideos('refresh')}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
@@ -286,6 +304,22 @@ function LiveVideoCard({ video, onClick }: { video: LiveVideo; onClick: () => vo
                 <Eye className="h-3 w-3 mr-1" />
                 {formatViewerCount(video.viewerCount)}
               </Badge>
+            </div>
+          )}
+          {video.progress?.completed && (
+            <div className="absolute top-2 right-2">
+              <Badge className="bg-green-600 text-white border-none shadow-sm hover:bg-green-600">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                WATCHED
+              </Badge>
+            </div>
+          )}
+          {video.progress && !video.progress.completed && video.progress.secondsWatched > 0 && video.progress.durationSeconds > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+              <div 
+                className="h-full bg-primary transition-all duration-500" 
+                style={{ width: `${Math.min(100, (video.progress.secondsWatched / video.progress.durationSeconds) * 100)}%` }}
+              />
             </div>
           )}
         </div>

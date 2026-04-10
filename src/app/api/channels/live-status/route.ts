@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   updateChannelLiveStatus,
 } from '@/lib/channel-db'
+import { QuotaEngine, isQuotaExhausted } from '@/lib/youtube/quota-engine'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,67 +16,43 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 })
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
-
 async function checkLiveStatus(channelIdOrHandle: string): Promise<{
   isLive: boolean
   liveVideoId: string | null
   liveTitle: string | null
+  latestVideoPublishedAt: string | null
+  source: 'cache' | 'none'
 }> {
-  if (!YOUTUBE_API_KEY) {
-    return { isLive: false, liveVideoId: null, liveTitle: null }
-  }
-
   try {
-    let actualChannelId = channelIdOrHandle
-    const handle = channelIdOrHandle.startsWith('@') ? channelIdOrHandle.substring(1) : channelIdOrHandle
+    const latest = await QuotaEngine.getLatestCachedVideoInfo(channelIdOrHandle)
 
-    if (!actualChannelId.startsWith('UC')) {
-      const searchResponse = await fetch(
-        `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
-      )
-      const searchData = await searchResponse.json()
-
-      if (searchData.items && searchData.items.length > 0) {
-        actualChannelId = searchData.items[0].id
-      }
+    if (!latest.publishedAt) {
+      return { isLive: false, liveVideoId: null, liveTitle: null, latestVideoPublishedAt: null, source: 'none' }
     }
 
-    if (!actualChannelId.startsWith('UC')) {
-      return { isLive: false, liveVideoId: null, liveTitle: null }
-    }
+    const publishedAt = new Date(latest.publishedAt).getTime()
+    const ageMinutes = Number.isFinite(publishedAt)
+      ? (Date.now() - publishedAt) / (1000 * 60)
+      : Number.POSITIVE_INFINITY
 
-    const liveSearchResponse = await fetch(
-      `${YOUTUBE_API_BASE}/search?part=snippet&channelId=${actualChannelId}&eventType=live&type=video&maxResults=1&key=${YOUTUBE_API_KEY}`
-    )
-    const searchData = await liveSearchResponse.json()
+    const titleLooksLive = /\b(live|stream)\b/i.test(latest.title || '')
+    const isLikelyLive = titleLooksLive && ageMinutes >= 0 && ageMinutes <= 30
 
-    if (searchData.error) {
-      return { isLive: false, liveVideoId: null, liveTitle: null }
-    }
-
-    if (searchData.items && searchData.items.length > 0) {
-      const liveVideo = searchData.items[0]
-      return {
-        isLive: true,
-        liveVideoId: liveVideo.id.videoId,
-        liveTitle: liveVideo.snippet.title,
-      }
+    return {
+      isLive: isLikelyLive,
+      liveVideoId: isLikelyLive ? latest.youtubeId : null,
+      liveTitle: isLikelyLive ? latest.title : null,
+      latestVideoPublishedAt: latest.publishedAt,
+      source: 'cache',
     }
   } catch (error) {
-    console.error('Error checking live status:', error)
+    console.error('Error checking live status via JSON cache:', error)
+    return { isLive: false, liveVideoId: null, liveTitle: null, latestVideoPublishedAt: null, source: 'none' }
   }
-
-  return { isLive: false, liveVideoId: null, liveTitle: null }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    if (!YOUTUBE_API_KEY) {
-      return NextResponse.json({ error: 'YouTube API key not configured' }, { status: 500 })
-    }
-
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -109,6 +86,7 @@ export async function GET(request: NextRequest) {
       channels: liveStatuses,
       liveCount,
       totalChannels: channelsList.length,
+      quotaExhausted: isQuotaExhausted()
     })
   } catch (error: any) {
     console.error('Error checking live statuses:', error)

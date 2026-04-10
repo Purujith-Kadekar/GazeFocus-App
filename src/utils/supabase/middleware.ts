@@ -12,29 +12,29 @@ export const createClient = (request: NextRequest) => {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error('[Supabase Middleware] Missing env vars:', { 
-      hasUrl: !!supabaseUrl, 
-      hasKey: !!supabaseKey 
+    console.error('[Supabase Middleware] Missing env vars:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey,
     })
     return supabaseResponse
   }
 
   try {
     createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        supabaseResponse = NextResponse.next({
-          request,
-        })
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options),
-        )
-      },
-    },
     })
   } catch (error) {
     console.error('[Supabase Middleware] Client creation failed:', error)

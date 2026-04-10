@@ -30,9 +30,10 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
   const router = useRouter()
   const [videoInfo, setVideoInfo] = useState<LiveVideoInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [initialTime, setInitialTime] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
-  const lastProgressSaveRef = useRef(Date.now())
+  const lastProgressSaveRef = useRef(0)
   const latestTimeRef = useRef(0)
   const latestDurationRef = useRef(0)
 
@@ -45,6 +46,8 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
         currentTime: Math.floor(currentTime),
         duration: Math.floor(duration),
       }),
+    }).then(res => {
+      if (res.ok) console.log(`[SAVED] Progress for ${videoId}: ${Math.floor(currentTime)}s`)
     }).catch((error) => console.error('Failed to save progress:', error))
   }, [videoId])
 
@@ -88,14 +91,21 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
           const found = videos.find((v: LiveVideoInfo) => v.youtubeId === videoId)
           if (found) {
             setVideoInfo(found)
+          } else {
+            setFetchError('Stream not found or no longer available')
           }
+        } else {
+          setFetchError('Failed to fetch stream information')
         }
 
         if (progressRes.ok) {
           const progressData = await progressRes.json()
           if (progressData.progress) {
+            console.log(`[LOADED] Progress for ${videoId}:`, progressData.progress.secondsWatched)
             setInitialTime(progressData.progress.secondsWatched || 0)
             setIsCompleted(progressData.progress.completed || false)
+          } else {
+            console.log(`[INFO] No existing progress found for ${videoId}, starting from 0.`)
           }
         }
       } catch (error) {
@@ -123,6 +133,22 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
       <div className="flex h-screen items-center justify-center">
         <p className="text-muted-foreground">Redirecting to login...</p>
       </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Radio className="h-12 w-12 text-muted-foreground/50" />
+          <h2 className="text-xl font-semibold">Could not load stream</h2>
+          <p className="text-muted-foreground">{fetchError}</p>
+          <Button onClick={() => router.push(`/channel/${channel.id}`)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to channel
+          </Button>
+        </div>
+      </MainLayout>
     )
   }
 
@@ -171,10 +197,11 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
           title={videoInfo?.title || 'Live Stream'}
           description={videoInfo?.description || undefined}
           thumbnail={videoInfo?.thumbnail || undefined}
-          // Resume from saved position only for past/recorded streams, not for
-          // currently-live or upcoming streams where seeking to a past time is
-          // either unsupported or misleading.
-          initialTime={isLive || isUpcoming ? 0 : initialTime}
+          channel={channel}
+          viewCount={videoInfo?.viewerCount}
+          publishedAt={videoInfo?.publishedAt}
+          // Resume from saved position to allow continuity (relies on YouTube DVR).
+          initialTime={initialTime}
           isCompleted={isCompleted}
           onMarkComplete={() => {
             const newCompleted = !isCompleted
@@ -191,9 +218,9 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
           onProgress={(currentTime, duration) => {
             latestTimeRef.current = currentTime
             latestDurationRef.current = duration
-            // Throttle periodic saves to once every 10 seconds
+            // Throttle periodic saves to once every 5 seconds
             const now = Date.now()
-            if (now - lastProgressSaveRef.current < 10000) return
+            if (now - lastProgressSaveRef.current < 5000) return
             lastProgressSaveRef.current = now
             saveProgress(currentTime, duration)
           }}

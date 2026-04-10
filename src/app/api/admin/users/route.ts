@@ -2,77 +2,186 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyAdminRequest } from '@/lib/admin-auth'
 
-export async function GET(request: NextRequest) {
-  if (!(await verifyAdminRequest(request))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+type AdminUserRow = {
+  id: string
+  name: string | null
+  email: string | null
+  image: string | null
+  isBlocked: boolean
+  createdAt: string
+  lastLoginDate: string | null
+  lastActiveDate: string | null
+  deletionScheduledAt: string | null
+  isPremium?: boolean
+}
+
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  const message = (error as { message?: string } | null)?.message || ''
+  return message.toLowerCase().includes(columnName.toLowerCase())
+}
+
+async function fetchUsersBase(): Promise<AdminUserRow[]> {
+  const withPremiumResult = await db
+    .from('User')
+    .select('id, name, email, image, isBlocked, createdAt, lastLoginDate, lastActiveDate, deletionScheduledAt, isPremium')
+    .order('createdAt', { ascending: false })
+
+  if (!withPremiumResult.error) {
+    return (withPremiumResult.data || []) as AdminUserRow[]
   }
 
+  if (!isMissingColumnError(withPremiumResult.error, 'isPremium')) {
+    throw withPremiumResult.error
+  }
+
+  // Backward compatibility for databases that have not added isPremium yet.
+  const fallbackResult = await db
+    .from('User')
+    .select('id, name, email, image, isBlocked, createdAt, lastLoginDate, lastActiveDate, deletionScheduledAt')
+    .order('createdAt', { ascending: false })
+
+  if (fallbackResult.error) {
+    throw fallbackResult.error
+  }
+
+  return ((fallbackResult.data || []) as AdminUserRow[]).map(user => ({
+    ...user,
+    isPremium: false,
+  }))
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const usersResult = await db.from('User').select(`
-      id,
-      name,
-      email,
-      image,
-      isBlocked,
-      createdAt,
-      lastActiveDate,
-      deletionScheduledAt,
-      accounts:Account(id, provider)
-    `).order('createdAt', { ascending: false })
+    if (!(await verifyAdminRequest(request))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    const users = usersResult.data || []
+    const users = await fetchUsersBase()
+    const userIds = users.map(user => user.id)
 
-    const usersWithCounts = await Promise.all(users.map(async (user) => {
-      const [notesCount, playlistsCount, videoProgressCount] = await Promise.all([
-        db.from('Note').select('id', { count: 'exact', head: true }).eq('userId', user.id),
-        db.from('Playlist').select('id', { count: 'exact', head: true }).eq('userId', user.id),
-        db.from('VideoProgress').select('id', { count: 'exact', head: true }).eq('userId', user.id),
-      ])
-      return {
-        ...user,
-        accounts: user.accounts || [],
-        _count: {
-          notes: notesCount.count || 0,
-          playlists: playlistsCount.count || 0,
-          videoProgress: videoProgressCount.count || 0,
-        },
-      }
+    if (userIds.length === 0) {
+      return NextResponse.json([])
+    }
+
+    const [accountsResult, notesResult, playlistsResult, progressResult] = await Promise.all([
+      db.from('Account').select('userId, provider').in('userId', userIds),
+      db.from('Note').select('userId').in('userId', userIds),
+      db.from('Playlist').select('userId').in('userId', userIds),
+      db.from('VideoProgress').select('userId').in('userId', userIds),
+    ])
+
+    if (accountsResult.error) throw accountsResult.error
+    if (notesResult.error) throw notesResult.error
+    if (playlistsResult.error) throw playlistsResult.error
+    if (progressResult.error) throw progressResult.error
+
+    const accountsByUser = new Map<string, { provider: string }[]>()
+    for (const account of accountsResult.data || []) {
+      const list = accountsByUser.get(account.userId) || []
+      list.push({ provider: account.provider })
+      accountsByUser.set(account.userId, list)
+    }
+
+    const noteCounts = new Map<string, number>()
+    for (const note of notesResult.data || []) {
+      noteCounts.set(note.userId, (noteCounts.get(note.userId) || 0) + 1)
+    }
+
+    const playlistCounts = new Map<string, number>()
+    for (const playlist of playlistsResult.data || []) {
+      playlistCounts.set(playlist.userId, (playlistCounts.get(playlist.userId) || 0) + 1)
+    }
+
+    const progressCounts = new Map<string, number>()
+    for (const progress of progressResult.data || []) {
+      progressCounts.set(progress.userId, (progressCounts.get(progress.userId) || 0) + 1)
+    }
+
+    const response = users.map(user => ({
+      ...user,
+      accounts: accountsByUser.get(user.id) || [],
+      _count: {
+        notes: noteCounts.get(user.id) || 0,
+        playlists: playlistCounts.get(user.id) || 0,
+        videoProgress: progressCounts.get(user.id) || 0,
+      },
     }))
 
-    return NextResponse.json(usersWithCounts)
-  } catch (error) {
-    console.error('Error fetching users:', error)
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+    return NextResponse.json(response)
+  } catch (error: any) {
+    console.error('Error fetching admin users:', error)
+    return NextResponse.json({ error: 'Failed to fetch users', details: error.message }, { status: 500 })
   }
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!(await verifyAdminRequest(request))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
-    const { userId, isBlocked } = await request.json()
-
-    if (!userId || typeof isBlocked !== 'boolean') {
-      return NextResponse.json({ error: 'userId and isBlocked are required' }, { status: 400 })
+    if (!(await verifyAdminRequest(request))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userResult = await db.from('User').update({ isBlocked }).eq('id', userId).select('id, email, isBlocked').single()
+    const body = await request.json()
+    const { userId, role, isBlocked, isPremium } = body
 
-    return NextResponse.json(userResult.data)
-  } catch (error) {
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    const updates: Record<string, unknown> = {}
+    if (typeof isBlocked === 'boolean') updates.isBlocked = isBlocked
+    if (typeof isPremium === 'boolean') updates.isPremium = isPremium
+
+    // Backward compatibility for old clients still sending role updates.
+    if (typeof role === 'string') {
+      updates.isPremium = role === 'PREMIUM'
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    }
+
+    let updateResult = await db
+      .from('User')
+      .update(updates)
+      .eq('id', userId)
+      .select('id, isBlocked, deletionScheduledAt, lastLoginDate, lastActiveDate, createdAt, name, email, image, isPremium')
+      .maybeSingle()
+
+    if (updateResult.error && isMissingColumnError(updateResult.error, 'isPremium')) {
+      const { isPremium: _isPremium, ...fallbackUpdates } = updates
+      if (Object.keys(fallbackUpdates).length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              'Premium feature requires DB migration. Run: ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isPremium" BOOLEAN NOT NULL DEFAULT FALSE;',
+          },
+          { status: 400 }
+        )
+      }
+
+      updateResult = await db
+        .from('User')
+        .update(fallbackUpdates)
+        .eq('id', userId)
+        .select('id, isBlocked, deletionScheduledAt, lastLoginDate, lastActiveDate, createdAt, name, email, image')
+        .maybeSingle()
+    }
+
+    if (updateResult.error) throw updateResult.error
+
+    return NextResponse.json(updateResult.data)
+  } catch (error: any) {
     console.error('Error updating user:', error)
-    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update user', details: error.message }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!(await verifyAdminRequest(request))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
+    if (!(await verifyAdminRequest(request))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { userId, action } = await request.json()
 
     if (!userId || !action) {
@@ -80,26 +189,45 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (action === 'schedule') {
-      const deletionDate = new Date()
-      deletionDate.setDate(deletionDate.getDate() + 7)
+      const deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const result = await db
+        .from('User')
+        .update({ deletionScheduledAt: deletionDate })
+        .eq('id', userId)
+        .select('id, deletionScheduledAt')
+        .maybeSingle()
 
-      const userResult = await db.from('User').update({ deletionScheduledAt: deletionDate.toISOString() }).eq('id', userId).select('id, email, deletionScheduledAt').single()
-      return NextResponse.json(userResult.data)
+      if (result.error) throw result.error
+      return NextResponse.json(result.data)
     }
 
     if (action === 'cancel') {
-      const userResult = await db.from('User').update({ deletionScheduledAt: null }).eq('id', userId).select('id, email, deletionScheduledAt').single()
-      return NextResponse.json(userResult.data)
+      const result = await db
+        .from('User')
+        .update({ deletionScheduledAt: null })
+        .eq('id', userId)
+        .select('id, deletionScheduledAt')
+        .maybeSingle()
+
+      if (result.error) throw result.error
+      return NextResponse.json(result.data)
     }
 
     if (action === 'immediate') {
-      await db.from('User').delete().eq('id', userId)
-      return NextResponse.json({ success: true, id: userId })
+      const result = await db
+        .from('User')
+        .delete()
+        .eq('id', userId)
+        .select('id')
+        .maybeSingle()
+
+      if (result.error) throw result.error
+      return NextResponse.json({ success: true, id: result.data?.id || userId })
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use: schedule, cancel, or immediate' }, { status: 400 })
-  } catch (error) {
-    console.error('Error deleting user:', error)
-    return NextResponse.json({ error: 'Failed to process deletion' }, { status: 500 })
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  } catch (error: any) {
+    console.error('Error processing user deletion request:', error)
+    return NextResponse.json({ error: 'Failed to process deletion request', details: error.message }, { status: 500 })
   }
 }

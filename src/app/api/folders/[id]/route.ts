@@ -13,7 +13,7 @@ export async function GET(
     }
 
     const { id } = await params
-    const folderResult = await db.from('Folder').select('*').eq('id', id).single()
+    const folderResult = await db.from('Folder').select('*').eq('id', id).eq('userId', user.id).single()
     const folder = folderResult.data
 
     if (!folder) {

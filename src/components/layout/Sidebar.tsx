@@ -26,6 +26,7 @@ import {
   Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getDashboardBootstrapCache, isDashboardBootstrapCacheFresh } from '@/lib/dashboard-bootstrap-cache'
 import { useUIStore, useFolderStore, useAuthStore, useEyeTrackingStore, usePlaylistStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -187,6 +188,7 @@ export function Sidebar({ className }: SidebarProps) {
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([])
   const [isFoldersSectionOpen, setIsFoldersSectionOpen] = useState(true)
   const [isSidebarFoldersLoading, setIsSidebarFoldersLoading] = useState(true)
+  const [hasCompletedInitialFolderLoad, setHasCompletedInitialFolderLoad] = useState(false)
 
   // Auto-collapse folders when tracking starts (Watch Mode)
   useEffect(() => {
@@ -221,13 +223,34 @@ export function Sidebar({ className }: SidebarProps) {
     const fetchFolders = async () => {
       // If folders are already hydrated by MainLayout/dashboard, don't block sidebar rendering.
       if (folders.length > 0) {
-        if (active) setIsSidebarFoldersLoading(false)
+        if (active) {
+          setIsSidebarFoldersLoading(false)
+          setHasCompletedInitialFolderLoad(true)
+        }
+        return
+      }
+
+      // Reuse the same bootstrap payload that powers fast dashboard refresh.
+      const bootstrapCache = getDashboardBootstrapCache()
+      if (bootstrapCache && isDashboardBootstrapCacheFresh(2 * 60 * 1000)) {
+        const cachedFolders = Array.isArray(bootstrapCache.payload?.folders)
+          ? (bootstrapCache.payload.folders as Folder[])
+          : []
+
+        if (active) {
+          setFolders(cachedFolders)
+          setIsSidebarFoldersLoading(false)
+          setHasCompletedInitialFolderLoad(true)
+        }
         return
       }
 
       setIsSidebarFoldersLoading(true)
+      let timeoutId: ReturnType<typeof setTimeout> | null = null
       try {
-        const res = await fetch('/api/folders')
+        const controller = new AbortController()
+        timeoutId = setTimeout(() => controller.abort(), 6000)
+        const res = await fetch('/api/folders', { signal: controller.signal })
         if (active && res.ok) {
           const foldersData = await res.json()
           setFolders(Array.isArray(foldersData) ? foldersData : [])
@@ -235,8 +258,12 @@ export function Sidebar({ className }: SidebarProps) {
       } catch (error) {
         console.error('Failed to fetch folders for sidebar:', error)
       } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
         if (active) {
           setIsSidebarFoldersLoading(false)
+          setHasCompletedInitialFolderLoad(true)
         }
       }
     }
@@ -328,7 +355,10 @@ export function Sidebar({ className }: SidebarProps) {
   const shouldShowSidebarFolderSkeleton =
     isSidebarOpen &&
     isFoldersSectionOpen &&
-    (isSidebarFoldersLoading || (pathname === '/dashboard' && isDashboardBootLoading))
+    (
+      isSidebarFoldersLoading ||
+      (pathname === '/dashboard' && isDashboardBootLoading && safeFolders.length === 0 && !hasCompletedInitialFolderLoad)
+    )
 
   return (
     <>

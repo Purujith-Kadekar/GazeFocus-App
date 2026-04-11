@@ -9,7 +9,7 @@ import { SettingsPage } from '@/components/settings/SettingsPage'
 import { VideoPlayer } from '@/components/player/VideoPlayer'
 import { NotesPanel } from '@/components/player/NotesPanel'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
-import { useUIStore, useVideoStore, useFolderStore, useAuthStore } from '@/store/useStore'
+import { useUIStore, useVideoStore, useFolderStore } from '@/store/useStore'
 import { clearDashboardBootstrapCache, getDashboardBootstrapCache, isDashboardBootstrapCacheFresh } from '@/lib/dashboard-bootstrap-cache'
 import { Play, ListVideo, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,6 @@ export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { currentView, setCurrentView, setDashboardBootLoading } = useUIStore()
-  const { user } = useAuthStore()
   const { currentVideo, setCurrentVideo } = useVideoStore()
   const { selectedFolder } = useFolderStore()
   const [isLoading, setIsLoading] = useState(true)
@@ -38,9 +37,7 @@ export default function DashboardPage() {
   const warmCache = getDashboardBootstrapCache()
   const canUseWarmDashboard =
     !!warmCache &&
-    isDashboardBootstrapCacheFresh(2 * 60 * 1000) &&
-    !!user?.id &&
-    warmCache.payload.userId === user.id
+    isDashboardBootstrapCacheFresh(2 * 60 * 1000)
 
   useEffect(() => {
     if (status === 'unauthenticated') {

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore, useEyeTrackingStore } from '@/store/useStore'
@@ -25,9 +25,10 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const router = useRouter()
   const { isSidebarOpen } = useUIStore()
   const pathname = usePathname()
-  const { setFolders } = useFolderStore()
+  const { folders, setFolders } = useFolderStore()
   const { setUser } = useAuthStore()
   const {
     timeoutSeconds,
@@ -56,7 +57,44 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [sessionReady, setSessionReady] = useState(false)
   const [settingsHydrated, setSettingsHydrated] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const hasWarmedCoreRoutes = useRef(false)
+  const hasWarmedFolderRoutes = useRef(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (hasWarmedCoreRoutes.current) return
+
+    hasWarmedCoreRoutes.current = true
+    const coreRoutes = [
+      '/dashboard',
+      '/videos',
+      '/playlists',
+      '/channels',
+      '/notes',
+      '/folders',
+      '/search',
+      '/calendar',
+      '/settings',
+    ]
+
+    coreRoutes.forEach((route, index) => {
+      // Stagger prefetch to avoid a request burst right after app boot.
+      setTimeout(() => {
+        router.prefetch(route)
+      }, index * 70)
+    })
+  }, [router])
+
+  useEffect(() => {
+    if (hasWarmedFolderRoutes.current || folders.length === 0) return
+
+    hasWarmedFolderRoutes.current = true
+    folders.slice(0, 3).forEach((folder, index) => {
+      setTimeout(() => {
+        router.prefetch(`/folders/${folder.id}`)
+      }, 400 + index * 70)
+    })
+  }, [folders, router])
 
   useEffect(() => {
     setMounted(true)

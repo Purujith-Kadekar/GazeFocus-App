@@ -4,6 +4,14 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { db } from './db'
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
+import { sendWelcomeEmail } from './email'
+import { normalizeEmail } from './email-verification'
+
+const DEFAULT_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60 // 7 days
+const DEFAULT_SESSION_UPDATE_AGE_SECONDS = 24 * 60 * 60 // 24 hours
+
+const SESSION_MAX_AGE_SECONDS = Number(process.env.AUTH_SESSION_MAX_AGE_SECONDS || DEFAULT_SESSION_MAX_AGE_SECONDS)
+const SESSION_UPDATE_AGE_SECONDS = Number(process.env.AUTH_SESSION_UPDATE_AGE_SECONDS || DEFAULT_SESSION_UPDATE_AGE_SECONDS)
 
 export const hashPassword = async (password: string): Promise<string> => {
   return bcrypt.hash(password, 12)
@@ -17,7 +25,11 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    updateAge: SESSION_UPDATE_AGE_SECONDS,
+  },
+  jwt: {
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   pages: {
     signIn: '/auth/login',
@@ -54,9 +66,14 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const { data: user } = await db.from('User').select('*').eq('email', String(credentials.email).toLowerCase()).single() as any
+        const normalizedEmail = normalizeEmail(credentials.email)
+        const { data: user } = await db.from('User').select('*').eq('email', normalizedEmail).single() as any
 
         if (!user?.passwordHash) return null
+
+        if (!user.emailVerified) {
+          throw new Error('EmailNotVerified')
+        }
 
         const isValid = await verifyPassword(credentials.password, user.passwordHash)
         if (!isValid) return null
@@ -127,10 +144,10 @@ export const authOptions: NextAuthOptions = {
       
       try {
         if (account?.provider === 'google' && user?.email) {
-          const email = user.email.toLowerCase()
+          const email = normalizeEmail(user.email)
           console.log('[Auth] Looking for user with email:', email)
           
-          const lookupResult = await db.from('User').select('id, name, image').eq('email', email).maybeSingle()
+          const lookupResult = await db.from('User').select('id, name, image, emailVerified, authProvider').eq('email', email).maybeSingle()
           const existingUser = lookupResult.data
           const selectError = lookupResult.error
           
@@ -141,8 +158,16 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (existingUser && !selectError) {
-            const profileUpdates: Record<string, string> = {
+            const profileUpdates: Record<string, any> = {
               updatedAt: new Date().toISOString(),
+            }
+
+            if (!existingUser.emailVerified) {
+              profileUpdates.emailVerified = new Date().toISOString()
+            }
+
+            if (!existingUser.authProvider || existingUser.authProvider === 'credentials') {
+              profileUpdates.authProvider = 'google'
             }
 
             if (user.image && user.image !== existingUser.image) {
@@ -184,6 +209,8 @@ export const authOptions: NextAuthOptions = {
                 email: email,
                 name: user.name || email.split('@')[0],
                 image: user.image,
+                authProvider: 'google',
+                emailVerified: nowIso,
                 createdAt: nowIso,
                 updatedAt: nowIso,
               })
@@ -211,6 +238,15 @@ export const authOptions: NextAuthOptions = {
                 createdAt: settingsNowIso,
               })
               console.log('[Auth] UserSettings insert result:', { error: settingsInsert.error })
+
+              try {
+                await sendWelcomeEmail({
+                  to: email,
+                  name: user.name,
+                })
+              } catch (welcomeError) {
+                console.error('[Auth] Failed to send welcome email for Google signup:', welcomeError)
+              }
             }
           }
         }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Loader2, FolderOpen, Trash2, MoreVertical } from 'lucide-react'
+import { FolderOpen, Trash2, MoreVertical } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,7 @@ interface FoldersPageClientProps {
 }
 
 export default function FoldersPageClient({ initialFolders }: FoldersPageClientProps) {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   const [folders, setFolders] = useState<Folder[]>(initialFolders)
 
@@ -31,16 +31,6 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
     } catch (error) {
       console.error('Failed to delete folder:', error)
     }
-  }
-
-  if (status === 'loading') {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </MainLayout>
-    )
   }
 
   return (

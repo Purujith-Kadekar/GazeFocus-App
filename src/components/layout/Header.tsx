@@ -90,6 +90,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           className="md:hidden"
+          aria-label="Toggle sidebar"
           onClick={toggleSidebar}
         >
           <Menu className="h-5 w-5" />
@@ -127,6 +128,7 @@ export function Header() {
                   id="onboarding-eye-tracking"
                   variant={eyeTrackingEnabled ? 'default' : 'outline'}
                   size="icon"
+                  aria-label={eyeTrackingEnabled ? 'Disable eye tracking' : 'Enable eye tracking'}
                   className={eyeTrackingEnabled ? 'bg-green-600 hover:bg-green-700' : ''}
                   onClick={() => setEyeTrackingEnabled(!eyeTrackingEnabled)}
                 >
@@ -146,7 +148,7 @@ export function Header() {
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
+              <Button variant="ghost" size="icon" className="relative" aria-label="Open notifications menu">
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
                   <Badge

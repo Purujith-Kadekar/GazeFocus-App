@@ -71,6 +71,7 @@ interface SortableFolderProps {
   isExpanded: boolean
   isSidebarOpen: boolean
   selectedFolder: Folder | null
+  pathname: string
   expandedFolders: Set<string>
   folderItems: LibraryItem[]
   onFolderClick: (folder: Folder) => void
@@ -83,6 +84,7 @@ function SortableFolder({
   isExpanded,
   isSidebarOpen,
   selectedFolder,
+  pathname,
   expandedFolders,
   folderItems,
   onFolderClick,
@@ -105,6 +107,8 @@ function SortableFolder({
     zIndex: isDragging ? 50 : 'auto',
   }
 
+  const isActiveFolder = selectedFolder?.id === folder.id || pathname === `/folders/${folder.id}`
+
   return (
     <div ref={setNodeRef} style={style}>
       <div
@@ -118,15 +122,17 @@ function SortableFolder({
             {...attributes}
             {...listeners}
             className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-accent rounded"
+            aria-label={`Reorder folder ${folder.title}`}
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="h-3 w-3 text-muted-foreground" />
           </button>
         )}
         <Button
-          variant={selectedFolder?.id === folder.id ? 'secondary' : 'ghost'}
+          variant={isActiveFolder ? 'secondary' : 'ghost'}
           className={cn(
             'flex-1 justify-start gap-3',
+            isActiveFolder && 'bg-primary/18 text-foreground border border-primary/40 shadow-sm hover:bg-primary/22',
             !isSidebarOpen && 'justify-center px-2 w-full'
           )}
           onClick={() => onFolderClick(folder)}
@@ -170,7 +176,7 @@ export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const { isSidebarOpen, toggleSidebar, setCurrentView } = useUIStore()
+  const { isSidebarOpen, toggleSidebar, setCurrentView, isDashboardBootLoading } = useUIStore()
   const { folders, selectedFolder, selectFolder, setFolders } = useFolderStore()
   const { playlists, setPlaylists } = usePlaylistStore()
   const { user, logout } = useAuthStore()
@@ -180,6 +186,7 @@ export function Sidebar({ className }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([])
   const [isFoldersSectionOpen, setIsFoldersSectionOpen] = useState(true)
+  const [isSidebarFoldersLoading, setIsSidebarFoldersLoading] = useState(true)
 
   // Auto-collapse folders when tracking starts (Watch Mode)
   useEffect(() => {
@@ -209,19 +216,50 @@ export function Sidebar({ className }: SidebarProps) {
   )
 
   useEffect(() => {
-    async function fetchLibraryItems() {
+    let active = true
+
+    const fetchFolders = async () => {
+      // If folders are already hydrated by MainLayout/dashboard, don't block sidebar rendering.
+      if (folders.length > 0) {
+        if (active) setIsSidebarFoldersLoading(false)
+        return
+      }
+
+      setIsSidebarFoldersLoading(true)
       try {
-        const res = await fetch('/api/library-items')
-        if (res.ok) {
-          const data = await res.json()
-          setLibraryItems(data)
+        const res = await fetch('/api/folders')
+        if (active && res.ok) {
+          const foldersData = await res.json()
+          setFolders(Array.isArray(foldersData) ? foldersData : [])
         }
       } catch (error) {
-        console.error('Failed to fetch library items:', error)
+        console.error('Failed to fetch folders for sidebar:', error)
+      } finally {
+        if (active) {
+          setIsSidebarFoldersLoading(false)
+        }
       }
     }
-    fetchLibraryItems()
-  }, [])
+
+    const fetchLibraryItems = async () => {
+      try {
+        const res = await fetch('/api/library-items')
+        if (active && res.ok) {
+          const itemsData = await res.json()
+          setLibraryItems(Array.isArray(itemsData) ? itemsData : [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch library items for sidebar:', error)
+      }
+    }
+
+    void fetchFolders()
+    void fetchLibraryItems()
+
+    return () => {
+      active = false
+    }
+  }, [folders.length, setFolders])
 
   const toggleFolderExpand = (folderId: string) => {
     const newExpanded = new Set(expandedFolders)
@@ -258,13 +296,22 @@ export function Sidebar({ className }: SidebarProps) {
     }
   }
 
+  const safeFolders = (Array.isArray(folders) ? folders : []).filter(
+    (folder): folder is Folder => Boolean(folder && typeof folder.id === 'string')
+  )
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
 
     if (over && active.id !== over.id) {
-      const oldIndex = folders.findIndex((item) => item.id === active.id)
-      const newIndex = folders.findIndex((item) => item.id === over.id)
-      const newFolders = arrayMove(folders, oldIndex, newIndex)
+      const oldIndex = safeFolders.findIndex((item) => item.id === active.id)
+      const newIndex = safeFolders.findIndex((item) => item.id === over.id)
+
+      if (oldIndex < 0 || newIndex < 0) {
+        return
+      }
+
+      const newFolders = arrayMove(safeFolders, oldIndex, newIndex)
       
       setFolders(newFolders)
       
@@ -276,7 +323,12 @@ export function Sidebar({ className }: SidebarProps) {
         body: JSON.stringify({ folderIds }),
       }).catch(console.error)
     }
-  }, [folders, setFolders])
+  }, [safeFolders, setFolders])
+
+  const shouldShowSidebarFolderSkeleton =
+    isSidebarOpen &&
+    isFoldersSectionOpen &&
+    (isSidebarFoldersLoading || (pathname === '/dashboard' && isDashboardBootLoading))
 
   return (
     <>
@@ -330,6 +382,7 @@ export function Sidebar({ className }: SidebarProps) {
                 icon={Search}
                 label="Search"
                 collapsed={!isSidebarOpen}
+                active={pathname.startsWith('/search')}
                 href="/search"
               />
               <NavItem
@@ -346,7 +399,7 @@ export function Sidebar({ className }: SidebarProps) {
                 label="Videos"
                 collapsed={!isSidebarOpen}
                 href="/videos"
-                active={pathname === '/videos'}
+                active={pathname === '/videos' || pathname.startsWith('/video/')}
               />
               <NavItem
                 id="onboarding-playlists"
@@ -354,7 +407,7 @@ export function Sidebar({ className }: SidebarProps) {
                 label="Playlists"
                 collapsed={!isSidebarOpen}
                 href="/playlists"
-                active={pathname === '/playlists'}
+                active={pathname === '/playlists' || pathname.startsWith('/playlist/')}
               />
               <NavItem
                 id="onboarding-channels"
@@ -370,7 +423,7 @@ export function Sidebar({ className }: SidebarProps) {
                 label="Notes"
                 collapsed={!isSidebarOpen}
                 href="/notes"
-                active={pathname === '/notes'}
+                active={pathname.startsWith('/notes')}
               />
             </nav>
 
@@ -404,17 +457,25 @@ export function Sidebar({ className }: SidebarProps) {
 
             {isFoldersSectionOpen && (
 
+            shouldShowSidebarFolderSkeleton ? (
+              <div className="space-y-2 px-2 py-1">
+                <div className="h-8 w-full rounded-xl skeleton-shimmer boneyard-accent-bone" />
+                <div className="h-8 w-full rounded-xl skeleton-shimmer boneyard-accent-bone" />
+                <div className="h-8 w-full rounded-xl skeleton-shimmer boneyard-accent-bone" />
+              </div>
+            ) : (
+
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
               <SortableContext 
-                items={folders.map(f => f.id)} 
+                items={safeFolders.map((f) => f.id)} 
                 strategy={verticalListSortingStrategy}
               >
                 <nav className="space-y-1">
-                  {folders.map((folder) => {
+                  {safeFolders.map((folder) => {
                     const isExpanded = expandedFolders.has(folder.id)
                     const folderItems = libraryItems.filter(item => item.folderId === folder.id)
                     
@@ -425,6 +486,7 @@ export function Sidebar({ className }: SidebarProps) {
                         isExpanded={isExpanded}
                         isSidebarOpen={isSidebarOpen}
                         selectedFolder={selectedFolder}
+                        pathname={pathname}
                         expandedFolders={expandedFolders}
                         folderItems={folderItems}
                         onFolderClick={handleFolderClick}
@@ -433,7 +495,7 @@ export function Sidebar({ className }: SidebarProps) {
                       />
                     )
                   })}
-                  {folders.length === 0 && isSidebarOpen && (
+                  {safeFolders.length === 0 && isSidebarOpen && (
                     <p className="px-2 py-4 text-sm text-muted-foreground text-center">
                       No folders yet. Create one to organize your playlists.
                     </p>
@@ -441,6 +503,7 @@ export function Sidebar({ className }: SidebarProps) {
                 </nav>
               </SortableContext>
             </DndContext>
+            )
             )}
 
             <Separator className="my-4" />
@@ -451,6 +514,7 @@ export function Sidebar({ className }: SidebarProps) {
                 icon={Settings}
                 label="Settings"
                 collapsed={!isSidebarOpen}
+                active={pathname.startsWith('/settings')}
                 onClick={() => router.push('/settings')}
               />
             </nav>
@@ -564,6 +628,7 @@ function NavItem({ href, icon: Icon, label, collapsed, active, onClick, id }: Na
       variant={active ? 'secondary' : 'ghost'}
       className={cn(
         'w-full justify-start gap-3',
+        active && 'bg-primary/18 text-foreground border border-primary/40 shadow-sm hover:bg-primary/22',
         collapsed && 'justify-center px-2'
       )}
       onClick={onClick}

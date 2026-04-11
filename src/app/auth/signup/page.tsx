@@ -75,21 +75,8 @@ export default function SignupPage() {
         return
       }
 
-      // Auto sign in after registration
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
-
-      console.log('[Signup] SignIn result:', { ok: result?.ok, error: result?.error })
-
-      if (result?.ok) {
-        router.push('/dashboard')
-        router.refresh()
-      } else {
-        setError(result?.error || 'Failed to sign in after registration')
-      }
+      router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+      router.refresh()
     } catch (err) {
       console.error('[Signup] Exception:', err)
       setError('Something went wrong: ' + (err instanceof Error ? err.message : 'Unknown error'))

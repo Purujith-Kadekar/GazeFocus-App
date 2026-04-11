@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
+import { sendVerificationOtpEmail } from '@/lib/email'
+import {
+  generateOtpCode,
+  getOtpExpiryTimestamp,
+  getOtpSettings,
+  hasDeliverableDomain,
+  hashOtpCode,
+  isValidEmailFormat,
+  normalizeEmail,
+} from '@/lib/email-verification'
 import { randomUUID } from 'crypto'
 
 export async function POST(request: NextRequest) {
@@ -18,10 +28,26 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { email, password, name } = body
+    const normalizedEmail = normalizeEmail(email)
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidEmailFormat(normalizedEmail)) {
+      return NextResponse.json(
+        { error: 'Please provide a valid email address' },
+        { status: 400 }
+      )
+    }
+
+    const deliverableDomain = await hasDeliverableDomain(normalizedEmail)
+    if (!deliverableDomain) {
+      return NextResponse.json(
+        { error: 'This email domain cannot receive mail. Please use a valid mailbox.' },
         { status: 400 }
       )
     }
@@ -54,7 +80,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const existingUserResult = await db.from('User').select('id').eq('email', email).maybeSingle()
+    const existingUserResult = await db.from('User').select('id').eq('email', normalizedEmail).maybeSingle()
     if (existingUserResult.error) {
       console.error('Error checking existing user:', existingUserResult.error)
       return NextResponse.json(
@@ -72,12 +98,22 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword(password)
     const userId = randomUUID()
     const nowIso = new Date().toISOString()
+    const otpCode = generateOtpCode()
+    const otpCodeHash = hashOtpCode(otpCode, normalizedEmail)
+    const otpExpiresAt = getOtpExpiryTimestamp()
+    const otpSettings = getOtpSettings()
 
     const userResult = await db.from('User').insert({
       id: userId,
-      email,
+      email: normalizedEmail,
       passwordHash: hashedPassword,
-      name: name || email.split('@')[0],
+      name: name || normalizedEmail.split('@')[0],
+      authProvider: 'credentials',
+      emailVerified: null,
+      verificationCodeHash: otpCodeHash,
+      verificationCodeExpiresAt: otpExpiresAt,
+      verificationCodeAttempts: 0,
+      verificationCodeSentAt: nowIso,
       createdAt: nowIso,
       updatedAt: nowIso,
     }).select('id, email, name').single()
@@ -114,8 +150,27 @@ export async function POST(request: NextRequest) {
       // Don't fail here - user is already created, settings can be created on first login
     }
 
+    let emailSent = false
+    try {
+      emailSent = await sendVerificationOtpEmail({
+        to: user.email,
+        name: user.name,
+        code: otpCode,
+        expiresInMinutes: otpSettings.otpExpiryMinutes,
+      })
+    } catch (emailError) {
+      console.error('Failed to send verification email during signup:', emailError)
+    }
+
+    if (!emailSent) {
+      console.warn('Verification email could not be sent because SMTP is not configured')
+    }
+
     return NextResponse.json({
       success: true,
+      requiresVerification: true,
+      verificationEmailSent: emailSent,
+      canResendVerification: true,
       user: {
         id: user.id,
         email: user.email,

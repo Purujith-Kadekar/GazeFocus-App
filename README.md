@@ -59,6 +59,11 @@ Watch time, session streaks, completion status per video. Nothing fancy — just
 
 Google OAuth and email/password via NextAuth.js. Protected admin portal at `/admin/login` for content management.
 
+Credentials signup now uses email OTP verification:
+- Email/password users must verify ownership using a time-limited code sent by email.
+- Welcome email is sent after OTP verification succeeds.
+- Google OAuth users are treated as verified and receive their welcome email on first successful Google signup.
+
 ---
 
 ## Running it
@@ -70,8 +75,7 @@ cd GazeFocus-App
 npm install
 
 # set up environment
-cp .env .env.local
-# fill in the values (see below)
+# edit .env.local and fill in the values (see below)
 
 # push the schema and run
 npx prisma db push
@@ -91,6 +95,17 @@ Open `http://localhost:3000`.
 | `ADMIN_SECRET` | ✅ | Admin JWT signing key — falls back to `NEXTAUTH_SECRET` |
 | `AUTH_GOOGLE_ID` | optional | Google OAuth client ID |
 | `AUTH_GOOGLE_SECRET` | optional | Google OAuth client secret |
+| `SMTP_USER` | optional | SMTP login email/user (for signup welcome mails) |
+| `SMTP_PASS` | optional | SMTP app password/secret |
+| `SMTP_FROM` | optional | From address shown to users (defaults to `SMTP_USER`) |
+| `SMTP_HOST` | optional | SMTP host (default: `smtp.gmail.com`) |
+| `SMTP_PORT` | optional | SMTP port (default: `465`) |
+| `SMTP_SECURE` | optional | `true` for SSL (`465`), `false` for STARTTLS ports |
+| `EMAIL_VERIFICATION_SECRET` | optional | Secret used to hash email OTP values (falls back to `NEXTAUTH_SECRET`) |
+| `EMAIL_OTP_LENGTH` | optional | OTP length (default: `6`) |
+| `EMAIL_OTP_EXPIRY_MINUTES` | optional | OTP validity in minutes (default: `10`) |
+| `EMAIL_OTP_RESEND_COOLDOWN_SECONDS` | optional | Minimum seconds before resend (default: `60`) |
+| `EMAIL_OTP_MAX_ATTEMPTS` | optional | Max invalid OTP tries before requiring resend (default: `5`) |
 | `YOUTUBE_API_KEY` | optional | Required for playlist import and auto-sync |
 | `NEXT_PUBLIC_URL` | optional | Public base URL (default: `http://localhost:3000`) |
 | `CRON_SECRET` | optional | Authenticates internal cron endpoints |

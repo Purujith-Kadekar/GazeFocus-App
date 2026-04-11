@@ -24,8 +24,19 @@ function LoginPageContent() {
 
   useEffect(() => {
     const authError = searchParams.get('error')
+    const isVerified = searchParams.get('verified')
+
+    if (isVerified === '1') {
+      setError('')
+      return
+    }
+
     if (authError === 'Blocked') {
       setError('Your account has been blocked. Please contact support.')
+      return
+    }
+    if (authError === 'EmailNotVerified') {
+      setError('Email not verified. Please verify your email before logging in.')
       return
     }
     if (authError === 'AccessDenied') {
@@ -57,7 +68,11 @@ function LoginPageContent() {
       }
 
       if (result.error) {
-        setError('Invalid email or password')
+        if (result.error.includes('EmailNotVerified')) {
+          setError('Email not verified. Use the verification page and then login again.')
+        } else {
+          setError('Invalid email or password')
+        }
         setIsLoading(false)
         return
       }

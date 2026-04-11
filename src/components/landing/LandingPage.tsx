@@ -16,13 +16,6 @@ import {
 } from 'lucide-react'
 import { Logo } from '@/components/layout/Logo'
 
-/* ── Fonts + global selection theming ── */
-const FONTS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700&family=Fira+Mono:wght@400;500&display=swap');
-::selection { background: rgba(212,135,10,0.38); color: #F9F4EC; }
-::-moz-selection { background: rgba(212,135,10,0.38); color: #F9F4EC; }
-`
-
 /* ── Reveal wrapper ── */
 function Reveal({
   children,
@@ -177,8 +170,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ background: '#0C0A07', color: '#F2EDE4' }}>
-      <style>{FONTS}</style>
-
       {/* Grain texture */}
       <div className="fixed inset-0 pointer-events-none z-0" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,

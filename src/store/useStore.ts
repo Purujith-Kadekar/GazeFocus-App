@@ -323,6 +323,7 @@ export const useInactivityStore = create<InactivityStateStore>((set) => ({
 // UI Store
 interface UIState {
   isSidebarOpen: boolean
+  isDashboardBootLoading: boolean
   isSearchModalOpen: boolean
   isAddModalOpen: boolean
   isSettingsOpen: boolean
@@ -334,6 +335,7 @@ interface UIState {
   setAddModalOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
   setCalibrationModalOpen: (open: boolean) => void
+  setDashboardBootLoading: (loading: boolean) => void
   setCurrentView: (view: UIState['currentView']) => void
 }
 
@@ -341,6 +343,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       isSidebarOpen: true,
+      isDashboardBootLoading: false,
       isSearchModalOpen: false,
       isAddModalOpen: false,
       isSettingsOpen: false,
@@ -352,6 +355,7 @@ export const useUIStore = create<UIState>()(
       setAddModalOpen: (open) => set({ isAddModalOpen: open }),
       setSettingsOpen: (open) => set({ isSettingsOpen: open }),
       setCalibrationModalOpen: (open) => set({ isCalibrationModalOpen: open }),
+      setDashboardBootLoading: (loading) => set({ isDashboardBootLoading: loading }),
       setCurrentView: (view) => set({ currentView: view }),
     }),
     {

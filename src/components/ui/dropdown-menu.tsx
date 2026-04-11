@@ -26,6 +26,7 @@ function DropdownMenuTrigger({
   return (
     <DropdownMenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
+      aria-label={props["aria-label"] ?? "Open menu"}
       {...props}
     />
   )

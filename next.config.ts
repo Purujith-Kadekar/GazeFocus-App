@@ -24,7 +24,7 @@ const securityHeaders = [
       // 'wasm-unsafe-eval' is required by MediaPipe for WebAssembly compilation.
       `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} 'wasm-unsafe-eval' https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://lh3.googleusercontent.com https://yt3.ggpht.com",
+      "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.googleusercontent.com https://*.ggpht.com",
       "font-src 'self'",
       "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com",
       "frame-src https://www.youtube.com https://youtube.com",

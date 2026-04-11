@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Play,
@@ -27,6 +27,7 @@ import { RecentFolders } from './RecentFolders'
 import { PlaylistsSection } from './PlaylistsSection'
 import { TodoList } from './TodoList'
 import { ReminderDialog } from './ReminderDialog'
+import DashboardSkeleton from './DashboardSkeleton'
 import { useReminderChecker } from '@/hooks/useReminderChecker'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -41,6 +42,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
 import { formatWatchTime, cn } from '@/lib/utils'
+import { getDashboardBootstrapCache, isDashboardBootstrapCacheFresh, setDashboardBootstrapCache } from '@/lib/dashboard-bootstrap-cache'
 import type { Video, Note, Folder, Playlist, Channel, ChannelWithFolder } from '@/types'
 
 type PlaylistWithFolder = Playlist & { folderId: string | null }
@@ -60,13 +62,29 @@ interface DashboardStats {
   liveChannels: number
 }
 
+interface DashboardBootstrapResponse {
+  userId: string
+  folders: Folder[]
+  videos: Video[]
+  notes: Note[]
+  stats: DashboardStats
+  completedVideos: string[]
+  playlists: PlaylistWithFolder[]
+  completedPlaylists: string[]
+  todos: any[]
+  settings: { weeklyGoal?: number } | null
+  channels: Channel[]
+}
+
+const DASHBOARD_CACHE_MAX_AGE_MS = 2 * 60 * 1000
+
 export function Dashboard() {
   const router = useRouter()
   const { folders, setFolders } = useFolderStore()
   const { videos, setVideos } = useVideoStore()
   const { notes, setNotes } = useNoteStore()
   const { stats, setStats, setRecentVideos, setRecentFolders, setImportantNotes } = useDashboardStore()
-  const { setCurrentView, setAddModalOpen } = useUIStore()
+  const { setCurrentView, setAddModalOpen, setDashboardBootLoading } = useUIStore()
   const { setTodos } = useTodoStore()
   const [isLoading, setIsLoading] = useState(true)
   const { dueTodos, dialogOpen, setDialogOpen, dismissReminder, dismissAll } = useReminderChecker()
@@ -77,59 +95,81 @@ export function Dashboard() {
   const [weeklyGoal, setWeeklyGoal] = useState(10)
   const [channels, setChannels] = useState<Channel[]>([])
   const [isRefreshingLive, setIsRefreshingLive] = useState(false)
+  const hasPrefetchedRoutes = useRef(false)
 
-  const fetchDashboardData = useCallback(() => {
-    return Promise.all([
-      fetch('/api/activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'daily_checkin' }),
-      }).then(r => r?.ok ? r.json() : null).catch(() => null),
-      fetch('/api/folders').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/videos?standaloneOnly=true').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/notes').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/progress').then(r => r?.ok ? r.json() : {}).catch(() => {}),
-      fetch('/api/progress/complete').then(r => r?.ok ? r.json() : { completedVideos: [] }).catch(() => ({ completedVideos: [] })),
-      fetch('/api/playlists').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/playlists/complete').then(r => r?.ok ? r.json() : { completedPlaylists: [] }).catch(() => ({ completedPlaylists: [] })),
-      fetch('/api/todos').then(r => r?.ok ? r.json() : []).catch(() => []),
-      fetch('/api/settings', { cache: 'no-store' }).then(r => r?.ok ? r.json() : null).catch(() => null),
-      fetch('/api/channels').then(r => r?.ok ? r.json() : []).catch(() => []),
-    ]).then(([activityData, foldersData, videosData, notesData, statsData, completedVideosData, playlistsData, completedData, todosData, settingsData, channelsData]) => {
-      setFolders(foldersData)
-      setVideos(videosData)
-      setNotes(notesData)
-      setPlaylists(playlistsData)
-      setCompletedVideos(new Set(completedVideosData.completedVideos || []))
-      setCompletedPlaylists(new Set(completedData.completedPlaylists || []))
-      setTodos(todosData)
-      setChannels(channelsData)
-      if (settingsData?.weeklyGoal != null) setWeeklyGoal(settingsData.weeklyGoal)
-      setRecentVideos(videosData.slice(0, 6))
-      setRecentFolders(foldersData.slice(0, 4))
-      setImportantNotes(notesData.filter((n: Note) => n.isImportant).slice(0, 4))
-      const progress = statsData as DashboardStats
-      const liveCount = (channelsData as Channel[]).filter((c: Channel) => c.isLive).length
-      setStats({
-        totalPlaylists: progress?.totalPlaylists ?? 0,
-        completedPlaylists: progress?.completedPlaylists ?? 0,
-        totalVideos: progress?.totalVideos ?? 0,
-        watchedVideos: progress?.watchedVideos ?? 0,
-        weeklyVideosWatched: progress?.weeklyVideosWatched ?? 0,
-        totalNotes: progress?.totalNotes ?? 0,
-        importantNotes: progress?.importantNotes ?? 0,
-        totalWatchTime: progress?.totalWatchTime ?? 0,
-        streak: activityData?.streak ?? progress?.streak ?? 0,
-        longestStreak: activityData?.longestStreak ?? progress?.longestStreak ?? 0,
-        totalChannels: (channelsData as Channel[]).length,
-        liveChannels: liveCount,
-      })
-    }).catch(() => {})
-  }, [setFolders, setVideos, setNotes, setTodos, setRecentVideos, setRecentFolders, setImportantNotes, setStats])
+  const applyBootstrapData = useCallback((data: DashboardBootstrapResponse) => {
+    setFolders(data.folders || [])
+    setVideos(data.videos || [])
+    setNotes(data.notes || [])
+    setRecentVideos((data.videos || []).slice(0, 6))
+    setRecentFolders((data.folders || []).slice(0, 4))
+    setImportantNotes((data.notes || []).filter((n: Note) => n.isImportant).slice(0, 4))
+
+    setPlaylists(data.playlists || [])
+    setCompletedVideos(new Set(data.completedVideos || []))
+    setCompletedPlaylists(new Set(data.completedPlaylists || []))
+    setTodos(data.todos || [])
+    setChannels(data.channels || [])
+
+    if (data.settings?.weeklyGoal != null) {
+      setWeeklyGoal(data.settings.weeklyGoal)
+    }
+
+    setStats({
+      totalPlaylists: data.stats?.totalPlaylists ?? 0,
+      completedPlaylists: data.stats?.completedPlaylists ?? 0,
+      totalVideos: data.stats?.totalVideos ?? 0,
+      watchedVideos: data.stats?.watchedVideos ?? 0,
+      weeklyVideosWatched: data.stats?.weeklyVideosWatched ?? 0,
+      totalNotes: data.stats?.totalNotes ?? 0,
+      importantNotes: data.stats?.importantNotes ?? 0,
+      totalWatchTime: data.stats?.totalWatchTime ?? 0,
+      streak: data.stats?.streak ?? 0,
+      longestStreak: data.stats?.longestStreak ?? 0,
+      totalChannels: data.stats?.totalChannels ?? 0,
+      liveChannels: data.stats?.liveChannels ?? 0,
+    })
+  }, [setFolders, setImportantNotes, setNotes, setRecentFolders, setRecentVideos, setStats, setTodos, setVideos])
+
+  const fetchDashboardData = useCallback((bootLoad = false) => {
+    if (bootLoad) {
+      setDashboardBootLoading(true)
+    }
+
+    return fetch('/api/dashboard/bootstrap', { cache: 'no-store' })
+      .then(r => (r?.ok ? r.json() : null))
+      .then((data: DashboardBootstrapResponse | null) => {
+        if (!data) return
+        applyBootstrapData(data)
+        setDashboardBootstrapCache(data)
+    }).catch(() => {
+      // If requests fail, release loading state instead of freezing the skeleton.
+    }).finally(() => {
+      if (bootLoad) {
+        setIsLoading(false)
+        setDashboardBootLoading(false)
+      }
+    })
+  }, [applyBootstrapData, setDashboardBootLoading])
 
   useEffect(() => {
-    fetchDashboardData().finally(() => setIsLoading(false))
-  }, [fetchDashboardData])
+    const cached = getDashboardBootstrapCache()
+    if (cached && isDashboardBootstrapCacheFresh(DASHBOARD_CACHE_MAX_AGE_MS)) {
+      applyBootstrapData(cached.payload as DashboardBootstrapResponse)
+      setIsLoading(false)
+      setDashboardBootLoading(false)
+      // Refresh in background without showing skeleton.
+      void fetchDashboardData(false)
+      return () => {
+        setDashboardBootLoading(false)
+      }
+    }
+
+    void fetchDashboardData(true)
+    return () => {
+      setDashboardBootLoading(false)
+    }
+  }, [applyBootstrapData, fetchDashboardData, setDashboardBootLoading])
 
   useEffect(() => {
     const handleRefresh = () => fetchDashboardData()
@@ -140,6 +180,47 @@ export function Dashboard() {
       window.removeEventListener('refresh-channels', handleRefresh)
     }
   }, [fetchDashboardData])
+
+  useEffect(() => {
+    if (isLoading || hasPrefetchedRoutes.current) return
+
+    const staticRoutes = [
+      '/videos',
+      '/playlists',
+      '/channels',
+      '/notes',
+      '/folders',
+      '/search',
+      '/calendar',
+      '/settings',
+    ]
+
+    const dynamicRoutes = [
+      ...folders.slice(0, 2).map((f) => `/folders/${f.id}`),
+      ...playlists.slice(0, 2).map((p) => `/playlist/${p.id}`),
+      ...channels.slice(0, 2).map((c) => `/channel/${c.id}`),
+      ...videos.slice(0, 2).map((v) => `/video/${v.youtubeId}`),
+    ]
+
+    const routesToPrefetch = [...staticRoutes, ...dynamicRoutes]
+    const uniqueRoutes = [...new Set(routesToPrefetch)]
+    hasPrefetchedRoutes.current = true
+
+    const runPrefetch = () => {
+      uniqueRoutes.forEach((route, index) => {
+        // Stagger prefetches to avoid network bursts and keep UI responsive.
+        setTimeout(() => {
+          router.prefetch(route)
+        }, index * 80)
+      })
+    }
+
+    if ('requestIdleCallback' in window) {
+      ;(window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(runPrefetch)
+    } else {
+      setTimeout(runPrefetch, 120)
+    }
+  }, [isLoading, router, folders, playlists, channels, videos])
 
   useEffect(() => {
     if (channels.length === 0) return
@@ -251,20 +332,18 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
+      <DashboardSkeleton loading={true}>
+        <div />
+      </DashboardSkeleton>
     )
   }
 
   const weeklyGoalProgress = stats ? Math.min(100, Math.round((stats.weeklyVideosWatched / weeklyGoal) * 100)) : 0
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <DashboardSkeleton loading={false}>
+      <div className="space-y-6 reveal-stagger">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 reveal-stagger-item">
         <div>
           <h1 className="text-3xl font-bold">Welcome back!</h1>
           <p className="text-muted-foreground">
@@ -282,7 +361,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start reveal-stagger-item">
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="flex items-center h-[280px]">
             <CardContent className="p-5 space-y-3 w-full">
@@ -351,7 +430,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6 reveal-stagger-item">
         <div className="lg:col-span-2">
           <ContinueWatching 
             videos={videos} 
@@ -460,28 +539,32 @@ export function Dashboard() {
         </div>
       </div>
 
-      <PlaylistsSection 
-        playlists={playlists}
-        folders={folders}
-        completedPlaylists={completedPlaylists}
-        onPlaylistRemoved={() => {
-          fetch('/api/folders').then(res => {
-            if (res.ok) res.json().then(setFolders).catch(() => {})
-          }).catch(() => {})
-      }} />
+      <div className="reveal-stagger-item">
+        <PlaylistsSection 
+          playlists={playlists}
+          folders={folders}
+          completedPlaylists={completedPlaylists}
+          onPlaylistRemoved={() => {
+            fetch('/api/folders').then(res => {
+              if (res.ok) res.json().then(setFolders).catch(() => {})
+            }).catch(() => {})
+        }} />
+      </div>
 
-      <RecentFolders folders={folders} />
+      <div className="reveal-stagger-item">
+        <RecentFolders folders={folders} />
+      </div>
 
       {channels.length > 0 && (
-        <Card>
+        <Card className="reveal-stagger-item">
           <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
               Your Channels
-              {stats?.liveChannels && stats.liveChannels > 0 && (
+              {(stats?.liveChannels ?? 0) > 0 && (
                 <Badge className="bg-red-500 text-white ml-2 animate-pulse">
                   <Radio className="h-3 w-3 mr-1" />
-                  {stats.liveChannels} Live
+                  {stats?.liveChannels} Live
                 </Badge>
               )}
             </CardTitle>
@@ -545,7 +628,7 @@ export function Dashboard() {
         </Card>
       )}
 
-      <Card>
+      <Card className="reveal-stagger-item">
         <CardHeader>
           <CardTitle className="text-lg">Quick Actions</CardTitle>
         </CardHeader>
@@ -573,6 +656,7 @@ export function Dashboard() {
         onDismiss={dismissReminder}
         onDismissAll={dismissAll}
       />
-    </div>
+      </div>
+    </DashboardSkeleton>
   )
 }

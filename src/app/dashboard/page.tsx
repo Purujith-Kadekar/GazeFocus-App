@@ -8,8 +8,10 @@ import { Dashboard } from '@/components/dashboard/Dashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { VideoPlayer } from '@/components/player/VideoPlayer'
 import { NotesPanel } from '@/components/player/NotesPanel'
-import { useUIStore, useVideoStore, useFolderStore } from '@/store/useStore'
-import { Loader2, Play, ListVideo, FolderOpen } from 'lucide-react'
+import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
+import { useUIStore, useVideoStore, useFolderStore, useAuthStore } from '@/store/useStore'
+import { clearDashboardBootstrapCache, getDashboardBootstrapCache, isDashboardBootstrapCacheFresh } from '@/lib/dashboard-bootstrap-cache'
+import { Play, ListVideo, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,37 +28,68 @@ interface LibraryItemWithDetails {
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { currentView, setCurrentView } = useUIStore()
+  const { currentView, setCurrentView, setDashboardBootLoading } = useUIStore()
+  const { user } = useAuthStore()
   const { currentVideo, setCurrentVideo } = useVideoStore()
   const { selectedFolder } = useFolderStore()
   const [isLoading, setIsLoading] = useState(true)
   const [folderItems, setFolderItems] = useState<LibraryItemWithDetails[]>([])
+  const [isFolderItemsLoading, setIsFolderItemsLoading] = useState(false)
+  const warmCache = getDashboardBootstrapCache()
+  const canUseWarmDashboard =
+    !!warmCache &&
+    isDashboardBootstrapCacheFresh(2 * 60 * 1000) &&
+    !!user?.id &&
+    warmCache.payload.userId === user.id
 
   useEffect(() => {
     if (status === 'unauthenticated') {
+      setDashboardBootLoading(false)
+      clearDashboardBootstrapCache()
       router.push('/auth/login')
     } else if (status === 'authenticated') {
       setIsLoading(false)
+      // Keep boot loading handoff to Dashboard component, which clears it after critical data arrives.
     }
-  }, [status, router])
+  }, [status, router, setDashboardBootLoading])
+
+  useEffect(() => {
+    if (status === 'loading') {
+      setDashboardBootLoading(true)
+      return
+    }
+
+    if (status === 'unauthenticated') {
+      setDashboardBootLoading(false)
+    }
+  }, [status, setDashboardBootLoading])
 
   useEffect(() => {
     if (currentView === 'folder' && selectedFolder) {
+      setIsFolderItemsLoading(true)
       fetch(`/api/folders/${selectedFolder.id}`)
         .then(r => r.ok ? r.json() : { items: [] })
         .then(data => setFolderItems(data.items || []))
         .catch(() => setFolderItems([]))
+        .finally(() => setIsFolderItemsLoading(false))
     }
   }, [currentView, selectedFolder])
 
   if (status === 'loading') {
+    if (canUseWarmDashboard) {
+      return (
+        <MainLayout>
+          <Dashboard />
+        </MainLayout>
+      )
+    }
+
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
+      <MainLayout>
+        <DashboardSkeleton loading={true}>
+          <div />
+        </DashboardSkeleton>
+      </MainLayout>
     )
   }
 
@@ -153,7 +186,34 @@ export default function DashboardPage() {
             </p>
           </div>
           
-          {folderItems.length > 0 ? (
+          {isFolderItemsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="min-h-[140px]">
+                <CardHeader className="pb-2">
+                  <div className="h-5 w-2/3 rounded-xl skeleton-shimmer" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-4 w-1/2 rounded-xl skeleton-shimmer" />
+                </CardContent>
+              </Card>
+              <Card className="min-h-[140px]">
+                <CardHeader className="pb-2">
+                  <div className="h-5 w-3/4 rounded-xl skeleton-shimmer" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-4 w-2/3 rounded-xl skeleton-shimmer" />
+                </CardContent>
+              </Card>
+              <Card className="min-h-[140px]">
+                <CardHeader className="pb-2">
+                  <div className="h-5 w-1/2 rounded-xl skeleton-shimmer" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-4 w-1/3 rounded-xl skeleton-shimmer" />
+                </CardContent>
+              </Card>
+            </div>
+          ) : folderItems.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {folderItems.map((item) => (
                 <Card key={item.id} className="cursor-pointer">

@@ -46,11 +46,35 @@ function Button({
     asChild?: boolean
   }) {
   const Comp = asChild ? Slot : "button"
+  const children = props.children
+
+  const getVisibleText = (node: React.ReactNode): string => {
+    if (typeof node === "string" || typeof node === "number") {
+      return String(node).trim()
+    }
+
+    if (Array.isArray(node)) {
+      return node.map(getVisibleText).join(" ").trim()
+    }
+
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+      return getVisibleText(node.props.children)
+    }
+
+    return ""
+  }
+
+  const hasAccessibleName = Boolean(
+    props["aria-label"] || props["aria-labelledby"] || props.title || getVisibleText(children)
+  )
+
+  const computedAriaLabel = !asChild && !hasAccessibleName ? "Button action" : undefined
 
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      aria-label={computedAriaLabel}
       suppressHydrationWarning
       {...props}
     />

@@ -1,35 +1,13 @@
-'use client'
-
-import { useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import { redirect } from 'next/navigation'
+import { authOptions } from '@/lib/auth'
 import LandingPage from '@/components/landing/LandingPage'
-import { Loader2 } from 'lucide-react'
 
-export default function Page() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+export default async function Page() {
+  const session = await getServerSession(authOptions)
 
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
-
-  if (status === 'loading') {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (status === 'authenticated') {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+  if (session?.user) {
+    redirect('/dashboard')
   }
 
   return <LandingPage />

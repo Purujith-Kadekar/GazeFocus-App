@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Loader2, FolderOpen, Play, ListVideo, Trash2, MoreVertical, CheckCircle, Circle } from 'lucide-react'
+import { ArrowLeft, FolderOpen, Play, ListVideo, Trash2, MoreVertical, CheckCircle, Circle } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ export default function FolderDetailClient({
   initialItems,
   completedPlaylists: initialCompleted 
 }: FolderDetailClientProps) {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   
   const [folders] = useState<Folder[]>(initialFolders)
@@ -67,16 +67,6 @@ export default function FolderDetailClient({
     } catch (error) {
       console.error('Failed to remove item from folder:', error)
     }
-  }
-
-  if (status === 'loading') {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </MainLayout>
-    )
   }
 
   return (

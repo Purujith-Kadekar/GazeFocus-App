@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { Search, X, Loader2, List, Video, Users } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { ArrowLeft, Play, Loader2, Radio, RefreshCw, Users, Eye, CheckCircle, ChevronDown } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -267,11 +267,11 @@ function LiveVideoCard({ video, onClick }: { video: LiveVideo; onClick: () => vo
       <CardContent className="p-0">
         <div className="relative aspect-video">
           {video.thumbnail ? (
-            <Image
+            <img
               src={video.thumbnail}
               alt={video.title}
-              fill
-              sizes="(max-width: 1024px) 100vw, 25vw"
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (

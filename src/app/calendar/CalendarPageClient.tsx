@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft,
@@ -83,14 +83,19 @@ export default function CalendarPageClient() {
   const { todos, setTodos, removeTodo, updateTodo } = useTodoStore()
   const { videos, setVideos } = useVideoStore()
   const { playlists, setPlaylists } = usePlaylistStore()
-  const cached = readRouteCache<CalendarCache>(CALENDAR_CACHE_KEY)
-  const [isLoading, setIsLoading] = useState(() => !cached?.payload)
+  const [isLoading, setIsLoading] = useState(true)
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false)
   
   // Edit state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  
+  // Track initialization to prevent double-fetching
+  const hasInitialized = useRef(false)
 
+  // Fetch calendar data from API. Note: We intentionally have no dependencies
+  // to ensure this function is stable across renders. See useEffect below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchData = useCallback(async () => {
     try {
       const [todosRes, videosRes, playlistsRes] = await Promise.all([
@@ -117,25 +122,30 @@ export default function CalendarPageClient() {
       console.error('Failed to fetch calendar data:', error)
       setIsLoading(false)
     }
-  }, [setPlaylists, setTodos, setVideos])
+  }, [])
 
+  // Initialize data on mount only. Using hasInitialized ref prevents
+  // infinite loops that occur when cached object reference changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => {
+    if (hasInitialized.current) return
+    hasInitialized.current = true
+    
+    const cached = readRouteCache<CalendarCache>(CALENDAR_CACHE_KEY)
     if (cached?.payload) {
       setTodos(cached.payload.todos || [])
       setVideos(cached.payload.videos || [])
       setPlaylists(cached.payload.playlists || [])
-      // Refresh in background in a microtask to avoid sync state writes inside this effect.
+      setIsLoading(false)
+      // Refresh in background without blocking
       queueMicrotask(() => {
         void fetchData()
       })
-      return
-    }
-
-    // No cache - fetch on first load in a microtask.
-    queueMicrotask(() => {
+    } else {
+      // No cache - fetch on first load
       void fetchData()
-    })
-  }, [cached, fetchData, setPlaylists, setTodos, setVideos])
+    }
+  }, [])
 
   // Listen for external refresh events
   useEffect(() => {

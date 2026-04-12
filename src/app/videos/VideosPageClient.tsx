@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, Plus } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -365,11 +364,11 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
                   <CardContent className="p-0">
                     <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
                       {video.thumbnail ? (
-                        <Image
+                        <img
                           src={video.thumbnail}
                           alt={video.title}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                       ) : (

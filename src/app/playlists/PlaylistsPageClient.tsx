@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderPlus, Copy } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -264,11 +263,11 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
                 <CardContent className="p-0">
                   <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
                     {playlist.thumbnail ? (
-                      <Image
+                      <img
                         src={playlist.thumbnail}
                         alt={playlist.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 25vw"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     ) : (

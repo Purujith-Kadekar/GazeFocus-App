@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { ArrowLeft, FolderOpen, Play, ListVideo, Trash2, MoreVertical, CheckCircle, Circle } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

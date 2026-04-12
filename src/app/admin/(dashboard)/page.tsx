@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import {
   Shield, Users, Bell, Settings, LogOut, Loader2,
   Ban, CheckCircle, Send, ToggleLeft, ToggleRight,

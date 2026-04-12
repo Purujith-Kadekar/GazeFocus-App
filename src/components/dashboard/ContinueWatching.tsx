@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { Play, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

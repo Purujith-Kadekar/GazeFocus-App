@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { toast } from 'sonner'
 import {
   Shield, Users, Bell, Settings, LogOut, Loader2,

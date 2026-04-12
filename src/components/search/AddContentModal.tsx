@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { useForm } from 'react-hook-form'
 import { Link2, Loader2, Youtube, List, Video, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'

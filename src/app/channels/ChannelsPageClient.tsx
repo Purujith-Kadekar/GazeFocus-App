@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { ArrowLeft, Play, Loader2, Radio, MoreVertical, Trash2, FolderPlus, Copy, RefreshCw, Users } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -403,6 +403,8 @@ function ChannelCard({
   folders,
   showLiveBadge,
 }: ChannelCardProps) {
+  const thumbnailSrc = channel.thumbnail?.trim()
+
   return (
     <Card
       className={cn(
@@ -412,20 +414,22 @@ function ChannelCard({
       onClick={onClick}
     >
       <CardContent className="p-0">
-        <div className="relative">
-          {channel.thumbnail ? (
-            <Image
-              src={channel.thumbnail}
-              alt={channel.title}
-              fill
-              sizes="(max-width: 768px) 100vw, 25vw"
-              className={cn(
-                'w-full aspect-video object-cover',
-                channel.isLive && 'ring-2 ring-red-500'
-              )}
-            />
+        <div className="relative pt-4">
+          {thumbnailSrc ? (
+            <div className={cn(
+              'relative w-24 h-24 rounded-full overflow-hidden bg-muted mx-auto',
+              channel.isLive && 'ring-4 ring-red-500'
+            )}>
+              <Image
+                src={thumbnailSrc}
+                alt={channel.title}
+                fill
+                sizes="96px"
+                className="w-full h-full object-cover"
+              />
+            </div>
           ) : (
-            <div className="w-full aspect-video flex items-center justify-center bg-muted">
+            <div className="w-24 h-24 rounded-full mx-auto flex items-center justify-center bg-muted">
               <Users className="h-12 w-12 text-muted-foreground/50" />
             </div>
           )}
@@ -442,18 +446,12 @@ function ChannelCard({
             </div>
           )}
 
-          {channel.isLive && channel.liveTitle && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-              <p className="text-white text-xs line-clamp-1 font-medium">{channel.liveTitle}</p>
-            </div>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-1 right-1 h-8 w-8 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-0 right-0 h-8 w-8 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <MoreVertical className="h-4 w-4 text-white" />
               </Button>

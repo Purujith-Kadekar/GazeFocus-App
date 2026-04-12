@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { ArrowLeft, Play, Loader2, Radio, Users, Grid, List, Eye, RefreshCw } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/button'
@@ -134,20 +134,20 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
         </div>
 
         <div className="flex flex-col md:flex-row gap-6">
-          <div className="w-full md:w-64 shrink-0">
-            {channel.thumbnail ? (
+          <div className="w-full md:w-64 shrink-0 flex justify-center md:justify-start">
+            {channel.thumbnail?.trim() ? (
               <Image
-                src={channel.thumbnail}
+                src={channel.thumbnail.trim()}
                 alt={channel.title}
                 width={256}
                 height={256}
                 className={cn(
-                  'w-full aspect-square object-cover rounded-lg',
+                  'w-40 h-40 md:w-64 md:h-64 object-cover rounded-full',
                   channel.isLive && 'ring-4 ring-red-500'
                 )}
               />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center bg-muted rounded-lg">
+              <div className="w-40 h-40 md:w-64 md:h-64 flex items-center justify-center bg-muted rounded-full">
                 <Users className="h-16 w-16 text-muted-foreground/50" />
               </div>
             )}

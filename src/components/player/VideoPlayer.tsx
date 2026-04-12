@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import NextImage from 'next/image'
+import NextImage from '@/components/ui/StableImage'
 import {
   Eye, EyeOff, FileText, CheckCircle, Loader2, Coffee,
   Play, Pause, Volume2, VolumeX, Volume1, Maximize2, Minimize2,

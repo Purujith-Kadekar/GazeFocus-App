@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, RefreshCw } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'

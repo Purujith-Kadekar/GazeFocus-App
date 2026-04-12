@@ -43,8 +43,6 @@ export default function DashboardPage() {
       setDashboardBootLoading(false)
       clearDashboardBootstrapCache()
       router.push('/auth/login')
-    } else if (status === 'authenticated') {
-      // Keep boot loading handoff to Dashboard component, which clears it after critical data arrives.
     }
   }, [status, router, setDashboardBootLoading])
 
@@ -60,17 +58,17 @@ export default function DashboardPage() {
   }, [status, setDashboardBootLoading])
 
   useEffect(() => {
-    if (currentView === 'folder' && selectedFolder) {
-      queueMicrotask(() => {
-        setIsFolderItemsLoading(true)
-        fetch(`/api/folders/${selectedFolder.id}`)
-          .then(r => r.ok ? r.json() : { items: [] })
-          .then(data => setFolderItems(data.items || []))
-          .catch(() => setFolderItems([]))
-          .finally(() => setIsFolderItemsLoading(false))
-      })
+    if (currentView === 'folder' && selectedFolder?.id) {
+      const folderId = selectedFolder.id
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsFolderItemsLoading(true)
+      fetch(`/api/folders/${folderId}`)
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(data => setFolderItems(data.items || []))
+        .catch(() => setFolderItems([]))
+        .finally(() => setIsFolderItemsLoading(false))
     }
-  }, [currentView, selectedFolder])
+  }, [currentView, selectedFolder?.id])
 
   if (status === 'loading') {
     if (canUseWarmDashboard) {

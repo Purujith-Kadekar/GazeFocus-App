@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
+import Image from '@/components/ui/StableImage'
 import { ArrowLeft, Play, Loader2, RefreshCw, Users, Grid, List, ChevronDown } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -192,20 +192,20 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
         </div>
 
         <div className="flex flex-col md:flex-row gap-6">
-          <div className="w-full md:w-64 shrink-0">
-            {channel.thumbnail ? (
+          <div className="w-full md:w-64 shrink-0 flex justify-center md:justify-start">
+            {channel.thumbnail?.trim() ? (
               <Image
-                src={channel.thumbnail}
+                src={channel.thumbnail.trim()}
                 alt={channel.title}
                 width={256}
                 height={256}
                 className={cn(
-                  'w-full aspect-square object-cover rounded-lg',
+                  'w-40 h-40 md:w-64 md:h-64 object-cover rounded-full',
                   channel.isLive && 'ring-4 ring-red-500'
                 )}
               />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center bg-muted rounded-lg">
+              <div className="w-40 h-40 md:w-64 md:h-64 flex items-center justify-center bg-muted rounded-full">
                 <Users className="h-16 w-16 text-muted-foreground/50" />
               </div>
             )}
@@ -356,11 +356,11 @@ function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
       <CardContent className="p-0">
         <div className="relative aspect-video">
           {video.thumbnail ? (
-            <Image
+            <img
               src={video.thumbnail}
               alt={video.title}
-              fill
-              sizes="(max-width: 1024px) 100vw, 25vw"
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -393,7 +393,13 @@ function VideoListItem({ video, onClick }: { video: Video; onClick: () => void }
     >
       <div className="relative w-40 aspect-video shrink-0 rounded overflow-hidden">
         {video.thumbnail ? (
-          <Image src={video.thumbnail} alt={video.title} fill sizes="160px" className="w-full h-full object-cover" />
+          <img
+            src={video.thumbnail}
+            alt={video.title}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <Play className="h-6 w-6 text-muted-foreground/50" />

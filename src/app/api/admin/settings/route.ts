@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let settingsResult = await db.from('SiteSettings').select('*').eq('id', 'global').maybeSingle()
+    let settingsResult = await db
+      .from('SiteSettings')
+      .select('id,signupEnabled,userDailyTokenLimit,updatedAt,adminPasswordHash')
+      .eq('id', 'global')
+      .maybeSingle()
     if (settingsResult.error) {
       throw settingsResult.error
     }

@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { Skeleton } from 'boneyard-js/react'
 
 function Bone({ className }: { className: string }) {
-  return <div className={`rounded-xl skeleton-shimmer ${className}`} />
+  return <div className={`rounded-xl skeleton-shimmer boneyard-accent-bone ${className}`} />
 }
 
 function DashboardSkeletonFixture() {
@@ -83,18 +82,13 @@ function RevealContent({ children }: { children: ReactNode }) {
 }
 
 export default function DashboardSkeleton({ loading, children }: DashboardSkeletonProps) {
+  if (loading) {
+    return <DashboardSkeletonFixture />
+  }
+
   return (
-    <Skeleton
-      name="dashboard-shell"
-      loading={loading}
-      color="rgba(164, 140, 104, 0.68)"
-      darkColor="rgba(184, 156, 114, 0.56)"
-      animate="shimmer"
-      boneClass="rounded-2xl boneyard-accent-bone"
-      fixture={<DashboardSkeletonFixture />}
-      fallback={<DashboardSkeletonFixture />}
-    >
-      <RevealContent>{children}</RevealContent>
-    </Skeleton>
+    <RevealContent>
+      {children}
+    </RevealContent>
   )
 }

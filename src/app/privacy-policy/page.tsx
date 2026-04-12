@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | GazeFocus",
-  description: "Privacy Policy for GazeFocus.",
+  title: "Privacy Policy",
+  description: "Privacy Policy for GazeFocus, including data collection, usage, retention, and user rights.",
+  alternates: {
+    canonical: "/privacy-policy",
+  },
+  openGraph: {
+    title: "GazeFocus Privacy Policy",
+    description: "Read how GazeFocus handles personal data, privacy rights, and security practices.",
+    url: "https://gaze-focus.vercel.app/privacy-policy",
+    type: "website",
+  },
 };
 
 export default function PrivacyPolicyPage() {

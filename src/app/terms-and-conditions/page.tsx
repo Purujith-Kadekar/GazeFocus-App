@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms and Conditions | GazeFocus",
-  description: "Terms and Conditions (Terms of Service) for GazeFocus.",
+  title: "Terms and Conditions",
+  description: "Terms and Conditions for using GazeFocus, including eligibility, permitted use, and legal obligations.",
+  alternates: {
+    canonical: "/terms-and-conditions",
+  },
+  openGraph: {
+    title: "GazeFocus Terms and Conditions",
+    description: "Read the terms of service and legal conditions for using GazeFocus.",
+    url: "https://gaze-focus.vercel.app/terms-and-conditions",
+    type: "website",
+  },
 };
 
 export default function TermsAndConditionsPage() {

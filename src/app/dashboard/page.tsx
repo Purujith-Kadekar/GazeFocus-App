@@ -31,7 +31,6 @@ export default function DashboardPage() {
   const { currentView, setCurrentView, setDashboardBootLoading } = useUIStore()
   const { currentVideo, setCurrentVideo } = useVideoStore()
   const { selectedFolder } = useFolderStore()
-  const [isLoading, setIsLoading] = useState(true)
   const [folderItems, setFolderItems] = useState<LibraryItemWithDetails[]>([])
   const [isFolderItemsLoading, setIsFolderItemsLoading] = useState(false)
   const warmCache = getDashboardBootstrapCache()
@@ -45,7 +44,6 @@ export default function DashboardPage() {
       clearDashboardBootstrapCache()
       router.push('/auth/login')
     } else if (status === 'authenticated') {
-      setIsLoading(false)
       // Keep boot loading handoff to Dashboard component, which clears it after critical data arrives.
     }
   }, [status, router, setDashboardBootLoading])
@@ -63,12 +61,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (currentView === 'folder' && selectedFolder) {
-      setIsFolderItemsLoading(true)
-      fetch(`/api/folders/${selectedFolder.id}`)
-        .then(r => r.ok ? r.json() : { items: [] })
-        .then(data => setFolderItems(data.items || []))
-        .catch(() => setFolderItems([]))
-        .finally(() => setIsFolderItemsLoading(false))
+      queueMicrotask(() => {
+        setIsFolderItemsLoading(true)
+        fetch(`/api/folders/${selectedFolder.id}`)
+          .then(r => r.ok ? r.json() : { items: [] })
+          .then(data => setFolderItems(data.items || []))
+          .catch(() => setFolderItems([]))
+          .finally(() => setIsFolderItemsLoading(false))
+      })
     }
   }, [currentView, selectedFolder])
 

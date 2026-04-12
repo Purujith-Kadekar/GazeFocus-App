@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { Search, X, Loader2, List, Video, Users } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -199,12 +200,14 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
       <div className="relative w-32 h-20 shrink-0 rounded overflow-hidden bg-muted">
         {result.type === 'channel' ? (
           result.thumbnail ? (
-            <img
+            <Image
               src={result.thumbnail}
               alt={result.title}
+              fill
+              sizes="128px"
               className="w-full h-full object-cover rounded-full"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/placeholder.png'
+                e.currentTarget.src = '/placeholder.png'
               }}
             />
           ) : (
@@ -213,12 +216,14 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
             </div>
           )
         ) : (
-          <img
+          <Image
             src={result.thumbnail}
             alt={result.title}
+            fill
+            sizes="128px"
             className="w-full h-full object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/placeholder.png'
+              e.currentTarget.src = '/placeholder.png'
             }}
           />
         )}

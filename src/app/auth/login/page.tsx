@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -22,30 +22,25 @@ function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const queryError = useMemo(() => {
     const authError = searchParams.get('error')
     const isVerified = searchParams.get('verified')
 
     if (isVerified === '1') {
-      setError('')
-      return
+      return ''
     }
 
     if (authError === 'Blocked') {
-      setError('Your account has been blocked. Please contact support.')
-      return
+      return 'Your account has been blocked. Please contact support.'
     }
     if (authError === 'EmailNotVerified') {
-      setError('Email not verified. Please verify your email before logging in.')
-      return
+      return 'Email not verified. Please verify your email before logging in.'
     }
     if (authError === 'AccessDenied') {
-      setError('Access denied. You may be blocked or signups are currently disabled.')
-      return
+      return 'Access denied. You may be blocked or signups are currently disabled.'
     }
-    if (authError) {
-      setError('Authentication failed. Please try again.')
-    }
+
+    return authError ? 'Authentication failed. Please try again.' : ''
   }, [searchParams])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -208,14 +203,14 @@ function LoginPageContent() {
                     </div>
                   </div>
 
-                  {error && (
+                  {(error || queryError) && (
                     <motion.p
                       initial={{ opacity: 0, y: -5 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-sm px-3 py-2"
                       style={{ color: '#EF4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', fontFamily: 'Fira Mono, monospace' }}
                     >
-                      {error}
+                      {error || queryError}
                     </motion.p>
                   )}
 

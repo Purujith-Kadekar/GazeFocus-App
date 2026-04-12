@@ -276,7 +276,11 @@ export async function GET(request: NextRequest) {
 
     const userId = user.id
 
-    const playlistsResult = await db.from('Playlist').select('*').eq('userId', userId).order('createdAt', { ascending: false })
+    const playlistsResult = await db
+      .from('Playlist')
+      .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
+      .eq('userId', userId)
+      .order('createdAt', { ascending: false })
     const playlists = playlistsResult.data || []
 
     const libraryItemsResult = await db.from('LibraryItem').select('externalId, folderId').eq('userId', userId).eq('type', 'PLAYLIST').in('externalId', playlists.map(p => p.id))

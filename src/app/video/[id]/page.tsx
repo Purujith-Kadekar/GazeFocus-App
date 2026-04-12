@@ -35,11 +35,13 @@ export default function VideoPage() {
     // Wait until auth is confirmed so the API call is always authenticated.
     if (!videoId || status !== 'authenticated') return
 
+    const controller = new AbortController()
+
     const fetchData = async () => {
       try {
         const [videoRes, progressRes] = await Promise.all([
-          fetch(`/api/videos?youtubeId=${videoId}`),
-          fetch(`/api/progress?youtubeId=${videoId}`)
+          fetch(`/api/videos?youtubeId=${videoId}`, { signal: controller.signal }),
+          fetch(`/api/progress?youtubeId=${videoId}`, { signal: controller.signal })
         ])
 
         if (videoRes.ok) {
@@ -48,20 +50,15 @@ export default function VideoPage() {
             ? videoData.find((v: Video) => v.youtubeId === videoId)
             : videoData;
 
-          if (!foundVideo) {
-            const directVideoRes = await fetch(`/api/videos/${videoId}`)
-            if (directVideoRes.ok) {
-              foundVideo = await directVideoRes.json()
-            }
-          }
-
           if (foundVideo) {
             setVideo(foundVideo)
 
             // Fetch playlist siblings for prev/next navigation
             if (foundVideo.playlistId) {
               try {
-                const siblingRes = await fetch(`/api/videos?playlistId=${foundVideo.playlistId}`)
+                const siblingRes = await fetch(`/api/videos?playlistId=${foundVideo.playlistId}`, {
+                  signal: controller.signal,
+                })
                 if (siblingRes.ok) {
                   const siblings: Video[] = await siblingRes.json()
                   setPlaylistVideos(siblings)
@@ -81,13 +78,19 @@ export default function VideoPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch video data:', error)
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('Failed to fetch video data:', error)
+        }
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchData()
+
+    return () => {
+      controller.abort()
+    }
   }, [videoId, status])
 
   const handleMarkComplete = async () => {

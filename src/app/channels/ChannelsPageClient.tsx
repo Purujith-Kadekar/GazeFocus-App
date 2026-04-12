@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, Radio, MoreVertical, Trash2, FolderPlus, Copy, RefreshCw, Users } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,19 +20,59 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
+import { getDashboardBootstrapCache } from '@/lib/dashboard-bootstrap-cache'
 import type { Channel, Folder, ChannelWithFolder } from '@/types'
 
 interface ChannelsPageClientProps {
-  initialChannels: ChannelWithFolder[]
-  initialFolders: Folder[]
+  initialChannels?: ChannelWithFolder[]
+  initialFolders?: Folder[]
 }
+
+type ChannelsPageCache = {
+  channels: ChannelWithFolder[]
+  folders: Folder[]
+}
+
+const CHANNELS_CACHE_KEY = 'gazefocus:channels-page-cache'
 
 export default function ChannelsPageClient({ initialChannels, initialFolders }: ChannelsPageClientProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [channels, setChannels] = useState<ChannelWithFolder[]>(initialChannels || [])
-  const [folders, setFolders] = useState<Folder[]>(initialFolders || [])
+  const cached = useMemo(() => readRouteCache<ChannelsPageCache>(CHANNELS_CACHE_KEY), [])
+  const dashboardCached = useMemo(() => getDashboardBootstrapCache()?.payload, [])
+
+  const initialCachedChannels =
+    cached?.payload?.channels ||
+    (Array.isArray(dashboardCached?.channels) ? (dashboardCached.channels as ChannelWithFolder[]) : undefined) ||
+    initialChannels ||
+    []
+  const initialCachedFolders =
+    cached?.payload?.folders ||
+    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as Folder[]) : undefined) ||
+    initialFolders ||
+    []
+
+  const [channels, setChannels] = useState<ChannelWithFolder[]>(initialCachedChannels)
+  const [folders, setFolders] = useState<Folder[]>(initialCachedFolders)
   const [syncingChannels, setSyncingChannels] = useState<Set<string>>(new Set())
+  const channelsRef = useRef<ChannelWithFolder[]>(initialCachedChannels)
+  const foldersRef = useRef<Folder[]>(initialCachedFolders)
+
+  useEffect(() => {
+    channelsRef.current = channels
+  }, [channels])
+
+  useEffect(() => {
+    foldersRef.current = folders
+  }, [folders])
+
+  const persistCache = useCallback((next: { channels?: ChannelWithFolder[]; folders?: Folder[] }) => {
+    writeRouteCache(CHANNELS_CACHE_KEY, {
+      channels: next.channels ?? channelsRef.current,
+      folders: next.folders ?? foldersRef.current,
+    })
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -40,22 +81,68 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
   }, [status, router])
 
   useEffect(() => {
+    let cancelled = false
+
+    const loadChannels = async () => {
+      try {
+        const [channelsRes, foldersRes] = await Promise.all([
+          fetch('/api/channels'),
+          fetch('/api/folders'),
+        ])
+
+        if (cancelled) return
+
+        let nextChannels = channelsRef.current
+        let nextFolders = foldersRef.current
+
+        if (channelsRes.ok) {
+          const data = await channelsRes.json()
+          nextChannels = Array.isArray(data) ? data : []
+        }
+
+        if (foldersRes.ok) {
+          const data = await foldersRes.json()
+          nextFolders = Array.isArray(data) ? data : []
+        }
+
+        if (cancelled) return
+        setChannels(nextChannels)
+        setFolders(nextFolders)
+        persistCache({ channels: nextChannels, folders: nextFolders })
+      } catch {
+        // keep cached channels
+      }
+    }
+
+    void loadChannels()
+
+    return () => {
+      cancelled = true
+    }
+  }, [persistCache])
+
+  useEffect(() => {
     const handleRefresh = () => {
       fetch('/api/channels')
         .then(r => r.ok ? r.json() : [])
-        .then(setChannels)
+        .then((data) => {
+          const nextChannels = Array.isArray(data) ? data : []
+          setChannels(nextChannels)
+          persistCache({ channels: nextChannels })
+        })
         .catch(() => {})
     }
     window.addEventListener('refresh-channels', handleRefresh)
     return () => window.removeEventListener('refresh-channels', handleRefresh)
-  }, [])
+  }, [persistCache])
 
   const handleRefreshLiveStatus = async () => {
     try {
       const response = await fetch('/api/channels/live-status')
       if (response.ok) {
         const data = await response.json()
-        setChannels(prev => prev.map(channel => {
+        setChannels(prev => {
+          const next = prev.map(channel => {
           const liveStatus = data.channels.find((c: any) => c.channelId === channel.id)
           if (liveStatus) {
             return {
@@ -66,7 +153,10 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
             }
           }
           return channel
-        }))
+          })
+          persistCache({ channels: next })
+          return next
+        })
       }
     } catch (error) {
       console.error('Failed to refresh live status:', error)
@@ -83,16 +173,20 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
       })
       if (response.ok) {
         const data = await response.json()
-        setChannels(prev => prev.map(channel =>
-          channel.id === channelId
-            ? {
-                ...channel,
-                isLive: data.isLive,
-                liveVideoId: data.liveVideoId,
-                liveTitle: data.liveTitle,
-              }
-            : channel
-        ))
+        setChannels(prev => {
+          const next = prev.map(channel =>
+            channel.id === channelId
+              ? {
+                  ...channel,
+                  isLive: data.isLive,
+                  liveVideoId: data.liveVideoId,
+                  liveTitle: data.liveTitle,
+                }
+              : channel
+          )
+          persistCache({ channels: next })
+          return next
+        })
       }
     } catch (error) {
       console.error('Failed to sync channel:', error)
@@ -112,7 +206,12 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
         method: 'DELETE',
       })
       if (response.ok) {
-        setChannels(channels.filter(c => c.id !== channelId))
+        setChannels(prev => {
+          const next = prev.filter(c => c.id !== channelId)
+          persistCache({ channels: next })
+          return next
+        })
+        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
       console.error('Failed to delete channel:', error)
@@ -137,6 +236,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
       })
       if (response.ok) {
         console.log('Channel copied to folder')
+        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
       console.error('Failed to copy channel:', error)
@@ -161,6 +261,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
       })
       if (response.ok) {
         console.log('Channel moved to folder')
+        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
       console.error('Failed to move channel:', error)
@@ -173,19 +274,6 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 
   const liveChannels = channels.filter(c => c.isLive)
   const offlineChannels = channels.filter(c => !c.isLive)
-
-  if (status === 'loading') {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        </div>
-      </MainLayout>
-    )
-  }
 
   if (status === 'unauthenticated') {
     return (
@@ -326,9 +414,11 @@ function ChannelCard({
       <CardContent className="p-0">
         <div className="relative">
           {channel.thumbnail ? (
-            <img
+            <Image
               src={channel.thumbnail}
               alt={channel.title}
+              fill
+              sizes="(max-width: 768px) 100vw, 25vw"
               className={cn(
                 'w-full aspect-video object-cover',
                 channel.isLive && 'ring-2 ring-red-500'

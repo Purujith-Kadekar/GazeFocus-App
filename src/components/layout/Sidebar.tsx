@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { endRouteLoading, startRouteTopLoader } from './RouteTopLoader'
 import { signOut } from 'next-auth/react'
 import {
   Home,
@@ -364,7 +366,7 @@ export function Sidebar({ className }: SidebarProps) {
     <>
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen border-r bg-background',
+          'sticky top-0 z-40 h-screen border-r border-b bg-background shrink-0',
           isSidebarOpen ? 'w-64' : 'w-16',
           className
         )}
@@ -592,7 +594,7 @@ export function Sidebar({ className }: SidebarProps) {
             )}
           </ScrollArea>
 
-          <div className="border-t p-2">
+          <div className="border-t bg-background/95 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -653,7 +655,53 @@ interface NavItemProps {
 }
 
 function NavItem({ href, icon: Icon, label, collapsed, active, onClick, id }: NavItemProps) {
-  const content = (
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const getRefreshEventName = (targetHref: string) => {
+    const targetPath = targetHref.split('?')[0]
+
+    if (targetPath === '/dashboard') return 'refresh-dashboard'
+    if (targetPath === '/videos') return 'refresh-videos'
+    if (targetPath === '/playlists') return 'refresh-playlists'
+    if (targetPath === '/channels') return 'refresh-channels'
+    if (targetPath === '/folders') return 'refresh-folders'
+    if (targetPath === '/notes') return 'refresh-notes'
+    if (targetPath === '/calendar') return 'refresh-calendar'
+
+    return null
+  }
+
+  const handleNavClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!href) {
+      onClick?.()
+      return
+    }
+
+    const currentPath = pathname.split('?')[0]
+    const targetPath = href.split('?')[0]
+    const isSamePage = currentPath === targetPath
+
+    if (isSamePage) {
+      event.preventDefault()
+      const refreshEventName = getRefreshEventName(targetPath)
+      if (refreshEventName) {
+        startRouteTopLoader()
+        window.dispatchEvent(new CustomEvent(refreshEventName))
+
+        // Dashboard same-page clicks can be fully cache-resolved with no fetch.
+        // Complete on next tick so the bar appears instantly and also ends instantly.
+        if (targetPath === '/dashboard') {
+          window.setTimeout(() => endRouteLoading(), 0)
+        }
+      }
+      return
+    }
+
+    onClick?.()
+  }
+
+  const button = (
     <Button
       variant={active ? 'secondary' : 'ghost'}
       className={cn(
@@ -661,7 +709,7 @@ function NavItem({ href, icon: Icon, label, collapsed, active, onClick, id }: Na
         active && 'bg-primary/18 text-foreground border border-primary/40 shadow-sm hover:bg-primary/22',
         collapsed && 'justify-center px-2'
       )}
-      onClick={onClick}
+      onClick={handleNavClick}
     >
       <Icon className="h-4 w-4 shrink-0" />
       {!collapsed && <span>{label}</span>}
@@ -669,8 +717,19 @@ function NavItem({ href, icon: Icon, label, collapsed, active, onClick, id }: Na
   )
 
   if (href) {
-    return <div id={id}><Link href={href}>{content}</Link></div>
+    return (
+      <div id={id}>
+        <Link
+          href={href}
+          prefetch
+          onMouseEnter={() => router.prefetch(href)}
+          onFocus={() => router.prefetch(href)}
+        >
+          {button}
+        </Link>
+      </div>
+    )
   }
 
-  return <div id={id}>{content}</div>
+  return <div id={id}>{button}</div>
 }

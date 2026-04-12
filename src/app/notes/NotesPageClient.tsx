@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2, Edit3, Clock, Star, FileText, Play, MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,23 +14,76 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
+import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
 import type { Note } from '@/types'
 
 interface NotesPageClientProps {
-  initialNotes: Note[]
+  initialNotes?: Note[]
 }
+
+const NOTES_CACHE_KEY = 'gazefocus:notes-page-cache'
 
 export default function NotesPageClient({ initialNotes }: NotesPageClientProps) {
   const router = useRouter()
-  const [notes, setNotes] = useState<Note[]>(initialNotes)
+  const cached = readRouteCache<Note[]>(NOTES_CACHE_KEY)
+  const [notes, setNotes] = useState<Note[]>(cached?.payload || initialNotes || [])
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
 
+  const persistNotes = useCallback((next: Note[]) => {
+    writeRouteCache(NOTES_CACHE_KEY, next)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadNotes = async () => {
+      try {
+        const response = await fetch('/api/notes')
+        if (!response.ok || cancelled) return
+
+        const data = await response.json()
+        const nextNotes = Array.isArray(data) ? data : []
+        setNotes(nextNotes)
+        persistNotes(nextNotes)
+      } catch {
+        // keep cached notes
+      }
+    }
+
+    void loadNotes()
+
+    return () => {
+      cancelled = true
+    }
+  }, [persistNotes])
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetch('/api/notes')
+        .then(r => r.ok ? r.json() : [])
+        .then((data) => {
+          const nextNotes = Array.isArray(data) ? data : []
+          setNotes(nextNotes)
+          persistNotes(nextNotes)
+        })
+        .catch(() => {})
+    }
+
+    window.addEventListener('refresh-notes', handleRefresh)
+    return () => window.removeEventListener('refresh-notes', handleRefresh)
+  }, [persistNotes])
+
   const handleDelete = async (noteId: string) => {
     try {
       await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
-      setNotes(notes.filter(n => n.id !== noteId))
+      setNotes(prev => {
+        const next = prev.filter(n => n.id !== noteId)
+        persistNotes(next)
+        return next
+      })
+      window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (err) {
       console.error('Failed to delete note:', err)
     }
@@ -54,7 +107,11 @@ export default function NotesPageClient({ initialNotes }: NotesPageClientProps) 
       
       if (res.ok) {
         const updated = await res.json()
-        setNotes(notes.map(n => n.id === noteId ? updated : n))
+        setNotes(prev => {
+          const next = prev.map(n => n.id === noteId ? updated : n)
+          persistNotes(next)
+          return next
+        })
         setEditingNoteId(null)
         setEditContent('')
       }
@@ -80,7 +137,11 @@ export default function NotesPageClient({ initialNotes }: NotesPageClientProps) 
       
       if (res.ok) {
         const updated = await res.json()
-        setNotes(notes.map(n => n.id === note.id ? updated : n))
+        setNotes(prev => {
+          const next = prev.map(n => n.id === note.id ? updated : n)
+          persistNotes(next)
+          return next
+        })
       }
     } catch (err) {
       console.error('Failed to toggle important:', err)

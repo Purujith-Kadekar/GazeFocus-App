@@ -67,7 +67,11 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null
 
         const normalizedEmail = normalizeEmail(credentials.email)
-        const { data: user } = await db.from('User').select('*').eq('email', normalizedEmail).single() as any
+        const { data: user } = await db
+          .from('User')
+          .select('id,name,email,image,passwordHash,emailVerified')
+          .eq('email', normalizedEmail)
+          .single() as any
 
         if (!user?.passwordHash) return null
 

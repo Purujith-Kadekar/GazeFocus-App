@@ -9,7 +9,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const itemsResult = await db.from('LibraryItem').select('*').eq('userId', user.id).order('createdAt', { ascending: false })
+    const itemsResult = await db
+      .from('LibraryItem')
+      .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
+      .eq('userId', user.id)
+      .order('createdAt', { ascending: false })
     const items = itemsResult.data || []
 
     return NextResponse.json(items)
@@ -58,14 +62,27 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(itemResult.data, { status: 201 })
       } catch (createError: any) {
         if (createError?.code === '23505') {
-          const existingResult = await db.from('LibraryItem').select('*').eq('userId', user.id).eq('type', type).eq('externalId', externalId).maybeSingle()
+          const existingResult = await db
+            .from('LibraryItem')
+            .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
+            .eq('userId', user.id)
+            .eq('type', type)
+            .eq('externalId', externalId)
+            .maybeSingle()
           return NextResponse.json(existingResult.data)
         }
         throw createError
       }
     }
 
-    const existingItemResult = await db.from('LibraryItem').select('*').eq('userId', user.id).eq('type', type).eq('externalId', externalId).is('folderId', null).maybeSingle()
+    const existingItemResult = await db
+      .from('LibraryItem')
+      .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
+      .eq('userId', user.id)
+      .eq('type', type)
+      .eq('externalId', externalId)
+      .is('folderId', null)
+      .maybeSingle()
     const existingItem = existingItemResult.data
 
     if (existingItem) {

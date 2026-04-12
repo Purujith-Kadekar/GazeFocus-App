@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { Play, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -185,9 +186,11 @@ export function ContinueWatching({ videos, folders: propFolders, completedVideos
                 >
                   <div className="relative w-32 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
                     {video.thumbnail ? (
-                      <img
+                      <Image
                         src={video.thumbnail}
                         alt={video.title}
+                        fill
+                        sizes="128px"
                         className="w-full h-full object-cover"
                       />
                     ) : (

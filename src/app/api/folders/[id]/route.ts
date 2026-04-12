@@ -13,14 +13,22 @@ export async function GET(
     }
 
     const { id } = await params
-    const folderResult = await db.from('Folder').select('*').eq('id', id).eq('userId', user.id).single()
+    const folderResult = await db
+      .from('Folder')
+      .select('id,userId,title,description,parentId,position,createdAt,updatedAt')
+      .eq('id', id)
+      .eq('userId', user.id)
+      .single()
     const folder = folderResult.data
 
     if (!folder) {
       return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
     }
 
-    const itemsResult = await db.from('LibraryItem').select('*').eq('folderId', id)
+    const itemsResult = await db
+      .from('LibraryItem')
+      .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
+      .eq('folderId', id)
     const folderItems = itemsResult.data || []
 
     const playlistIds = folderItems.filter((i: any) => i.type === 'PLAYLIST').map((i: any) => i.externalId)

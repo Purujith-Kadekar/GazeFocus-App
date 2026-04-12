@@ -1,13 +1,52 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 export const metadata: Metadata = {
-  title: "About | GazeFocus",
-  description: "Learn about GazeFocus and our mission.",
+  title: "About",
+  description:
+    "Learn how GazeFocus helps users stay focused while learning from YouTube with tracking, planning, and productivity tools.",
+  alternates: {
+    canonical: "/about",
+  },
+  openGraph: {
+    title: "About GazeFocus",
+    description:
+      "Focus-aware YouTube learning platform built to improve consistency and reduce distractions.",
+    url: "https://gaze-focus.vercel.app/about",
+    type: "website",
+  },
+};
+
+const aboutFaqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What is GazeFocus?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "GazeFocus is a web app for focus-aware YouTube learning, progress tracking, reminders, and study consistency.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Who is GazeFocus for?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "GazeFocus is for learners who want to stay focused and organized while studying video-based content.",
+      },
+    },
+  ],
 };
 
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutFaqJsonLd) }}
+      />
       <div className="mx-auto w-full max-w-4xl px-6 py-14 md:py-20">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">About GazeFocus</h1>
         <p className="mt-4 text-sm leading-7 text-muted-foreground md:text-base">
@@ -45,9 +84,11 @@ export default function AboutPage() {
           <section className="space-y-4 rounded-xl border border-border/70 bg-card/40 p-5 md:p-6">
             <h2 className="text-xl font-semibold">Founder</h2>
             <div className="flex flex-col gap-5 md:flex-row md:items-start">
-              <img
+              <Image
                 src="/creator.jpg"
                 alt="Creator"
+                width={144}
+                height={144}
                 className="h-36 w-36 rounded-xl border border-[#D4870A]/30 object-cover grayscale saturate-0 contrast-110 transition duration-300 hover:grayscale-0 hover:saturate-100"
               />
               <div className="flex-1">

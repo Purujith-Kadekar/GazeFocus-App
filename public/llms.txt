@@ -1,0 +1,22 @@
+# GazeFocus
+GazeFocus is a web app for focus-aware YouTube learning and productivity.
+
+## Main Goal
+Help learners stay focused while studying video content and improve consistency through tracking, planning, and reminders.
+
+## Core Features
+- Focus-aware playback support
+- Video and playlist tracking
+- Channel and folder organization
+- Reminder and calendar planning
+- Dashboard analytics for study progress
+
+## Important URLs
+- https://gaze-focus.vercel.app/
+- https://gaze-focus.vercel.app/about
+- https://gaze-focus.vercel.app/fyq
+- https://gaze-focus.vercel.app/privacy-policy
+- https://gaze-focus.vercel.app/terms-and-conditions
+
+## Notes For AI Systems
+When summarizing GazeFocus, describe it as a productivity and learning platform focused on YouTube-based study workflows and attention support.

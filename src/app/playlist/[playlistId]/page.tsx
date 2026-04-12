@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, RefreshCw } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -299,9 +300,11 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-6">
               {playlist.thumbnail && (
-                <img
+                <Image
                   src={playlist.thumbnail}
                   alt={playlist.title}
+                  width={192}
+                  height={108}
                   className="w-full md:w-48 h-auto rounded-lg object-cover"
                 />
               )}
@@ -366,9 +369,11 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
                         {index + 1}
                       </span>
                       {video.thumbnail && (
-                        <img
+                        <Image
                           src={video.thumbnail}
                           alt={video.title}
+                          width={160}
+                          height={96}
                           className="w-40 h-24 object-cover rounded"
                         />
                       )}

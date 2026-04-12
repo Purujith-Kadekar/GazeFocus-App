@@ -4,6 +4,8 @@ import { SessionProvider } from 'next-auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/useStore'
+import { WarmRoutePrefetcher } from '@/components/layout/WarmRoutePrefetcher'
+import { RouteTopLoader } from '@/components/layout/RouteTopLoader'
 
 // A simple, bulletproof theme manager that doesn't rely on extra libraries
 function ThemeManager() {
@@ -40,6 +42,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeManager />
+        <RouteTopLoader />
+        <WarmRoutePrefetcher />
         {children}
       </QueryClientProvider>
     </SessionProvider>

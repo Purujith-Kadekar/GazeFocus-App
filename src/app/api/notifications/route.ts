@@ -9,7 +9,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const notificationsResult = await db.from('Notification').select('*').or(`userId.eq.${user.id},global.eq.true`).order('createdAt', { ascending: false }).limit(20)
+    const notificationsResult = await db
+      .from('Notification')
+      .select('id,userId,global,title,message,read,createdAt')
+      .or(`userId.eq.${user.id},global.eq.true`)
+      .order('createdAt', { ascending: false })
+      .limit(20)
     const notifications = notificationsResult.data || []
 
     return NextResponse.json(notifications)

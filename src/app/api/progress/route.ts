@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         ...updatePayload,
         updatedAt: now
       })
-        .eq('id', existingProgressResult.data.id).select().single()
+        .eq('id', existingProgressResult.data.id).select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt').single()
       progress = updateResult.data
     } else {
       const generatedId = generateId()
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         completedAt: isCompleted ? now : null,
         updatedAt: now,
         createdAt: now
-      }).select().single()
+      }).select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt').single()
       
       if (insertResult.error) {
         console.error(`[ERROR] Failed to insert progress:`, insertResult.error)
@@ -153,7 +153,12 @@ export async function GET(request: NextRequest) {
     const youtubeId = searchParams.get('youtubeId')
 
     if (youtubeId) {
-      const progressResult = await db.from('VideoProgress').select('*').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
+      const progressResult = await db
+        .from('VideoProgress')
+        .select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt')
+        .eq('userId', userId)
+        .eq('youtubeId', youtubeId)
+        .maybeSingle()
       return NextResponse.json({ progress: progressResult.data })
     }
 

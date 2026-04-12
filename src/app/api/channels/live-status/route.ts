@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     const { data: channels } = await supabase
       .from('Channel')
-      .select('*')
+      .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .eq('userId', user.id)
 
     const channelsList = channels || []

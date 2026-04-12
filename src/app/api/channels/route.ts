@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
 
     const { data: channels, error } = await supabase
       .from('Channel')
-      .select('*')
+      .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .eq('userId', user.id)
       .order('createdAt', { ascending: false })
 

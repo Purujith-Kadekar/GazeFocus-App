@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, Plus } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { AddContentModal } from '@/components/search/AddContentModal'
 import { formatDuration } from '@/lib/utils'
+import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
 import type { Video, Playlist, Folder } from '@/types'
 import type React from 'react'
 
@@ -25,19 +27,67 @@ interface VideoWithPlaylist extends Video {
 }
 
 interface VideosPageClientProps {
-  initialVideos: VideoWithPlaylist[]
-  initialFolders: Folder[]
+  initialVideos?: VideoWithPlaylist[]
+  initialFolders?: Folder[]
 }
+
+type VideosPageCache = {
+  videos: VideoWithPlaylist[]
+  folders: Folder[]
+  completedVideos: string[]
+  videoFolderMap: Record<string, string | null>
+}
+
+const VIDEOS_CACHE_KEY = 'gazefocus:videos-page-cache'
 
 export default function VideosPageClient({ initialVideos, initialFolders }: VideosPageClientProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [videos, setVideos] = useState<VideoWithPlaylist[]>(initialVideos)
-  const [folders, setFolders] = useState<Folder[]>(initialFolders)
-  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
-  const [videoFolderMap, setVideoFolderMap] = useState<Record<string, string | null>>({})
+  const cached = readRouteCache<VideosPageCache>(VIDEOS_CACHE_KEY)
+  const [videos, setVideos] = useState<VideoWithPlaylist[]>(cached?.payload.videos || initialVideos || [])
+  const [folders, setFolders] = useState<Folder[]>(cached?.payload.folders || initialFolders || [])
+  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set(cached?.payload.completedVideos || []))
+  const [videoFolderMap, setVideoFolderMap] = useState<Record<string, string | null>>(cached?.payload.videoFolderMap || {})
   const [addModalOpen, setAddModalOpen] = useState(false)
   const hasMounted = useRef(false)
+  
+  const videosRef = useRef<VideoWithPlaylist[]>(cached?.payload.videos || initialVideos || [])
+  const foldersRef = useRef<Folder[]>(cached?.payload.folders || initialFolders || [])
+  const completedVideosRef = useRef<Set<string>>(new Set(cached?.payload.completedVideos || []))
+  const videoFolderMapRef = useRef<Record<string, string | null>>(cached?.payload.videoFolderMap || {})
+
+  useEffect(() => {
+    videosRef.current = videos
+  }, [videos])
+
+  useEffect(() => {
+    foldersRef.current = folders
+  }, [folders])
+
+  useEffect(() => {
+    completedVideosRef.current = completedVideos
+  }, [completedVideos])
+
+  useEffect(() => {
+    videoFolderMapRef.current = videoFolderMap
+  }, [videoFolderMap])
+
+  const persistCache = useCallback((next: {
+    videos?: VideoWithPlaylist[]
+    folders?: Folder[]
+    completedVideos?: Set<string> | string[]
+    videoFolderMap?: Record<string, string | null>
+  }) => {
+    const payload: VideosPageCache = {
+      videos: next.videos ?? videosRef.current,
+      folders: next.folders ?? foldersRef.current,
+      completedVideos: Array.isArray(next.completedVideos)
+        ? next.completedVideos
+        : Array.from(next.completedVideos ?? completedVideosRef.current),
+      videoFolderMap: next.videoFolderMap ?? videoFolderMapRef.current,
+    }
+    writeRouteCache(VIDEOS_CACHE_KEY, payload)
+  }, [])
 
   useEffect(() => {
     hasMounted.current = true
@@ -58,7 +108,9 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
 
       if (completedRes?.ok) {
         const completed = await completedRes.json() as { completedVideos?: string[] }
-        setCompletedVideos(new Set(completed.completedVideos || []))
+        const nextCompleted = new Set(completed.completedVideos || [])
+        setCompletedVideos(nextCompleted)
+        persistCache({ completedVideos: nextCompleted })
       }
 
       if (libraryRes?.ok) {
@@ -70,6 +122,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
             map[item.externalId] = item.folderId ?? null
           })
         setVideoFolderMap(map)
+        persistCache({ videoFolderMap: map })
       }
     } catch (error) {
       console.error('Failed to refresh video metadata:', error)
@@ -77,24 +130,66 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
   }, [])
 
   useEffect(() => {
-    refreshMetadata()
-  }, [refreshMetadata])
+    let cancelled = false
+
+    const loadVideos = async () => {
+      try {
+        const [videosRes, foldersRes] = await Promise.all([
+          fetch('/api/videos'),
+          fetch('/api/folders'),
+        ])
+
+        if (cancelled) return
+
+        if (videosRes.ok) {
+          const data = await videosRes.json()
+          const nextVideos = Array.isArray(data) ? data : []
+          setVideos(nextVideos)
+          persistCache({ videos: nextVideos })
+        }
+
+        if (foldersRes.ok) {
+          const data = await foldersRes.json()
+          const nextFolders = Array.isArray(data) ? data : []
+          setFolders(nextFolders)
+          persistCache({ folders: nextFolders })
+        }
+      } catch {
+        // keep cached data when offline or slow
+      }
+    }
+
+    // Only fetch from API if cache doesn't exist (first load)
+    if (!cached?.payload) {
+      void loadVideos()
+    } else {
+      // Cache exists - refresh metadata in background
+      void refreshMetadata()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleDelete = async (videoId: string, youtubeId: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
     try {
       await fetch(`/api/videos/${videoId}`, { method: 'DELETE' })
-      setVideos(prev => prev.filter(v => v.id !== videoId))
-      setVideoFolderMap(prev => {
-        const next = { ...prev }
-        delete next[youtubeId]
-        return next
-      })
-      setCompletedVideos(prev => {
-        const next = new Set(prev)
-        next.delete(youtubeId)
-        return next
-      })
+      const nextVideos = videosRef.current.filter(v => v.id !== videoId)
+      setVideos(nextVideos)
+      persistCache({ videos: nextVideos })
+      
+      const nextMap = { ...videoFolderMapRef.current }
+      delete nextMap[youtubeId]
+      setVideoFolderMap(nextMap)
+      persistCache({ videoFolderMap: nextMap })
+      
+      const nextCompleted = new Set(completedVideosRef.current)
+      nextCompleted.delete(youtubeId)
+      setCompletedVideos(nextCompleted)
+      persistCache({ completedVideos: nextCompleted })
+      
       window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
       console.error('Failed to delete video:', error)
@@ -116,10 +211,15 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
       const response = await fetch('/api/videos')
       if (response.ok) {
         const data = await response.json()
-        setVideos(data)
+        const nextVideos = Array.isArray(data) ? data : []
+        setVideos(nextVideos)
+        persistCache({ videos: nextVideos })
       }
-      setVideoFolderMap(prev => ({ ...prev, [youtubeId]: folderId }))
-      refreshMetadata()
+      const nextMap = { ...videoFolderMapRef.current, [youtubeId]: folderId }
+      setVideoFolderMap(nextMap)
+      persistCache({ videoFolderMap: nextMap })
+      
+      void refreshMetadata()
       window.dispatchEvent(new CustomEvent('refresh-videos'))
       window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
@@ -139,8 +239,11 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
           folderId: null,
         }),
       })
-      setVideoFolderMap(prev => ({ ...prev, [youtubeId]: null }))
-      refreshMetadata()
+      const nextMap = { ...videoFolderMapRef.current, [youtubeId]: null }
+      setVideoFolderMap(nextMap)
+      persistCache({ videoFolderMap: nextMap })
+      
+      void refreshMetadata()
       window.dispatchEvent(new CustomEvent('refresh-videos'))
       window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
@@ -150,7 +253,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
 
   const handleToggleComplete = async (youtubeId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    const isCompleted = completedVideos.has(youtubeId)
+    const isCompleted = completedVideosRef.current.has(youtubeId)
     try {
       const res = await fetch('/api/progress/complete', {
         method: 'POST',
@@ -162,15 +265,14 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
       })
 
       if (res.ok) {
-        setCompletedVideos(prev => {
-          const next = new Set(prev)
-          if (isCompleted) {
-            next.delete(youtubeId)
-          } else {
-            next.add(youtubeId)
-          }
-          return next
-        })
+        const next = new Set(completedVideosRef.current)
+        if (isCompleted) {
+          next.delete(youtubeId)
+        } else {
+          next.add(youtubeId)
+        }
+        setCompletedVideos(next)
+        persistCache({ completedVideos: next })
         window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
@@ -183,13 +285,17 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
       if (!hasMounted.current) return
       fetch('/api/videos')
         .then(r => r.ok ? r.json() : [])
-        .then(setVideos)
+        .then((data) => {
+          const nextVideos = Array.isArray(data) ? data : []
+          setVideos(nextVideos)
+          persistCache({ videos: nextVideos })
+        })
         .catch(() => {})
-      refreshMetadata()
+      void refreshMetadata()
     }
     window.addEventListener('refresh-videos', handleRefresh)
     return () => window.removeEventListener('refresh-videos', handleRefresh)
-  }, [refreshMetadata])
+  }, [])
 
   if (status === 'loading') {
     return (
@@ -259,9 +365,11 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
                   <CardContent className="p-0">
                     <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
                       {video.thumbnail ? (
-                        <img
+                        <Image
                           src={video.thumbnail}
                           alt={video.title}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 25vw"
                           className="w-full h-full object-cover"
                         />
                       ) : (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Search, User, Loader2, Plus, Check, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -152,12 +153,14 @@ export default function SearchPage() {
                 className="cursor-pointer hover:shadow-md transition-shadow"
               >
                 <div className="aspect-video relative overflow-hidden rounded-t-lg">
-                  <img
+                  <Image
                     src={video.thumbnail}
                     alt={video.title}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 33vw"
                     className="object-cover w-full h-full"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/placeholder.png'
+                      e.currentTarget.src = '/placeholder.png'
                     }}
                   />
                   <div 

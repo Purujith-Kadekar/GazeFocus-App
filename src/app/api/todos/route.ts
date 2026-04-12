@@ -9,7 +9,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: todos } = await db.from('Todo').select('*').eq('userId', user.id).order('createdAt', { ascending: false })
+    const { data: todos } = await db
+      .from('Todo')
+      .select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId')
+      .eq('userId', user.id)
+      .order('createdAt', { ascending: false })
 
     return NextResponse.json(todos || [])
   } catch (error) {
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
       type: todoType,
       completed: false,
       reminderAt: reminderIso,
-    }).select().single()
+    }).select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId').single()
 
     if (error) throw error
 

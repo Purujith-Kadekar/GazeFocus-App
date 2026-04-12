@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import {
   Play,
   CheckCircle,
@@ -76,8 +77,6 @@ interface DashboardBootstrapResponse {
   channels: Channel[]
 }
 
-const DASHBOARD_CACHE_MAX_AGE_MS = 2 * 60 * 1000
-
 export function Dashboard() {
   const router = useRouter()
   const { folders, setFolders } = useFolderStore()
@@ -86,7 +85,7 @@ export function Dashboard() {
   const { stats, setStats, setRecentVideos, setRecentFolders, setImportantNotes } = useDashboardStore()
   const { setCurrentView, setAddModalOpen, setDashboardBootLoading } = useUIStore()
   const { setTodos } = useTodoStore()
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(() => !getDashboardBootstrapCache()?.payload)
   const { dueTodos, dialogOpen, setDialogOpen, dismissReminder, dismissAll } = useReminderChecker()
 
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
@@ -154,7 +153,7 @@ export function Dashboard() {
 
   useEffect(() => {
     const cached = getDashboardBootstrapCache()
-    if (cached && isDashboardBootstrapCacheFresh(DASHBOARD_CACHE_MAX_AGE_MS)) {
+    if (cached?.payload) {
       applyBootstrapData(cached.payload as DashboardBootstrapResponse)
       setIsLoading(false)
       setDashboardBootLoading(false)
@@ -591,9 +590,11 @@ export function Dashboard() {
                     channel.isLive && 'ring-4 ring-red-500'
                   )}>
                     {channel.thumbnail ? (
-                      <img
+                      <Image
                         src={channel.thumbnail}
                         alt={channel.title}
+                        fill
+                        sizes="80px"
                         className="w-full h-full object-cover"
                       />
                     ) : (

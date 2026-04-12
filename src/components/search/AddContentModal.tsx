@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { Link2, Loader2, Youtube, List, Video, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -245,12 +246,14 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : previewData.thumbnail ? (
-                      <img
+                      <Image
                         src={previewData.thumbnail}
                         alt={previewData.title || 'Preview'}
+                        fill
+                        sizes="128px"
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://img.youtube.com/vi/default/maxresdefault.jpg'
+                          e.currentTarget.src = 'https://img.youtube.com/vi/default/maxresdefault.jpg'
                         }}
                       />
                     ) : previewData.type === 'channel' ? (

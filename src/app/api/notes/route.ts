@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const youtubeId = searchParams.get('youtubeId')
     const importantOnly = searchParams.get('important')
 
-    let query = db.from('Note').select('*').eq('userId', userId)
+    let query = db
+      .from('Note')
+      .select('id,content,timestampSeconds,isImportant,youtubeId,createdAt,updatedAt,userId')
+      .eq('userId', userId)
     
     if (youtubeId) {
       query = query.eq('youtubeId', youtubeId)
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
       userId,
       createdAt: now,
       updatedAt: now,
-    }).select().single()
+    }).select('id,content,timestampSeconds,isImportant,youtubeId,createdAt,updatedAt,userId').single()
 
     if (noteResult.error || !noteResult.data) {
       console.error('Error creating note:', noteResult.error)

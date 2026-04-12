@@ -11,7 +11,7 @@ export async function GET() {
 
     const userId = user.id
 
-    const foldersResult = await db.from('Folder').select('*, items:LibraryItem(id)').eq('userId', userId).order('position', { ascending: true })
+    const foldersResult = await db.from('Folder').select('id,title,description,position,userId,createdAt,updatedAt,items:LibraryItem(id)').eq('userId', userId).order('position', { ascending: true })
     const folders = (foldersResult.data || []).map(f => ({
       ...f,
       _count: { items: f.items?.length || 0 },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       description,
       userId,
       position: maxPosition + 1,
-    }).select().single()
+    }).select('id,title,description,position,userId,createdAt,updatedAt').single()
 
     return NextResponse.json(folderResult.data, { status: 201 })
   } catch (error) {

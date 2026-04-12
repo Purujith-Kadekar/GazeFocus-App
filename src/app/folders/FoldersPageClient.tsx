@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { FolderOpen, Trash2, MoreVertical } from 'lucide-react'
@@ -13,21 +13,101 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { readRouteCache, writeRouteCache, clearRouteCache } from '@/lib/route-data-cache'
+import { beginRouteLoading, endRouteLoading } from '@/components/layout/RouteTopLoader'
 import type { Folder } from '@/types'
 
+const FOLDERS_CACHE_KEY = 'gazefocus:folders-page-cache'
+
 interface FoldersPageClientProps {
-  initialFolders: Folder[]
+  initialFolders?: Folder[]
 }
 
 export default function FoldersPageClient({ initialFolders }: FoldersPageClientProps) {
   const { status } = useSession()
   const router = useRouter()
-  const [folders, setFolders] = useState<Folder[]>(initialFolders)
+  const cached = useMemo(() => readRouteCache<Folder[]>(FOLDERS_CACHE_KEY), [])
+  const [folders, setFolders] = useState<Folder[]>(cached?.payload || initialFolders || [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadFolders = async () => {
+      // If cache exists, show it immediately and only refresh if needed
+      if (cached?.payload) {
+        setFolders(cached.payload)
+        // Optionally refresh in background
+        try {
+          const response = await fetch('/api/folders')
+          if (!response.ok || cancelled) return
+
+          const data = await response.json()
+          const nextFolders = Array.isArray(data) ? data : []
+          setFolders(nextFolders)
+          writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
+        } catch {
+          // keep cached data if refresh fails
+        }
+        return
+      }
+
+      // No cache - fetch on first load with loading indicator
+      beginRouteLoading()
+      try {
+        const response = await fetch('/api/folders')
+        if (!response.ok || cancelled) return
+
+        const data = await response.json()
+        const nextFolders = Array.isArray(data) ? data : []
+        setFolders(nextFolders)
+        writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
+      } catch {
+        // keep existing state
+      } finally {
+        endRouteLoading()
+      }
+    }
+
+    void loadFolders()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      beginRouteLoading()
+      fetch('/api/folders')
+        .then(r => r.ok ? r.json() : [])
+        .then((data) => {
+          const nextFolders = Array.isArray(data) ? data : []
+          setFolders(nextFolders)
+          writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
+        })
+        .catch(() => {})
+        .finally(() => {
+          endRouteLoading()
+        })
+    }
+
+    window.addEventListener('refresh-folders', handleRefresh)
+    return () => window.removeEventListener('refresh-folders', handleRefresh)
+  }, [])
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login')
+    }
+  }, [status, router])
 
   const handleDeleteFolder = async (folderId: string) => {
     try {
       await fetch(`/api/folders/${folderId}`, { method: 'DELETE' })
-      setFolders(folders.filter(f => f.id !== folderId))
+      const next = folders.filter(f => f.id !== folderId)
+      setFolders(next)
+      writeRouteCache(FOLDERS_CACHE_KEY, next)
+      window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
       console.error('Failed to delete folder:', error)
     }

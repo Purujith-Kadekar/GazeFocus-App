@@ -93,7 +93,7 @@ export async function GET(
       const videoIds = liveVideos.map(v => v.youtubeId)
       const { data: progressData } = await supabase
         .from('VideoProgress')
-        .select('*')
+        .select('youtubeId,secondsWatched,durationSeconds,completed,completedAt')
         .eq('userId', user.id)
         .in('youtubeId', videoIds)
       

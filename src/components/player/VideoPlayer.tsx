@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import NextImage from 'next/image'
 import {
   Eye, EyeOff, FileText, CheckCircle, Loader2, Coffee,
   Play, Pause, Volume2, VolumeX, Volume1, Maximize2, Minimize2,
@@ -236,7 +237,7 @@ export function VideoPlayer({
       playerRef.current.seekTo(initialTime, true)
       hasSeekedRef.current = true
     }
-  }, [initialTime]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialTime])
 
   // ─── Controls visibility helpers ─────────────────────────────────────────────
   const showControlsTemporarily = useCallback(() => {
@@ -1426,7 +1427,7 @@ export function VideoPlayer({
                             </div>
                             <div className="flex-shrink-0 w-24 aspect-video rounded overflow-hidden bg-black/20 flex items-center justify-center">
                               {v.thumbnail ? (
-                                <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
+                                <NextImage src={v.thumbnail} alt={v.title} fill sizes="96px" className="w-full h-full object-cover" />
                               ) : (
                                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
                               )}

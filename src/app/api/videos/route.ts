@@ -98,7 +98,10 @@ export async function GET(request: NextRequest) {
     const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
     const channelId = searchParams.get('channelId')
 
-    let query = supabase.from('Video').select('*').eq('userId', userId)
+    let query = supabase
+      .from('Video')
+      .select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId')
+      .eq('userId', userId)
 
     if (channelId !== null && channelId !== undefined && channelId !== '') {
       query = query.eq('channelId', channelId)
@@ -122,7 +125,10 @@ export async function GET(request: NextRequest) {
     if (videos && videos.length > 0 && !standaloneOnly) {
       const playlistIds = videos.map(v => v.playlistId).filter((id): id is string => id !== null)
       if (playlistIds.length > 0) {
-        const { data: playlists } = await supabase.from('Playlist').select('*').in('id', playlistIds)
+        const { data: playlists } = await supabase
+          .from('Playlist')
+          .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
+          .in('id', playlistIds)
         const playlistMap = new Map(playlists?.map(p => [p.id, p]) || [])
         const enrichedVideos = videos.map(v => ({
           ...v,
@@ -190,7 +196,7 @@ export async function POST(request: NextRequest) {
       position: 0,
       createdAt: now,
       updatedAt: now,
-    }).select().single()
+    }).select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId').single()
 
     if (videoError) {
       console.error('Error creating video:', videoError)

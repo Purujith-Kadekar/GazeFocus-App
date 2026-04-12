@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import {
   Shield, Users, Bell, Settings, LogOut, Loader2,
   Ban, CheckCircle, Send, ToggleLeft, ToggleRight,
@@ -368,7 +369,7 @@ export default function AdminDashboard() {
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-slate-600 flex items-center justify-center text-xs font-medium">
                             {user.image ? (
-                              <img src={user.image} alt="" className="h-8 w-8 rounded-full" />
+                              <Image src={user.image} alt="" width={32} height={32} className="h-8 w-8 rounded-full" />
                             ) : (
                               (user.name || user.email || '?')[0].toUpperCase()
                             )}

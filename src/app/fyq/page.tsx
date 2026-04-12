@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "FYQ | GazeFocus",
-  description: "Frequently asked questions for GazeFocus.",
+  title: "FAQ",
+  description: "Frequently asked questions about GazeFocus, features, accounts, privacy, and usage.",
+  alternates: {
+    canonical: "/fyq",
+  },
+  openGraph: {
+    title: "GazeFocus FAQ",
+    description: "Find answers to common questions about GazeFocus and how the platform works.",
+    url: "https://gaze-focus.vercel.app/fyq",
+    type: "website",
+  },
 };
 
 const qaItems = [

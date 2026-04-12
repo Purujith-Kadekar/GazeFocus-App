@@ -16,7 +16,7 @@ export async function GET(
 
     const { data: video, error } = await db
       .from('Video')
-      .select('*, playlist(*)')
+      .select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId,playlist:Playlist(id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId)')
       .eq('id', id)
       .eq('userId', user.id)
       .single()
@@ -27,7 +27,7 @@ export async function GET(
 
     const { data: notes } = await db
       .from('Note')
-      .select('*')
+      .select('id,content,timestampSeconds,isImportant,youtubeId,createdAt,updatedAt,userId')
       .eq('youtubeId', video.youtubeId)
       .eq('userId', user.id)
       .order('timestampSeconds', { ascending: true })

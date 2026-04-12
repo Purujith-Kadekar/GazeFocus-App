@@ -47,7 +47,11 @@ export async function PUT(
 
     await db.from('Todo').update(updateData).eq('id', id)
 
-    const todoResult = await db.from('Todo').select('*').eq('id', id).single()
+    const todoResult = await db
+      .from('Todo')
+      .select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId')
+      .eq('id', id)
+      .single()
 
     return NextResponse.json(todoResult.data)
   } catch (error) {

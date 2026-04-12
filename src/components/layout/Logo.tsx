@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 interface LogoProps {
@@ -10,7 +11,7 @@ interface LogoProps {
 
 export function Logo({ size = 32, className, style }: LogoProps) {
   return (
-    <img 
+    <Image 
       src="/logo.svg" 
       alt="GazeFocus Logo" 
       width={size} 

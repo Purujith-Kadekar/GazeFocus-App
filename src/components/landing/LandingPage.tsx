@@ -12,7 +12,7 @@ import {
 import {
   Eye, Play, FolderOpen, FileText,
   BarChart2, RefreshCw, Lock, CheckSquare,
-  ArrowRight, Settings, Zap, Info, CircleHelp, Tv,
+  ArrowRight, Settings, Zap, Tv,
 } from 'lucide-react'
 import { Logo } from '@/components/layout/Logo'
 
@@ -491,44 +491,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer style={{ borderTop: '1px solid rgba(212,135,10,0.07)', padding: '36px 0' }}>
-        <div className="max-w-6xl mx-auto px-6 flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <Logo size={28} />
-            <div className="flex flex-col">
-              <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '1.05rem', color: '#F2EDE4' }}>
-                GazeFocus
-              </span>
-              <p style={{ fontFamily: 'Fira Mono, monospace', fontSize: '12px', color: '#A89878', letterSpacing: '0.06em' }}>
-                © {new Date().getFullYear()} GazeFocus. All rights reserved.
-              </p>
-            </div>
-          </div>
-          <nav
-            aria-label="Footer links"
-            className="flex flex-wrap items-center justify-start gap-x-7 gap-y-3 md:justify-end"
-            style={{ fontFamily: 'Fira Mono, monospace', fontSize: '13px', color: '#D0C0A0', letterSpacing: '0.05em' }}
-          >
-            <Link href="/privacy-policy" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
-              <Lock size={14} />
-              Privacy
-            </Link>
-            <Link href="/terms-and-conditions" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
-              <FileText size={14} />
-              Terms
-            </Link>
-            <Link href="/about" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
-              <Info size={14} />
-              About
-            </Link>
-            <Link href="/fyq" className="inline-flex items-center gap-2 hover:text-[#D4870A] transition-colors">
-              <CircleHelp size={14} />
-              FYQ
-            </Link>
-          </nav>
-        </div>
-      </footer>
     </div>
   )
 }

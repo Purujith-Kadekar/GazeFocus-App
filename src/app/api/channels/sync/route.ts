@@ -93,7 +93,7 @@ async function syncChannel(
 
   const { count: totalVideos } = await supabase
     .from('Video')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('channelId', channel.id)
     .eq('userId', channel.userId)
 

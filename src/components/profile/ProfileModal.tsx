@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useAuthStore } from '@/store/useStore'
 import {
   Dialog,
@@ -161,9 +162,11 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
           <div className="flex flex-col items-center space-y-3">
             <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
               {user?.image ? (
-                <img 
+                <Image 
                   src={user.image} 
                   alt={user.name || 'Profile'} 
+                  width={80}
+                  height={80}
                   className="h-20 w-20 rounded-full object-cover"
                 />
               ) : (

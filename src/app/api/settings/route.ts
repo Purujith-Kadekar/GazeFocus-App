@@ -12,7 +12,11 @@ export async function GET() {
 
     const userId = user.id
 
-    let settingsResult = await db.from('UserSettings').select('*').eq('userId', userId).maybeSingle()
+    let settingsResult = await db
+      .from('UserSettings')
+      .select('id,userId,theme,onboardingCompleted,weeklyGoal,autoPlayNext,defaultPlaybackSpeed,eyeTrackingEnabled,eyeTrackingThreshold,inactivityTimeout,sensitivityMode,soundAlerts,watchBreakEnabled,watchBreakMinutes,watchBreakDurationMinutes,createdAt,updatedAt')
+      .eq('userId', userId)
+      .maybeSingle()
     let settings = settingsResult.data
 
     if (!settings) {
@@ -23,7 +27,7 @@ export async function GET() {
         onboardingCompleted: false,
         updatedAt: nowIso,
         createdAt: nowIso,
-      }).select().single()
+      }).select('id,userId,theme,onboardingCompleted,weeklyGoal,autoPlayNext,defaultPlaybackSpeed,eyeTrackingEnabled,eyeTrackingThreshold,inactivityTimeout,sensitivityMode,soundAlerts,watchBreakEnabled,watchBreakMinutes,watchBreakDurationMinutes,createdAt,updatedAt').single()
       if (newSettingsResult.error || !newSettingsResult.data) {
         console.error('Error creating settings:', newSettingsResult.error)
         return NextResponse.json({ error: 'Failed to create settings' }, { status: 500 })
@@ -85,7 +89,7 @@ export async function PUT(request: NextRequest) {
 
     let settings
     if (existingResult.data) {
-      const updateResult = await db.from('UserSettings').update(updateData).eq('userId', userId).select().single()
+      const updateResult = await db.from('UserSettings').update(updateData).eq('userId', userId).select('id,userId,theme,onboardingCompleted,weeklyGoal,autoPlayNext,defaultPlaybackSpeed,eyeTrackingEnabled,eyeTrackingThreshold,inactivityTimeout,sensitivityMode,soundAlerts,watchBreakEnabled,watchBreakMinutes,watchBreakDurationMinutes,createdAt,updatedAt').single()
       settings = updateResult.data
     } else {
       const nowIso = new Date().toISOString()
@@ -95,7 +99,7 @@ export async function PUT(request: NextRequest) {
         updatedAt: nowIso,
         createdAt: nowIso,
         ...updateData,
-      }).select().single()
+      }).select('id,userId,theme,onboardingCompleted,weeklyGoal,autoPlayNext,defaultPlaybackSpeed,eyeTrackingEnabled,eyeTrackingThreshold,inactivityTimeout,sensitivityMode,soundAlerts,watchBreakEnabled,watchBreakMinutes,watchBreakDurationMinutes,createdAt,updatedAt').single()
       settings = insertResult.data
     }
 

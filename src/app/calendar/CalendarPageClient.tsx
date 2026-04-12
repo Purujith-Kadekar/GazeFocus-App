@@ -56,7 +56,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
+import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
 import type { Todo, Video, Playlist } from '@/types'
+
+type CalendarCache = {
+  todos: Todo[]
+  videos: Video[]
+  playlists: Playlist[]
+}
+
+const CALENDAR_CACHE_KEY = 'gazefocus:calendar-page-cache'
 
 type CalendarEvent = {
   id: string
@@ -74,7 +83,8 @@ export default function CalendarPageClient() {
   const { todos, setTodos, removeTodo, updateTodo } = useTodoStore()
   const { videos, setVideos } = useVideoStore()
   const { playlists, setPlaylists } = usePlaylistStore()
-  const [isLoading, setIsLoading] = useState(true)
+  const cached = readRouteCache<CalendarCache>(CALENDAR_CACHE_KEY)
+  const [isLoading, setIsLoading] = useState(() => !cached?.payload)
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false)
   
   // Edit state
@@ -82,30 +92,56 @@ export default function CalendarPageClient() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true)
     try {
       const [todosRes, videosRes, playlistsRes] = await Promise.all([
         fetch('/api/todos').then(r => r.json()),
         fetch('/api/videos').then(r => r.json()),
         fetch('/api/playlists').then(r => r.json()),
       ])
-      setTodos(todosRes)
-      setVideos(videosRes)
-      setPlaylists(playlistsRes)
+      
+      const nextTodos = Array.isArray(todosRes) ? todosRes : []
+      const nextVideos = Array.isArray(videosRes) ? videosRes : []
+      const nextPlaylists = Array.isArray(playlistsRes) ? playlistsRes : []
+      
+      setTodos(nextTodos)
+      setVideos(nextVideos)
+      setPlaylists(nextPlaylists)
+      setIsLoading(false)
+      
+      writeRouteCache(CALENDAR_CACHE_KEY, {
+        todos: nextTodos,
+        videos: nextVideos,
+        playlists: nextPlaylists,
+      })
     } catch (error) {
       console.error('Failed to fetch calendar data:', error)
-    } finally {
       setIsLoading(false)
     }
-  }, [setTodos, setVideos, setPlaylists])
+  }, [setPlaylists, setTodos, setVideos])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (cached?.payload) {
+      setTodos(cached.payload.todos || [])
+      setVideos(cached.payload.videos || [])
+      setPlaylists(cached.payload.playlists || [])
+      // Refresh in background in a microtask to avoid sync state writes inside this effect.
+      queueMicrotask(() => {
+        void fetchData()
+      })
+      return
+    }
+
+    // No cache - fetch on first load in a microtask.
+    queueMicrotask(() => {
+      void fetchData()
+    })
+  }, [cached, fetchData, setPlaylists, setTodos, setVideos])
 
   // Listen for external refresh events
   useEffect(() => {
-    const handleRefresh = () => fetchData()
+    const handleRefresh = () => {
+      void fetchData()
+    }
     window.addEventListener('refresh-dashboard', handleRefresh)
     window.addEventListener('refresh-calendar', handleRefresh)
     return () => {

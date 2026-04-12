@@ -100,12 +100,12 @@ export async function GET() {
     ] = await Promise.all([
       db
         .from('Folder')
-        .select('*, items:LibraryItem(id)')
+        .select('id,title,description,position,userId,createdAt,updatedAt,items:LibraryItem(id)')
         .eq('userId', userId)
         .order('position', { ascending: true }),
       db
         .from('Video')
-        .select('*')
+        .select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId')
         .eq('userId', userId)
         .is('playlistId', null)
         .is('channelId', null)
@@ -113,7 +113,7 @@ export async function GET() {
         .order('createdAt', { ascending: true }),
       db
         .from('Note')
-        .select('*')
+        .select('id,content,timestampSeconds,isImportant,youtubeId,createdAt,updatedAt,userId')
         .eq('userId', userId)
         .order('createdAt', { ascending: false }),
       Promise.all([
@@ -127,11 +127,11 @@ export async function GET() {
       ]),
       db.from('VideoProgress').select('secondsWatched').eq('userId', userId),
       db.from('VideoProgress').select('youtubeId').eq('userId', userId).eq('completed', true),
-      db.from('Playlist').select('*').eq('userId', userId).order('createdAt', { ascending: false }),
+      db.from('Playlist').select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId').eq('userId', userId).order('createdAt', { ascending: false }),
       db.from('PlaylistMark').select('youtubeId').eq('userId', userId).eq('finished', true),
-      db.from('Todo').select('*').eq('userId', userId).order('createdAt', { ascending: false }),
-      db.from('UserSettings').select('*').eq('userId', userId).maybeSingle(),
-      db.from('Channel').select('*').eq('userId', userId).order('createdAt', { ascending: false }),
+      db.from('Todo').select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId').eq('userId', userId).order('createdAt', { ascending: false }),
+      db.from('UserSettings').select('id,userId,theme,onboardingCompleted,weeklyGoal,autoPlayNext,defaultPlaybackSpeed,eyeTrackingEnabled,eyeTrackingThreshold,inactivityTimeout,sensitivityMode,soundAlerts,watchBreakEnabled,watchBreakMinutes,watchBreakDurationMinutes,createdAt,updatedAt').eq('userId', userId).maybeSingle(),
+      db.from('Channel').select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt').eq('userId', userId).order('createdAt', { ascending: false }),
     ])
 
     const settings = settingsResult.data || null

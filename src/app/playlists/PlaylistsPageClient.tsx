@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderPlus, Copy } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
+import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
 import type { Playlist, Folder } from '@/types'
 
 interface PlaylistWithFolder extends Playlist {
@@ -26,15 +28,40 @@ interface PlaylistWithFolder extends Playlist {
 }
 
 interface PlaylistsPageClientProps {
-  initialPlaylists: Playlist[]
-  initialFolders: Folder[]
+  initialPlaylists?: Playlist[]
+  initialFolders?: Folder[]
 }
+
+type PlaylistsPageCache = {
+  playlists: Playlist[]
+  folders: Folder[]
+}
+
+const PLAYLISTS_CACHE_KEY = 'gazefocus:playlists-page-cache'
 
 export default function PlaylistsPageClient({ initialPlaylists, initialFolders }: PlaylistsPageClientProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [playlists, setPlaylists] = useState<Playlist[]>(initialPlaylists)
-  const [folders, setFolders] = useState<Folder[]>(initialFolders)
+  const cached = readRouteCache<PlaylistsPageCache>(PLAYLISTS_CACHE_KEY)
+  const [playlists, setPlaylists] = useState<Playlist[]>(cached?.payload.playlists || initialPlaylists || [])
+  const [folders, setFolders] = useState<Folder[]>(cached?.payload.folders || initialFolders || [])
+  const playlistsRef = useRef<Playlist[]>(cached?.payload.playlists || initialPlaylists || [])
+  const foldersRef = useRef<Folder[]>(cached?.payload.folders || initialFolders || [])
+
+  useEffect(() => {
+    playlistsRef.current = playlists
+  }, [playlists])
+
+  useEffect(() => {
+    foldersRef.current = folders
+  }, [folders])
+
+  const persistCache = useCallback((next: { playlists?: Playlist[]; folders?: Folder[] }) => {
+    writeRouteCache(PLAYLISTS_CACHE_KEY, {
+      playlists: next.playlists ?? playlistsRef.current,
+      folders: next.folders ?? foldersRef.current,
+    })
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -42,12 +69,59 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
     }
   }, [status, router])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadPlaylists = async () => {
+      try {
+        const [playlistsRes, foldersRes] = await Promise.all([
+          fetch('/api/playlists'),
+          fetch('/api/folders'),
+        ])
+
+        if (cancelled) return
+
+        if (playlistsRes.ok) {
+          const data = await playlistsRes.json()
+          const nextPlaylists = Array.isArray(data) ? data : []
+          setPlaylists(nextPlaylists)
+          persistCache({ playlists: nextPlaylists })
+        }
+
+        if (foldersRes.ok) {
+          const data = await foldersRes.json()
+          const nextFolders = Array.isArray(data) ? data : []
+          setFolders(nextFolders)
+          persistCache({ folders: nextFolders })
+        }
+      } catch {
+        // Keep cached data if the background refresh fails
+      }
+    }
+
+    // Only fetch from API if cache doesn't exist (first load)
+    if (!cached?.payload) {
+      void loadPlaylists()
+    } else {
+      // Cache exists - refresh in background
+      void loadPlaylists()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Refresh playlists when content is added from modals
   useEffect(() => {
     const handleRefresh = () => {
       fetch('/api/playlists')
         .then(r => r.ok ? r.json() : [])
-        .then(setPlaylists)
+        .then((data) => {
+          const nextPlaylists = Array.isArray(data) ? data : []
+          setPlaylists(nextPlaylists)
+          persistCache({ playlists: nextPlaylists })
+        })
         .catch(() => {})
     }
     window.addEventListener('refresh-playlists', handleRefresh)
@@ -61,7 +135,10 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
         method: 'DELETE',
       })
       if (response.ok) {
-        setPlaylists(playlists.filter(p => p.id !== playlistId))
+        const next = playlistsRef.current.filter(p => p.id !== playlistId)
+        setPlaylists(next)
+        persistCache({ playlists: next })
+        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
       console.error('Failed to delete playlist:', error)
@@ -187,9 +264,11 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
                 <CardContent className="p-0">
                   <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
                     {playlist.thumbnail ? (
-                      <img
+                      <Image
                         src={playlist.thumbnail}
                         alt={playlist.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 25vw"
                         className="w-full h-full object-cover"
                       />
                     ) : (

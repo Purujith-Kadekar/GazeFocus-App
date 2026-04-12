@@ -306,7 +306,7 @@ export class QuotaEngine {
     // 1. Check Cache
     const { data: cached } = await supabase
       .from('VideoCache')
-      .select('*')
+      .select('youtubeId,title,description,thumbnail,duration,publishedAt,channelId,liveBroadcastContent')
       .eq('youtubeId', videoId)
       .maybeSingle()
 
@@ -365,7 +365,7 @@ export class QuotaEngine {
   static async getChannel(channelId: string, userId?: string): Promise<ChannelMetadata | null> {
     const { data: cached } = await supabase
       .from('ChannelCache')
-      .select('*')
+      .select('youtubeId,title,description,thumbnail,subscriberCount,videoCount,uploadsPlaylistId,lastSyncedAt,nextPageToken')
       .eq('youtubeId', channelId)
       .maybeSingle()
 
@@ -559,7 +559,7 @@ export class QuotaEngine {
   static async getCachedVideos(channelId: string, limit = 50, offset = 0): Promise<VideoMetadata[]> {
     const { data: videos } = await supabase
       .from('VideoCache')
-      .select('*')
+      .select('youtubeId,title,description,thumbnail,duration,publishedAt,channelId,liveBroadcastContent')
       .eq('channelId', channelId)
       .order('publishedAt', { ascending: false })
       .range(offset, offset + limit - 1)

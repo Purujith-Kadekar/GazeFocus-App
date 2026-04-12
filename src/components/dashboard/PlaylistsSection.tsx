@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Play, ListVideo, MoreVertical, Trash2, FolderInput, CheckCircle, Circle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -207,9 +208,11 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
               >
                 <div className="relative w-32 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
                   {playlist.thumbnail ? (
-                    <img
+                    <Image
                       src={playlist.thumbnail}
                       alt={playlist.title}
+                      fill
+                      sizes="128px"
                       className="w-full h-full object-cover"
                     />
                   ) : (

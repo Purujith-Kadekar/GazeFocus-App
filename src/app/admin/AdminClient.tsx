@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { 
   Table, 
   TableBody, 
@@ -194,7 +195,7 @@ export default function AdminClient() {
                           <div className="flex items-center gap-3">
                             <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20">
                               {user.image ? (
-                                <img src={user.image} alt={user.name || ''} className="h-full w-full object-cover" />
+                                <Image src={user.image} alt={user.name || ''} width={36} height={36} className="h-full w-full object-cover" />
                               ) : (
                                 <UserIcon className="h-5 w-5 text-primary" />
                               )}

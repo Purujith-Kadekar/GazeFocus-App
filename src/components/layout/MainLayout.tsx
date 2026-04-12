@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore, useEyeTrackingStore } from '@/store/useStore'
-import { cn } from '@/lib/utils'
 import { AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -242,17 +241,14 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
-      <div
-        className={cn(
-          '',
-          isSidebarOpen ? 'ml-64' : 'ml-16'
-        )}
-      >
-        <Header />
-        <main className="p-4 md:p-6">
-          {children}
-        </main>
+      <div className="flex min-h-screen w-full">
+        <Sidebar />
+        <div className="min-w-0 flex-1">
+          <Header />
+          <main className="p-4 md:p-6">
+            {children}
+          </main>
+        </div>
       </div>
 
       {/* Onboarding Guide */}

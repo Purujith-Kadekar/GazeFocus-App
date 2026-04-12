@@ -48,7 +48,7 @@ export async function createChannel(data: {
 export async function getChannelsByUser(userId: string) {
   const { data, error } = await supabase
     .from('Channel')
-    .select('*')
+    .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
     .eq('userId', userId)
     .order('createdAt', { ascending: false })
 
@@ -58,7 +58,7 @@ export async function getChannelsByUser(userId: string) {
 export async function getChannelById(channelId: string) {
   const { data, error } = await supabase
     .from('Channel')
-    .select('*')
+    .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
     .eq('id', channelId)
     .single()
 

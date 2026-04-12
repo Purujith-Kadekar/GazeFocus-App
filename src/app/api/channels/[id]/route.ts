@@ -27,7 +27,7 @@ export async function GET(
 
     const { data: channel, error } = await supabase
       .from('Channel')
-      .select('*')
+      .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .eq('id', id)
       .eq('userId', user.id)
       .maybeSingle()

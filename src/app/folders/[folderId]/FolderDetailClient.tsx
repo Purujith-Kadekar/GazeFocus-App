@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, FolderOpen, Play, ListVideo, Trash2, MoreVertical, CheckCircle, Circle } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +14,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
+import { beginRouteLoading, endRouteLoading } from '@/components/layout/RouteTopLoader'
 import type { Folder, LibraryItem } from '@/types'
 
 interface LibraryItemWithDetails extends LibraryItem {
@@ -23,25 +26,102 @@ interface LibraryItemWithDetails extends LibraryItem {
 }
 
 interface FolderDetailClientProps {
-  initialFolder: Folder
-  initialFolders: Folder[]
-  initialItems: LibraryItemWithDetails[]
-  completedPlaylists: Set<string>
+  folderId: string
+}
+
+type FolderDetailCache = {
+  folder: Folder | null
+  allFolders: Folder[]
+  items: LibraryItemWithDetails[]
+  completedPlaylists: string[]
 }
 
 export default function FolderDetailClient({ 
-  initialFolder, 
-  initialFolders, 
-  initialItems,
-  completedPlaylists: initialCompleted 
+  folderId,
 }: FolderDetailClientProps) {
   const { status } = useSession()
   const router = useRouter()
+
+  const cacheKey = useMemo(() => `gazefocus:folder-detail:${folderId}`, [folderId])
+  const cached = useMemo(() => readRouteCache<FolderDetailCache>(cacheKey), [cacheKey])
   
-  const [folders] = useState<Folder[]>(initialFolders)
-  const [selectedFolder] = useState<Folder | null>(initialFolder)
-  const [folderItems, setFolderItems] = useState<LibraryItemWithDetails[]>(initialItems)
-  const [completedPlaylists] = useState<Set<string>>(initialCompleted)
+  const [folders, setFolders] = useState<Folder[]>(cached?.payload?.allFolders || [])
+  const [selectedFolder, setSelectedFolder] = useState<Folder | null>(cached?.payload?.folder || null)
+  const [folderItems, setFolderItems] = useState<LibraryItemWithDetails[]>(cached?.payload?.items || [])
+  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set(cached?.payload?.completedPlaylists || []))
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login')
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadFolderDetails = async () => {
+      beginRouteLoading()
+
+      try {
+        const [folderRes, allFoldersRes, completedRes] = await Promise.all([
+          fetch(`/api/folders/${folderId}`),
+          fetch('/api/folders'),
+          fetch('/api/progress/complete').catch(() => null),
+        ])
+
+        if (cancelled) return
+
+        if (!folderRes.ok) {
+          router.push('/folders')
+          return
+        }
+
+        const folderData = await folderRes.json()
+        const allFoldersData = allFoldersRes.ok ? await allFoldersRes.json() : []
+        const completedData = completedRes && completedRes.ok ? await completedRes.json() : { completedPlaylists: [] }
+
+        const folder: Folder | null = folderData ? {
+          id: folderData.id,
+          userId: folderData.userId,
+          title: folderData.title,
+          description: folderData.description,
+          parentId: folderData.parentId ?? null,
+          position: folderData.position,
+          createdAt: folderData.createdAt,
+          updatedAt: folderData.updatedAt,
+        } : null
+
+        const items: LibraryItemWithDetails[] = Array.isArray(folderData?.items)
+          ? folderData.items
+          : []
+
+        const nextFolders = Array.isArray(allFoldersData) ? allFoldersData : []
+        const nextCompleted = new Set<string>(completedData?.completedPlaylists || [])
+
+        setSelectedFolder(folder)
+        setFolderItems(items)
+        setFolders(nextFolders)
+        setCompletedPlaylists(nextCompleted)
+
+        writeRouteCache(cacheKey, {
+          folder,
+          allFolders: nextFolders,
+          items,
+          completedPlaylists: Array.from(nextCompleted),
+        })
+      } catch {
+        // Keep cached content if refresh fails.
+      } finally {
+        endRouteLoading()
+      }
+    }
+
+    void loadFolderDetails()
+
+    return () => {
+      cancelled = true
+    }
+  }, [folderId, cacheKey, router])
 
   const handleDeleteFolder = async (folderId: string) => {
     try {
@@ -63,11 +143,55 @@ export default function FolderDetailClient({
   const handleRemoveFromFolder = async (item: LibraryItemWithDetails) => {
     try {
       await fetch(`/api/library-items/${item.id}`, { method: 'DELETE' })
-      setFolderItems(folderItems.filter(i => i.id !== item.id))
+      const nextItems = folderItems.filter(i => i.id !== item.id)
+      setFolderItems(nextItems)
+      writeRouteCache(cacheKey, {
+        folder: selectedFolder,
+        allFolders: folders,
+        items: nextItems,
+        completedPlaylists: Array.from(completedPlaylists),
+      })
     } catch (error) {
       console.error('Failed to remove item from folder:', error)
     }
   }
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      beginRouteLoading()
+      fetch(`/api/folders/${folderId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return
+          const folder: Folder = {
+            id: data.id,
+            userId: data.userId,
+            title: data.title,
+            description: data.description,
+            parentId: data.parentId ?? null,
+            position: data.position,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          }
+          const items = Array.isArray(data.items) ? data.items : []
+          setSelectedFolder(folder)
+          setFolderItems(items)
+          writeRouteCache(cacheKey, {
+            folder,
+            allFolders: folders,
+            items,
+            completedPlaylists: Array.from(completedPlaylists),
+          })
+        })
+        .catch(() => {})
+        .finally(() => {
+          endRouteLoading()
+        })
+    }
+
+    window.addEventListener('refresh-folders', handleRefresh)
+    return () => window.removeEventListener('refresh-folders', handleRefresh)
+  }, [folderId, cacheKey, folders, completedPlaylists])
 
   return (
     <MainLayout>
@@ -128,9 +252,11 @@ export default function FolderDetailClient({
                   <CardContent className="p-0">
                     <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
                       {item.thumbnail ? (
-                        <img
+                        <Image
                           src={item.thumbnail}
                           alt={item.title}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 25vw"
                           className="w-full h-full object-cover"
                         />
                       ) : (

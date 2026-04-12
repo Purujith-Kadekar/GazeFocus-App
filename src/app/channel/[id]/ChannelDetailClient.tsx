@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, Radio, Users, Grid, List, Eye, RefreshCw } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/button'
@@ -135,9 +136,11 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
         <div className="flex flex-col md:flex-row gap-6">
           <div className="w-full md:w-64 shrink-0">
             {channel.thumbnail ? (
-              <img
+              <Image
                 src={channel.thumbnail}
                 alt={channel.title}
+                width={256}
+                height={256}
                 className={cn(
                   'w-full aspect-square object-cover rounded-lg',
                   channel.isLive && 'ring-4 ring-red-500'
@@ -288,9 +291,11 @@ function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
       <CardContent className="p-0">
         <div className="relative aspect-video">
           {video.thumbnail ? (
-            <img
+            <Image
               src={video.thumbnail}
               alt={video.title}
+              fill
+              sizes="(max-width: 1024px) 100vw, 25vw"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -323,7 +328,7 @@ function VideoListItem({ video, onClick }: { video: Video; onClick: () => void }
     >
       <div className="relative w-40 aspect-video shrink-0 rounded overflow-hidden">
         {video.thumbnail ? (
-          <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+          <Image src={video.thumbnail} alt={video.title} fill sizes="160px" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <Play className="h-6 w-6 text-muted-foreground/50" />
@@ -354,9 +359,11 @@ function LiveVideoCard({ video, onClick }: { video: LiveVideo; onClick: () => vo
       <CardContent className="p-0">
         <div className="relative aspect-video">
           {video.thumbnail ? (
-            <img
+            <Image
               src={video.thumbnail}
               alt={video.title}
+              fill
+              sizes="(max-width: 1024px) 100vw, 25vw"
               className="w-full h-full object-cover"
             />
           ) : (

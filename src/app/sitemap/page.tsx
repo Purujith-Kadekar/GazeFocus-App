@@ -81,7 +81,7 @@ const categories = [
       { label: 'Folders',   href: '/folders',   icon: FolderOpen,       desc: 'Organise content'    },
     ],
   },
-] as const
+]
 
 /* ── Page ────────────────────────────────────────────────────────── */
 export default function SitemapPage() {

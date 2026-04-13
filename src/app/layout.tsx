@@ -32,12 +32,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://gaze-focus.vercel.app"),
   title: {
-    default: "GazeFocus - Focus-Aware YouTube Learning Platform",
+    default: "GazeFocus - Focus-Aware YouTube Learning Platform by Purujith Kadekar",
     template: "%s | GazeFocus",
   },
-  description: "GazeFocus is a productivity web app for focus-aware YouTube learning, playlist management, reminders, and progress tracking.",
-  keywords: ["GazeFocus", "eye tracking", "learning", "YouTube", "focus", "distraction-free"],
-  authors: [{ name: "Purujith Kadekar" }],
+  description: "GazeFocus is a focus-aware YouTube learning platform built by Purujith Kadekar. Manage playlists, track study progress, set reminders, and stay distraction-free while learning.",
+  keywords: [
+    "GazeFocus",
+    "Purujith Kadekar",
+    "focus-aware learning",
+    "YouTube learning platform",
+    "eye tracking",
+    "distraction-free study",
+    "playlist management",
+    "progress tracking",
+    "study reminders",
+    "online learning productivity",
+  ],
+  authors: [{ name: "Purujith Kadekar", url: "https://www.linkedin.com/in/purujith-kadekar/" }],
+  creator: "Purujith Kadekar",
   alternates: {
     canonical: "/",
   },
@@ -52,16 +64,17 @@ export const metadata: Metadata = {
     apple: { url: "/logo.svg" },
   },
   openGraph: {
-    title: "GazeFocus - Focus-Aware YouTube Learning Platform",
-    description: "Your eyes stay focused. Your learning stays on track with focus-aware playback, reminders, and progress dashboards.",
+    title: "GazeFocus - Focus-Aware YouTube Learning Platform by Purujith Kadekar",
+    description: "Built by Purujith Kadekar — GazeFocus keeps your eyes and mind on track with focus-aware playback, playlist management, reminders, and progress dashboards.",
     type: "website",
     url: "https://gaze-focus.vercel.app",
     siteName: "GazeFocus",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GazeFocus - Focus-Aware YouTube Learning Platform",
-    description: "Track focus, organize videos and playlists, and build consistent study routines.",
+    title: "GazeFocus by Purujith Kadekar - Focus-Aware YouTube Learning",
+    description: "Track focus, organize videos and playlists, and build consistent study routines. Created by Purujith Kadekar.",
+    creator: "@purujithkadekar",
   },
   robots: {
     index: true,
@@ -74,10 +87,14 @@ const websiteJsonLd = {
   "@type": "WebSite",
   name: "GazeFocus",
   url: "https://gaze-focus.vercel.app",
-  description: "GazeFocus is a productivity web app for focus-aware YouTube learning, playlist management, reminders, and progress tracking.",
+  description: "GazeFocus is a focus-aware YouTube learning platform built by Purujith Kadekar. Manage playlists, track study progress, set reminders, and stay distraction-free while learning.",
   author: {
     "@type": "Person",
     name: "Purujith Kadekar",
+    url: "https://gaze-focus.vercel.app/about",
+    sameAs: [
+      "https://www.linkedin.com/in/purujith-kadekar/",
+    ],
   },
   potentialAction: {
     "@type": "SearchAction",
@@ -86,6 +103,22 @@ const websiteJsonLd = {
       urlTemplate: "https://gaze-focus.vercel.app/search?q={search_term_string}",
     },
     "query-input": "required name=search_term_string",
+  },
+};
+
+const personJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: "Purujith Kadekar",
+  url: "https://gaze-focus.vercel.app/about",
+  sameAs: [
+    "https://www.linkedin.com/in/purujith-kadekar/",
+  ],
+  jobTitle: "Founder",
+  worksFor: {
+    "@type": "Organization",
+    name: "GazeFocus",
+    url: "https://gaze-focus.vercel.app",
   },
 };
 
@@ -103,6 +136,10 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
         />
       </head>
       <body

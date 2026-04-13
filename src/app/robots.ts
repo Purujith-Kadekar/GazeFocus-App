@@ -5,8 +5,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/about', '/fyq', '/privacy-policy', '/terms-and-conditions'],
-        disallow: ['/admin', '/auth', '/dashboard', '/settings', '/api'],
+        allow: ['/', '/about', '/fyq', '/privacy-policy', '/terms-and-conditions', '/sitemap', '/auth/login', '/auth/signup'],
+        disallow: ['/admin', '/auth/verify-email', '/dashboard', '/settings', '/api'],
       },
     ],
     sitemap: 'https://gaze-focus.vercel.app/sitemap.xml',

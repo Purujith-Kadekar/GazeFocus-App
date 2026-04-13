@@ -69,6 +69,26 @@ export const metadata: Metadata = {
   },
 };
 
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "GazeFocus",
+  url: "https://gaze-focus.vercel.app",
+  description: "GazeFocus is a productivity web app for focus-aware YouTube learning, playlist management, reminders, and progress tracking.",
+  author: {
+    "@type": "Person",
+    name: "Purujith Kadekar",
+  },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: "https://gaze-focus.vercel.app/search?q={search_term_string}",
+    },
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -79,6 +99,12 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

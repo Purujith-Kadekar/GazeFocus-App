@@ -60,7 +60,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (currentView === 'folder' && selectedFolder?.id) {
       const folderId = selectedFolder.id
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsFolderItemsLoading(true)
       fetch(`/api/folders/${folderId}`)
         .then(r => r.ok ? r.json() : { items: [] })

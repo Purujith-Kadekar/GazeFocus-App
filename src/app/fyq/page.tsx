@@ -38,9 +38,26 @@ const qaItems = [
   },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: qaItems.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a,
+    },
+  })),
+};
+
 export default function FYQPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <div className="mx-auto w-full max-w-4xl px-6 py-14 md:py-20">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">FYQ</h1>
         <p className="mt-3 text-sm text-muted-foreground md:text-base">Frequently asked questions.</p>

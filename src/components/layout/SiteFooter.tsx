@@ -39,7 +39,7 @@ export function SiteFooter() {
             <CircleHelp size={14} />
             FYQ
           </Link>
-          <Link href="/sitemap.xml" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
+          <Link href="/sitemap" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
             <FileText size={14} />
             Sitemap
           </Link>

@@ -28,6 +28,8 @@ import { RecentFolders } from './RecentFolders'
 import { PlaylistsSection } from './PlaylistsSection'
 import { TodoList } from './TodoList'
 import { ReminderDialog } from './ReminderDialog'
+import { DashboardMobile } from '@/components/dashboard/DashboardMobile'
+import { DashboardTablet } from '@/components/dashboard/DashboardTablet'
 import DashboardSkeleton from './DashboardSkeleton'
 import { useReminderChecker } from '@/hooks/useReminderChecker'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,38 +46,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useFolderStore, useVideoStore, useNoteStore, useDashboardStore, useUIStore, useTodoStore } from '@/store/useStore'
 import { formatWatchTime, cn } from '@/lib/utils'
 import { getDashboardBootstrapCache, isDashboardBootstrapCacheFresh, setDashboardBootstrapCache } from '@/lib/dashboard-bootstrap-cache'
-import type { Video, Note, Folder, Playlist, Channel, ChannelWithFolder } from '@/types'
-
-type PlaylistWithFolder = Playlist & { folderId: string | null }
-
-interface DashboardStats {
-  totalPlaylists: number
-  completedPlaylists: number
-  totalVideos: number
-  watchedVideos: number
-  weeklyVideosWatched: number
-  totalNotes: number
-  importantNotes: number
-  totalWatchTime: number
-  streak: number
-  longestStreak?: number
-  totalChannels: number
-  liveChannels: number
-}
-
-interface DashboardBootstrapResponse {
-  userId: string
-  folders: Folder[]
-  videos: Video[]
-  notes: Note[]
-  stats: DashboardStats
-  completedVideos: string[]
-  playlists: PlaylistWithFolder[]
-  completedPlaylists: string[]
-  todos: any[]
-  settings: { weeklyGoal?: number } | null
-  channels: Channel[]
-}
+import type { Video, Note, Channel } from '@/types'
+import type { DashboardBootstrapResponse, DashboardStats, PlaylistWithFolder } from './dashboard-types'
 
 export function Dashboard() {
   const router = useRouter()
@@ -84,8 +56,10 @@ export function Dashboard() {
   const { notes, setNotes } = useNoteStore()
   const { stats, setStats, setRecentVideos, setRecentFolders, setImportantNotes } = useDashboardStore()
   const { setCurrentView, setAddModalOpen, setDashboardBootLoading } = useUIStore()
-  const { setTodos } = useTodoStore()
-  const [isLoading, setIsLoading] = useState(() => !getDashboardBootstrapCache()?.payload)
+  const { todos, setTodos } = useTodoStore()
+  // Keep first SSR and first client render identical to avoid hydration mismatch.
+  const [isLoading, setIsLoading] = useState(true)
+  const [viewportMode, setViewportMode] = useState<'mobile' | 'tablet' | 'desktop' | null>(null)
   const { dueTodos, dialogOpen, setDialogOpen, dismissReminder, dismissAll } = useReminderChecker()
 
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
@@ -95,6 +69,8 @@ export function Dashboard() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [isRefreshingLive, setIsRefreshingLive] = useState(false)
   const hasPrefetchedRoutes = useRef(false)
+  const scheduledTasks = todos.filter((todo) => Boolean(todo.reminderAt) && !todo.completed).length
+  const pendingTasks = todos.filter((todo) => !todo.completed).length
 
   const applyBootstrapData = useCallback((data: DashboardBootstrapResponse) => {
     setFolders(data.folders || [])
@@ -135,20 +111,40 @@ export function Dashboard() {
       setDashboardBootLoading(true)
     }
 
-    return fetch('/api/dashboard/bootstrap', { cache: 'no-store' })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 9000)
+    let safetyReleaseId: ReturnType<typeof setTimeout> | null = null
+
+    if (bootLoad) {
+      // Absolute safeguard: never let skeleton stay forever on a hung request.
+      safetyReleaseId = setTimeout(() => {
+        setIsLoading(false)
+        setDashboardBootLoading(false)
+      }, 11000)
+    }
+
+    return fetch('/api/dashboard/bootstrap', { cache: 'no-store', signal: controller.signal })
       .then(r => (r?.ok ? r.json() : null))
       .then((data: DashboardBootstrapResponse | null) => {
         if (!data) return
         applyBootstrapData(data)
         setDashboardBootstrapCache(data)
-    }).catch(() => {
+      }).catch((error) => {
+        // Abort/timeout/network issues are expected on occasional back/forward restores.
+        if ((error as { name?: string } | null)?.name !== 'AbortError') {
+          console.error('Failed to fetch dashboard bootstrap payload:', error)
+        }
       // If requests fail, release loading state instead of freezing the skeleton.
-    }).finally(() => {
+      }).finally(() => {
+      clearTimeout(timeoutId)
+      if (safetyReleaseId) {
+        clearTimeout(safetyReleaseId)
+      }
       if (bootLoad) {
         setIsLoading(false)
         setDashboardBootLoading(false)
       }
-    })
+      })
   }, [applyBootstrapData, setDashboardBootLoading])
 
   useEffect(() => {
@@ -169,6 +165,23 @@ export function Dashboard() {
       setDashboardBootLoading(false)
     }
   }, [applyBootstrapData, fetchDashboardData, setDashboardBootLoading])
+
+  useEffect(() => {
+    const applyViewportMode = () => {
+      const width = window.innerWidth
+      if (width < 768) {
+        setViewportMode('mobile')
+      } else if (width < 1024) {
+        setViewportMode('tablet')
+      } else {
+        setViewportMode('desktop')
+      }
+    }
+
+    applyViewportMode()
+    window.addEventListener('resize', applyViewportMode)
+    return () => window.removeEventListener('resize', applyViewportMode)
+  }, [])
 
   useEffect(() => {
     const handleRefresh = () => fetchDashboardData()
@@ -337,7 +350,55 @@ export function Dashboard() {
     )
   }
 
+  if (viewportMode === null) {
+    return (
+      <DashboardSkeleton loading={true}>
+        <div />
+      </DashboardSkeleton>
+    )
+  }
+
   const weeklyGoalProgress = stats ? Math.min(100, Math.round((stats.weeklyVideosWatched / weeklyGoal) * 100)) : 0
+
+  if (viewportMode === 'mobile') {
+    return (
+      <DashboardMobile
+        stats={stats}
+        weeklyGoal={weeklyGoal}
+        videos={videos}
+        notes={notes}
+        folders={folders}
+        playlists={playlists}
+        channels={channels}
+        scheduledTasks={scheduledTasks}
+        pendingTasks={pendingTasks}
+        isRefreshingLive={isRefreshingLive}
+        onVideoClick={handleVideoClick}
+        onNoteClick={handleNoteClick}
+        onAddContent={() => setAddModalOpen(true)}
+        onRefreshLiveStatus={handleRefreshLiveStatus}
+      />
+    )
+  }
+
+  if (viewportMode === 'tablet') {
+    return (
+      <DashboardTablet
+        stats={stats}
+        weeklyGoal={weeklyGoal}
+        videos={videos}
+        notes={notes}
+        folders={folders}
+        playlists={playlists}
+        channels={channels}
+        isRefreshingLive={isRefreshingLive}
+        onVideoClick={handleVideoClick}
+        onNoteClick={handleNoteClick}
+        onAddContent={() => setAddModalOpen(true)}
+        onRefreshLiveStatus={handleRefreshLiveStatus}
+      />
+    )
+  }
 
   return (
     <DashboardSkeleton loading={false}>

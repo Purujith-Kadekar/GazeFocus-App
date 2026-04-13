@@ -117,25 +117,25 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Folders</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Folders</h1>
           <p className="text-muted-foreground">
             Organize your videos and playlists into folders
           </p>
         </div>
 
         {folders.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
             {folders.map((folder) => (
               <Card 
                 key={folder.id} 
-                className="hover:shadow-md transition-shadow cursor-pointer min-h-[140px] flex flex-col"
+                className="aspect-square cursor-pointer transition-shadow hover:shadow-md md:aspect-auto md:min-h-[140px]"
                 onClick={() => router.push(`/folders/${folder.id}`)}
               >
-                <CardHeader className="pb-2">
+                <CardHeader className="p-2 pb-1 md:p-6 md:pb-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FolderOpen className="h-5 w-5 text-amber-500" />
-                      <CardTitle className="text-base line-clamp-1">{folder.title}</CardTitle>
+                      <FolderOpen className="h-4 w-4 text-amber-500 md:h-5 md:w-5" />
+                      <CardTitle className="line-clamp-1 text-sm md:text-base">{folder.title}</CardTitle>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -162,8 +162,8 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent className="mt-auto">
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                <CardContent className="mt-auto p-2 pt-0 md:p-6 md:pt-0">
+                  <p className="line-clamp-3 text-xs text-muted-foreground md:text-sm">
                     {folder.description || 'No description'}
                   </p>
                 </CardContent>

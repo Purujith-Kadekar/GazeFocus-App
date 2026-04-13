@@ -240,7 +240,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
             <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
               <CardContent className="min-w-0 max-w-full p-3">
                 <div className="flex min-w-0 max-w-full items-start gap-3 overflow-hidden">
-                  <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded bg-muted">
+                  <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded bg-muted sm:h-20 sm:w-32">
                     {isLoadingPreview ? (
                       <div className="w-full h-full flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -250,7 +250,7 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
                         src={previewData.thumbnail}
                         alt={previewData.title || 'Preview'}
                         fill
-                        sizes="128px"
+                        sizes="(max-width: 640px) 96px, 128px"
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.src = 'https://img.youtube.com/vi/default/maxresdefault.jpg'

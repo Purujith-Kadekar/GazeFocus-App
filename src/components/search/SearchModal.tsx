@@ -196,15 +196,15 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
   }
 
   return (
-      <div className="flex gap-3 p-3 rounded-lg border hover:bg-accent transition-colors cursor-pointer">
-      <div className="relative w-32 h-20 shrink-0 rounded overflow-hidden bg-muted">
+      <div className="flex gap-3 rounded-lg border p-3 transition-colors cursor-pointer hover:bg-accent">
+      <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded bg-muted sm:h-20 sm:w-32">
         {result.type === 'channel' ? (
           result.thumbnail ? (
             <Image
               src={result.thumbnail}
               alt={result.title}
               fill
-              sizes="128px"
+              sizes="(max-width: 640px) 96px, 128px"
               className="w-full h-full object-cover rounded-full"
               onError={(e) => {
                 e.currentTarget.src = '/placeholder.png'
@@ -220,7 +220,7 @@ function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
             src={result.thumbnail}
             alt={result.title}
             fill
-            sizes="128px"
+            sizes="(max-width: 640px) 96px, 128px"
             className="w-full h-full object-cover"
             onError={(e) => {
               e.currentTarget.src = '/placeholder.png'

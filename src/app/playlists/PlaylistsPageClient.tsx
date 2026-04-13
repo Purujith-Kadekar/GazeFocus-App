@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Play, Loader2, ListVideo, MoreVertical, Trash2, FolderPlus, Copy } from 'lucide-react'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDuration } from '@/lib/utils'
 import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
+import { getDashboardBootstrapCache } from '@/lib/dashboard-bootstrap-cache'
 import type { Playlist, Folder } from '@/types'
 
 interface PlaylistWithFolder extends Playlist {
@@ -41,11 +42,23 @@ const PLAYLISTS_CACHE_KEY = 'gazefocus:playlists-page-cache'
 export default function PlaylistsPageClient({ initialPlaylists, initialFolders }: PlaylistsPageClientProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const cached = readRouteCache<PlaylistsPageCache>(PLAYLISTS_CACHE_KEY)
-  const [playlists, setPlaylists] = useState<Playlist[]>(cached?.payload.playlists || initialPlaylists || [])
-  const [folders, setFolders] = useState<Folder[]>(cached?.payload.folders || initialFolders || [])
-  const playlistsRef = useRef<Playlist[]>(cached?.payload.playlists || initialPlaylists || [])
-  const foldersRef = useRef<Folder[]>(cached?.payload.folders || initialFolders || [])
+  const cached = useMemo(() => readRouteCache<PlaylistsPageCache>(PLAYLISTS_CACHE_KEY), [])
+  const dashboardCached = useMemo(() => getDashboardBootstrapCache()?.payload, [])
+  const initialCachedPlaylists =
+    cached?.payload.playlists ||
+    (Array.isArray(dashboardCached?.playlists) ? (dashboardCached.playlists as Playlist[]) : undefined) ||
+    initialPlaylists ||
+    []
+  const initialCachedFolders =
+    cached?.payload.folders ||
+    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as Folder[]) : undefined) ||
+    initialFolders ||
+    []
+
+  const [playlists, setPlaylists] = useState<Playlist[]>(initialCachedPlaylists)
+  const [folders, setFolders] = useState<Folder[]>(initialCachedFolders)
+  const playlistsRef = useRef<Playlist[]>(initialCachedPlaylists)
+  const foldersRef = useRef<Folder[]>(initialCachedFolders)
 
   useEffect(() => {
     playlistsRef.current = playlists

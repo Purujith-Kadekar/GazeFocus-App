@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Plus, Bell, Menu, Eye, EyeOff } from 'lucide-react'
+import { Search, Plus, Bell, Eye, EyeOff } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Tooltip,
   TooltipContent,
@@ -19,9 +20,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useUIStore, useEyeTrackingStore, useFolderStore } from '@/store/useStore'
+import { useEyeTrackingStore, useFolderStore } from '@/store/useStore'
 import { SearchModal } from '@/components/search/SearchModal'
 import { AddContentModal } from '@/components/search/AddContentModal'
+import { Logo } from './Logo'
 
 interface Notification {
   id: string
@@ -43,7 +45,8 @@ function timeAgo(dateStr: string): string {
 }
 
 export function Header() {
-  const { toggleSidebar, isSidebarOpen } = useUIStore()
+  const router = useRouter()
+  const pathname = usePathname()
   const { isEnabled: eyeTrackingEnabled, setEnabled: setEyeTrackingEnabled, isCalibrated, isLookingAtScreen } = useEyeTrackingStore()
   const { folders } = useFolderStore()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -85,35 +88,38 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-        {/* Mobile menu button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          aria-label="Toggle sidebar"
-          onClick={toggleSidebar}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-
-        {/* Spacer for mobile */}
-        <div className="md:hidden w-8" />
+        {/* Mobile Brand */}
+        <Link id="onboarding-mobile-brand" href="/dashboard" className="flex items-center gap-2 md:hidden">
+          <Logo size={24} />
+          <span className="text-sm font-semibold text-foreground">GazeFocus</span>
+        </Link>
 
         {/* Search Bar - Center */}
         <div id="onboarding-search-bar" className="flex-1 max-w-md mx-auto">
           <Button
             variant="outline"
-            className="w-full justify-start text-muted-foreground bg-background border border-border hover:bg-accent hover:text-accent-foreground dark:border-white/30"
+            className="hidden w-full justify-start border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:border-white/30 md:flex"
             onClick={() => setIsSearchOpen(true)}
           >
             <Search className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Search playlists and videos...</span>
-            <span className="sm:hidden">Search...</span>
+            <span>Search playlists and videos...</span>
           </Button>
         </div>
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
+          {/* Mobile Search Button */}
+          <Button
+            id="onboarding-mobile-search"
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            aria-label="Open search"
+            onClick={() => setIsSearchOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+
           {/* Add Content Button */}
           <Button id="onboarding-add-content" onClick={() => setIsAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />

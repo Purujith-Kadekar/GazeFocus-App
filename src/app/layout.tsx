@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "./providers";
-import { SchedulerInit } from "@/components/SchedulerInit";
-import { SiteFooter } from "@/components/layout/SiteFooter";
+import { AutoSyncInit } from "@/components/AutoSyncInit";
+
+type ViewportMode = "mobile" | "tablet" | "desktop";
+
+function detectInitialViewportMode(requestHeaders: Headers): ViewportMode {
+  const chMobile = requestHeaders.get("sec-ch-ua-mobile");
+  if (chMobile === "?1") return "mobile";
+
+  const ua = (requestHeaders.get("user-agent") || "").toLowerCase();
+  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(ua)) return "tablet";
+  if (/mobi|iphone|ipod|android.*mobile|windows phone/.test(ua)) return "mobile";
+
+  return "desktop";
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,94 +69,22 @@ export const metadata: Metadata = {
   },
 };
 
-const organizationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "GazeFocus",
-  url: "https://gaze-focus.vercel.app",
-  logo: "https://gaze-focus.vercel.app/logo.svg",
-  founder: {
-    "@type": "Person",
-    name: "Purujith Kadekar",
-  },
-};
-
-const websiteJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "GazeFocus",
-  url: "https://gaze-focus.vercel.app",
-  description:
-    "Focus-aware YouTube learning and productivity platform for tracking progress, playlists, reminders, and study consistency.",
-};
-
-const softwareApplicationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "GazeFocus",
-  applicationCategory: "ProductivityApplication",
-  operatingSystem: "Web",
-  url: "https://gaze-focus.vercel.app",
-  description:
-    "GazeFocus helps users learn from YouTube with focus-aware playback, progress tracking, reminders, channels, and playlist organization.",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-};
-
-// Blocking script to prevent theme flickering
-const themeScript = `
-(function() {
-  try {
-    var stored = localStorage.getItem('settings-storage');
-    var theme = 'system';
-    if (stored) {
-      var parsed = JSON.parse(stored);
-      theme = parsed.state.theme || 'system';
-    }
-    
-    if (theme === 'system') {
-      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    
-    document.documentElement.setAttribute('data-theme', theme);
-  } catch (e) {}
-})();
-`;
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const initialViewportMode = detectInitialViewportMode(requestHeaders);
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <Script id="theme-init" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd) }}
-        />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <SchedulerInit />
-        <Providers>
+        <AutoSyncInit />
+        <Providers initialViewportMode={initialViewportMode}>
           {children}
-          <SiteFooter />
           <Toaster />
         </Providers>
       </body>

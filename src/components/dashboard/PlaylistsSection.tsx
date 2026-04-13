@@ -206,22 +206,22 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
                 className={`group flex gap-3 cursor-pointer p-2 rounded-lg ${isCompleted ? 'bg-green-50 dark:bg-green-950/30' : ''}`}
                 onClick={() => router.push(`/playlist/${playlist.id}`)}
               >
-                <div className="relative w-32 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
+                <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-muted sm:h-20 sm:w-32">
                   {playlist.thumbnail ? (
                     <Image
                       src={playlist.thumbnail}
                       alt={playlist.title}
                       fill
-                      sizes="128px"
+                      sizes="(max-width: 640px) 96px, 128px"
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <ListVideo className="h-8 w-8 text-muted-foreground/50" />
+                      <ListVideo className="h-6 w-6 text-muted-foreground/50 sm:h-8 sm:w-8" />
                     </div>
                   )}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Play className="h-8 w-8 text-white" />
+                    <Play className="h-6 w-6 text-white sm:h-8 sm:w-8" />
                   </div>
                   {isCompleted && (
                     <div className="absolute top-1 right-1">

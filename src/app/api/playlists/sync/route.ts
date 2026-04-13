@@ -32,7 +32,40 @@ function parseDuration(isoDuration: string): number {
   return hours * 3600 + minutes * 60 + seconds
 }
 
-async function fetchAllPlaylistVideos(playlistYoutubeId: string): Promise<PlaylistVideo[]> {
+async function fetchPlaylistVideosFromRSS(playlistYoutubeId: string): Promise<PlaylistVideo[]> {
+  try {
+    const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistYoutubeId}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const text = await response.text()
+    const entries = text.split('<entry>').slice(1)
+
+    return entries.map((entry, index) => {
+      const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
+      const titleMatch = entry.match(/<title>(.*?)<\/title>/)
+      const descMatch = entry.match(/<media:description>(.*?)<\/media:description>/)
+      const videoId = idMatch ? idMatch[1] : ''
+
+      return {
+        youtubeId: videoId,
+        title: titleMatch ? titleMatch[1] : 'Unknown Title',
+        description: descMatch ? descMatch[1] : '',
+        thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '',
+        duration: 0,
+        position: index,
+      }
+    }).filter(v => v.youtubeId !== '')
+  } catch {
+    return []
+  }
+}
+
+async function fetchAllPlaylistVideosFromAPI(playlistYoutubeId: string): Promise<PlaylistVideo[]> {
   if (!YOUTUBE_API_KEY) {
     return []
   }
@@ -143,8 +176,96 @@ async function fetchAllPlaylistVideos(playlistYoutubeId: string): Promise<Playli
   return videos.sort((a, b) => a.position - b.position)
 }
 
+async function detectPotentialGap(playlistId: string, rssVideos: PlaylistVideo[]): Promise<boolean> {
+  if (rssVideos.length === 0) return false
+  if (rssVideos.length < 15) return false
+
+  const { data: existing } = await db
+    .from('Video')
+    .select('youtubeId')
+    .eq('playlistId', playlistId)
+    .limit(1)
+
+  return Boolean(existing && existing.length > 0)
+}
+
+async function fillGapWithAPI(playlistYoutubeId: string, existingVideoIds: Set<string>): Promise<PlaylistVideo[]> {
+  const apiVideos = await fetchAllPlaylistVideosFromAPI(playlistYoutubeId)
+  return apiVideos.filter(v => !existingVideoIds.has(v.youtubeId))
+}
+
+async function checkAndMarkLiveVideos(playlistId: string): Promise<void> {
+  if (!YOUTUBE_API_KEY) return
+
+  const { data: playlistVideos } = await db
+    .from('Video')
+    .select('youtubeId')
+    .eq('playlistId', playlistId)
+    .order('createdAt', { ascending: false })
+    .limit(50)
+
+  if (!playlistVideos || playlistVideos.length === 0) return
+
+  const url = new URL(`${YOUTUBE_API_BASE}/search`)
+  url.searchParams.set('part', 'snippet')
+  url.searchParams.set('eventType', 'live')
+  url.searchParams.set('type', 'video')
+  url.searchParams.set('maxResults', '50')
+  url.searchParams.set('key', YOUTUBE_API_KEY)
+
+  const response = await fetch(url.toString())
+  const data = await response.json() as {
+    items?: { id?: { videoId?: string }; snippet?: { liveBroadcastContent?: string } }[]
+  }
+
+  const liveIds = new Set(
+    (data.items || [])
+      .filter(item => item.id?.videoId && item.snippet?.liveBroadcastContent === 'live')
+      .map(item => item.id!.videoId!)
+  )
+
+  const trackedIds = (playlistVideos as { youtubeId: string }[]).map(v => v.youtubeId)
+  if (trackedIds.length === 0) return
+
+  await db
+    .from('Video')
+    .update({ isLive: false, liveBroadcastContent: null })
+    .eq('playlistId', playlistId)
+    .in('youtubeId', trackedIds)
+
+  const idsToMarkLive = trackedIds.filter(id => liveIds.has(id))
+  if (idsToMarkLive.length > 0) {
+    await db
+      .from('Video')
+      .update({ isLive: true, liveBroadcastContent: 'live' })
+      .eq('playlistId', playlistId)
+      .in('youtubeId', idsToMarkLive)
+  }
+}
+
+async function fetchAllPlaylistVideosHybrid(playlistId: string, playlistYoutubeId: string): Promise<PlaylistVideo[]> {
+  const rssVideos = await fetchPlaylistVideosFromRSS(playlistYoutubeId)
+  if (rssVideos.length === 0) {
+    return fetchAllPlaylistVideosFromAPI(playlistYoutubeId)
+  }
+
+  const hasGap = await detectPotentialGap(playlistId, rssVideos)
+  if (!hasGap) {
+    return rssVideos
+  }
+
+  const { data: existingVideos } = await db
+    .from('Video')
+    .select('youtubeId')
+    .eq('playlistId', playlistId)
+
+  const existingIds = new Set<string>((existingVideos || []).map((v: any) => v.youtubeId))
+  const gapVideos = await fillGapWithAPI(playlistYoutubeId, existingIds)
+  return [...rssVideos, ...gapVideos]
+}
+
 async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: string }): Promise<SyncResult> {
-  const playlistVideos = await fetchAllPlaylistVideos(playlist.youtubeId)
+  const playlistVideos = await fetchAllPlaylistVideosHybrid(playlist.id, playlist.youtubeId)
 
   const existingVideosResult = await db.from('Video').select('youtubeId').eq('userId', playlist.userId).eq('playlistId', playlist.id)
   const existingVideos = existingVideosResult.data || []
@@ -171,6 +292,7 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
   const totalDuration = allPlaylistVideos.reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
 
   await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)
+  await checkAndMarkLiveVideos(playlist.id)
 
   return {
     playlistId: playlist.id,
@@ -182,21 +304,21 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
 
 export async function POST(request: NextRequest) {
   try {
-    if (!YOUTUBE_API_KEY) {
-      return NextResponse.json(
-        { error: 'YouTube API key not configured' },
-        { status: 500 }
-      )
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    const isCronRequest = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`)
+    const body = await request.json().catch(() => ({})) as { playlistId?: string; auto?: boolean }
+    const playlistId = body.playlistId
 
-    if (isCronRequest) {
-      const playlistsResult = await db.from('Playlist').select('id, youtubeId, userId')
+    if (!playlistId) {
+      const playlistsResult = await db
+        .from('Playlist')
+        .select('id, youtubeId, userId')
+        .eq('userId', user.id)
+
       const playlists = playlistsResult.data || []
-
       let syncedPlaylists = 0
       let addedVideos = 0
 
@@ -208,22 +330,10 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        mode: 'cron',
+        mode: body.auto ? 'auto-open' : 'manual-all',
         syncedPlaylists,
         addedVideos,
       })
-    }
-
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await request.json().catch(() => ({})) as { playlistId?: string }
-    const playlistId = body.playlistId
-
-    if (!playlistId) {
-      return NextResponse.json({ error: 'playlistId is required' }, { status: 400 })
     }
 
     const playlistResult = await db.from('Playlist').select('id, youtubeId, userId').eq('id', playlistId).eq('userId', user.id).maybeSingle()

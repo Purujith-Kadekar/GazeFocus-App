@@ -282,12 +282,12 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-3 pb-28 sm:space-y-6 sm:px-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
-          <div className="flex items-center gap-2 mt-1 h-5">
-            <p className="text-muted-foreground text-sm">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Settings</h1>
+          <div className="mt-1 flex h-auto items-start gap-2 sm:h-5 sm:items-center">
+            <p className="text-sm text-muted-foreground">
               Manage your focus preferences
             </p>
             {isSaving ? (
@@ -303,20 +303,20 @@ export function SettingsPage() {
             ) : null}
           </div>
         </div>
-        <Button variant="outline" onClick={handleReset} className="rounded-full border-2">
+        <Button variant="outline" onClick={handleReset} className="w-full rounded-full border-2 sm:w-auto">
           <RotateCcw className="h-4 w-4 mr-2" />
           Factory Reset
         </Button>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 rounded-full h-12 border-2">
-          <TabsTrigger value="general" className="rounded-full px-6">General</TabsTrigger>
-          <TabsTrigger value="eyetracking" className="rounded-full px-6">Eye Tracking</TabsTrigger>
-          <TabsTrigger value="playback" className="rounded-full px-6">Video Player</TabsTrigger>
+      <Tabs defaultValue="general" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid h-auto grid-cols-3 gap-1 rounded-2xl border-2 bg-muted/50 p-1 sm:flex sm:h-12 sm:rounded-full">
+          <TabsTrigger value="general" className="rounded-xl px-3 py-2 text-xs sm:rounded-full sm:px-6 sm:py-0 sm:text-sm">General</TabsTrigger>
+          <TabsTrigger value="eyetracking" className="rounded-xl px-3 py-2 text-xs sm:rounded-full sm:px-6 sm:py-0 sm:text-sm">Eye Tracking</TabsTrigger>
+          <TabsTrigger value="playback" className="rounded-xl px-3 py-2 text-xs sm:rounded-full sm:px-6 sm:py-0 sm:text-sm">Video Player</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="general" className="space-y-4 sm:space-y-6">
           <Card className="border-2 shadow-sm bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -328,13 +328,13 @@ export function SettingsPage() {
               <CardDescription>Visual appearance of GazeFocus</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Mode</Label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Label className="text-sm font-semibold sm:text-base">Mode</Label>
                 <Select
                   value={localSettings.theme}
                   onValueChange={(val) => handleChange('theme', val)}
                 >
-                  <SelectTrigger className="w-40 rounded-full border-2">
+                  <SelectTrigger className="w-full rounded-full border-2 sm:w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -355,9 +355,9 @@ export function SettingsPage() {
               </CardTitle>
               <CardDescription>Inactivity and distraction notifications</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Sound Enabled</Label>
+            <CardContent className="space-y-5 sm:space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <Label className="text-sm font-semibold sm:text-base">Sound Enabled</Label>
                 <Switch
                   checked={localSettings.soundAlerts}
                   onCheckedChange={(val) => handleChange('soundAlerts', val)}
@@ -365,8 +365,8 @@ export function SettingsPage() {
               </div>
               <Separator className="bg-border/50 border" />
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Inactivity Timeout</Label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Label className="text-sm font-semibold sm:text-base">Inactivity Timeout</Label>
                   <div className="flex items-center gap-1">
                     <Input
                       type="number"
@@ -404,8 +404,8 @@ export function SettingsPage() {
               <CardDescription>Set how many videos you want to watch per week</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Videos per week</Label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Label className="text-sm font-semibold sm:text-base">Videos per week</Label>
                 <div className="flex items-center gap-1">
                   <Input
                     type="number"
@@ -442,7 +442,7 @@ export function SettingsPage() {
               <CardDescription>Re-run the onboarding walkthrough</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Walk through all the features of GazeFocus step by step.
@@ -450,7 +450,7 @@ export function SettingsPage() {
                 </div>
                 <Button
                   variant="outline"
-                  className="rounded-full border-2 shrink-0 ml-4"
+                  className="w-full rounded-full border-2 shrink-0 sm:ml-4 sm:w-auto"
                   onClick={() => {
                     fetch('/api/settings', {
                       method: 'PUT',
@@ -468,7 +468,7 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="eyetracking" className="space-y-6">
+        <TabsContent value="eyetracking" className="space-y-4 sm:space-y-6">
           <Card className="border-2 shadow-sm bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -477,25 +477,25 @@ export function SettingsPage() {
               </CardTitle>
               <CardDescription>Configure auto-pause parameters</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Tracking Enabled</Label>
+            <CardContent className="space-y-5 sm:space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <Label className="text-sm font-semibold sm:text-base">Tracking Enabled</Label>
                 <Switch
                   checked={localSettings.eyeTrackingEnabled}
                   onCheckedChange={(val) => handleChange('eyeTrackingEnabled', val)}
                 />
               </div>
               <Separator className="bg-border/50 border" />
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <Label className="text-base font-semibold">Sensitivity Mode</Label>
+                  <Label className="text-sm font-semibold sm:text-base">Sensitivity Mode</Label>
                   <p className="text-xs text-muted-foreground mt-1">Controls how strictly gaze is tracked</p>
                 </div>
                 <Select
                   value={localSettings.sensitivityMode}
                   onValueChange={(val) => handleChange('sensitivityMode', val)}
                 >
-                  <SelectTrigger className="w-36 rounded-full border-2">
+                  <SelectTrigger className="w-full rounded-full border-2 sm:w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -522,8 +522,8 @@ export function SettingsPage() {
               </div>
               <Separator className="bg-border/50 border" />
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Reaction Buffer</Label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Label className="text-sm font-semibold sm:text-base">Reaction Buffer</Label>
                   <div className="flex items-center gap-1">
                     <Input
                       type="number"
@@ -556,7 +556,7 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="playback" className="space-y-6">
+        <TabsContent value="playback" className="space-y-4 sm:space-y-6">
           <Card className="border-2 shadow-sm bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -565,9 +565,9 @@ export function SettingsPage() {
               </CardTitle>
               <CardDescription>Default video playback settings</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Default Speed</Label>
+            <CardContent className="space-y-5 sm:space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Label className="text-sm font-semibold sm:text-base">Default Speed</Label>
                 <div className="flex items-center gap-1">
                   <Input
                     type="number"
@@ -603,9 +603,9 @@ export function SettingsPage() {
               </CardTitle>
               <CardDescription>Get reminded to take a break after watching non-stop</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Reminder Enabled</Label>
+            <CardContent className="space-y-5 sm:space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <Label className="text-sm font-semibold sm:text-base">Reminder Enabled</Label>
                 <Switch
                   checked={localSettings.watchBreakEnabled}
                   onCheckedChange={(val) => handleChange('watchBreakEnabled', val)}
@@ -613,9 +613,9 @@ export function SettingsPage() {
               </div>
               <Separator className="bg-border/50 border" />
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <Label className="text-base font-semibold">Remind after</Label>
+                    <Label className="text-sm font-semibold sm:text-base">Remind after</Label>
                     <p className="text-xs text-muted-foreground mt-1">Minutes of continuous playback before reminder</p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -648,9 +648,9 @@ export function SettingsPage() {
               </div>
               <Separator className="bg-border/50 border" />
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <Label className="text-base font-semibold">Break duration</Label>
+                    <Label className="text-sm font-semibold sm:text-base">Break duration</Label>
                     <p className="text-xs text-muted-foreground mt-1">How long the mandatory break lasts before you can resume</p>
                   </div>
                   <div className="flex items-center gap-1">

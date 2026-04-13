@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2, Edit3, Clock, Star, FileText, Play, MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,7 @@ const NOTES_CACHE_KEY = 'gazefocus:notes-page-cache'
 
 export default function NotesPageClient({ initialNotes }: NotesPageClientProps) {
   const router = useRouter()
-  const cached = readRouteCache<Note[]>(NOTES_CACHE_KEY)
+  const cached = useMemo(() => readRouteCache<Note[]>(NOTES_CACHE_KEY), [])
   const [notes, setNotes] = useState<Note[]>(cached?.payload || initialNotes || [])
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
@@ -52,12 +52,19 @@ export default function NotesPageClient({ initialNotes }: NotesPageClientProps) 
       }
     }
 
-    void loadNotes()
+    if (cached?.payload?.length || initialNotes?.length) {
+      // Keep UI snappy by rendering cached/SSR notes first, then refresh in background.
+      queueMicrotask(() => {
+        void loadNotes()
+      })
+    } else {
+      void loadNotes()
+    }
 
     return () => {
       cancelled = true
     }
-  }, [persistNotes])
+  }, [cached?.payload?.length, initialNotes?.length, persistNotes])
 
   useEffect(() => {
     const handleRefresh = () => {

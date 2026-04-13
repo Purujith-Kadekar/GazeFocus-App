@@ -684,6 +684,11 @@ function NavItem({ href, icon: Icon, label, collapsed, active, onClick, id }: Na
 
     if (isSamePage) {
       event.preventDefault()
+
+      if (targetPath === '/dashboard') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+
       const refreshEventName = getRefreshEventName(targetPath)
       if (refreshEventName) {
         startRouteTopLoader()

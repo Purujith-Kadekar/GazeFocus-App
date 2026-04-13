@@ -76,6 +76,12 @@ type CalendarEvent = {
   originalItem: Todo | Video | Playlist
 }
 
+function parseEventDate(value: string | null): Date | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 export default function CalendarPageClient() {
   const router = useRouter()
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -160,42 +166,67 @@ export default function CalendarPageClient() {
     }
   }, [fetchData])
 
-  const events: CalendarEvent[] = [
-    ...todos
-      .filter(t => t.reminderAt)
-      .map(t => ({
-        id: t.id,
-        title: t.text,
-        date: new Date(t.reminderAt!),
-        type: (t.type?.toLowerCase() || 'todo') as any,
-        completed: t.completed,
-        originalItem: t,
-      })),
-    ...videos
-      .filter(v => v.scheduledAt)
-      .map(v => ({
-        id: v.id,
-        title: v.title,
-        date: new Date(v.scheduledAt!),
-        type: 'video' as const,
-        originalItem: v,
-      })),
-    ...playlists
-      .filter(p => p.scheduledAt)
-      .map(p => ({
-        id: p.id,
-        title: p.title,
-        date: new Date(p.scheduledAt!),
-        type: 'playlist' as const,
-        originalItem: p,
-      })),
-  ]
+  const todoEvents: CalendarEvent[] = []
+  for (const t of todos) {
+    const eventDate = parseEventDate(t.reminderAt)
+    if (!eventDate) continue
+
+    todoEvents.push({
+      id: t.id,
+      title: t.text,
+      date: eventDate,
+      type: (t.type?.toLowerCase() || 'todo') as any,
+      completed: t.completed,
+      originalItem: t,
+    })
+  }
+
+  const videoEvents: CalendarEvent[] = []
+  for (const v of videos) {
+    const eventDate = parseEventDate(v.scheduledAt)
+    if (!eventDate) continue
+
+    videoEvents.push({
+      id: v.id,
+      title: v.title,
+      date: eventDate,
+      type: 'video',
+      originalItem: v,
+    })
+  }
+
+  const playlistEvents: CalendarEvent[] = []
+  for (const p of playlists) {
+    const eventDate = parseEventDate(p.scheduledAt)
+    if (!eventDate) continue
+
+    playlistEvents.push({
+      id: p.id,
+      title: p.title,
+      date: eventDate,
+      type: 'playlist',
+      originalItem: p,
+    })
+  }
+
+  const events: CalendarEvent[] = [...todoEvents, ...videoEvents, ...playlistEvents]
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
 
   const onDateClick = (day: Date) => {
     setSelectedDate(day)
+  }
+
+  const openEventItem = (event: CalendarEvent) => {
+    if (event.type === 'video') {
+      router.push(`/video/${(event.originalItem as Video).youtubeId}`)
+      return
+    }
+
+    if (event.type === 'playlist') {
+      router.push(`/playlist/${(event.originalItem as Playlist).id}`)
+    }
   }
 
   const renderHeader = () => {
@@ -289,6 +320,54 @@ export default function CalendarPageClient() {
               <span className="text-xs text-muted-foreground">Plans</span>
             </div>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderMobileHeader = () => {
+    return (
+      <div className="mb-4 space-y-3 md:hidden">
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/dashboard')}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Calendar</h1>
+          <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Schedule
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Schedule Content or Create Plan</DialogTitle>
+              </DialogHeader>
+              <ScheduleContentForm
+                videos={videos.filter(v => !v.scheduledAt)}
+                playlists={playlists.filter(p => !p.scheduledAt)}
+                selectedDate={selectedDate}
+                onSuccess={() => {
+                  setIsScheduleDialogOpen(false)
+                  fetchData()
+                  window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+                }}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     )
@@ -398,7 +477,7 @@ export default function CalendarPageClient() {
     const dayEvents = events.filter(e => isSameDay(e.date, selectedDate))
     
     return (
-      <div className="w-80 flex flex-col gap-4">
+      <div className="w-full lg:w-80 flex flex-col gap-4">
         <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader className="pb-3 border-b bg-muted/10">
             <div className="flex flex-col">
@@ -500,9 +579,9 @@ export default function CalendarPageClient() {
                             className="w-full mt-3 h-8 text-xs font-semibold gap-2"
                             onClick={() => {
                               if (event.type === 'video') {
-                                router.push(`/watch?v=${(event.originalItem as Video).youtubeId}`)
+                                router.push(`/video/${(event.originalItem as Video).youtubeId}`)
                               } else {
-                                router.push(`/playlist/${(event.originalItem as Playlist).youtubeId}`)
+                                router.push(`/playlist/${(event.originalItem as Playlist).id}`)
                               }
                             }}
                           >
@@ -539,29 +618,150 @@ export default function CalendarPageClient() {
     }
   }
 
+  const selectedDateEvents = events
+    .filter(e => isSameDay(e.date, selectedDate))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+
+  const upcomingEvents = events
+    .filter(e => e.date.getTime() >= Date.now())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, 12)
+
+  const mobileDateStrip = Array.from({ length: 14 }, (_, index) =>
+    addDays(startOfWeek(currentMonth), index)
+  )
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 min-w-0">
-          {renderHeader()}
+          <div className="hidden md:block">{renderHeader()}</div>
+          {renderMobileHeader()}
           <div className="hidden md:block">
             {renderDays()}
             {renderCells()}
           </div>
           <div className="md:hidden">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Mobile View</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  For the best calendar experience, please use a larger screen.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{format(currentMonth, 'MMMM yyyy')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="icon" onClick={prevMonth}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="outline" size="icon" onClick={nextMonth}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="ml-auto"
+                      onClick={() => {
+                        const today = new Date()
+                        setCurrentMonth(today)
+                        setSelectedDate(today)
+                      }}
+                    >
+                      Today
+                    </Button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="mobile-calendar-date">Jump to date</Label>
+                    <Input
+                      id="mobile-calendar-date"
+                      type="date"
+                      value={format(selectedDate, 'yyyy-MM-dd')}
+                      onChange={(e) => {
+                        if (!e.target.value) return
+                        const pickedDate = parseISO(`${e.target.value}T00:00:00`)
+                        setCurrentMonth(pickedDate)
+                        setSelectedDate(pickedDate)
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {mobileDateStrip.map((day) => (
+                      <Button
+                        key={day.toISOString()}
+                        type="button"
+                        variant={isSameDay(day, selectedDate) ? 'default' : 'outline'}
+                        className="h-auto min-w-[62px] flex-col py-2"
+                        onClick={() => setSelectedDate(day)}
+                      >
+                        <span className="text-[10px] uppercase opacity-80">{format(day, 'EEE')}</span>
+                        <span className="text-sm font-semibold">{format(day, 'd')}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{format(selectedDate, 'EEEE, MMM d')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {selectedDateEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No events scheduled for this day.</p>
+                  ) : (
+                    selectedDateEvents.map((event) => (
+                      <div
+                        key={`${event.type}-${event.id}`}
+                        className="rounded-lg border p-3"
+                      >
+                        <p className="text-sm font-medium line-clamp-2">{event.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {event.type.toUpperCase()} • {format(event.date, 'h:mm a')}
+                        </p>
+                        {(event.type === 'video' || event.type === 'playlist') && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="mt-2 w-full"
+                            onClick={() => openEventItem(event)}
+                          >
+                            <Play className="h-3.5 w-3.5 mr-1.5" />
+                            Open
+                          </Button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Upcoming</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {upcomingEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No upcoming scheduled items.</p>
+                  ) : (
+                    upcomingEvents.map((event) => (
+                      <div
+                        key={`upcoming-${event.type}-${event.id}`}
+                        className="rounded-lg border p-3"
+                      >
+                        <p className="text-sm font-medium line-clamp-2">{event.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {format(event.date, 'MMM d, h:mm a')} • {event.type.toUpperCase()}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-        <div className="lg:pt-[124px]">
+        <div className="hidden md:block lg:pt-[124px]">
           {renderSidebar()}
         </div>
       </div>

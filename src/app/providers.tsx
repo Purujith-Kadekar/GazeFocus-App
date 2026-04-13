@@ -2,16 +2,24 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { createContext, useContext, useState, useLayoutEffect } from 'react'
 import { useSettingsStore } from '@/store/useStore'
 import { WarmRoutePrefetcher } from '@/components/layout/WarmRoutePrefetcher'
 import { RouteTopLoader } from '@/components/layout/RouteTopLoader'
+
+type ViewportMode = 'mobile' | 'tablet' | 'desktop'
+
+const InitialViewportModeContext = createContext<ViewportMode>('desktop')
+
+export function useInitialViewportMode() {
+  return useContext(InitialViewportModeContext)
+}
 
 // A simple, bulletproof theme manager that doesn't rely on extra libraries
 function ThemeManager() {
   const theme = useSettingsStore((state) => state.theme)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = window.document.documentElement
     
     if (theme === 'system') {
@@ -25,7 +33,13 @@ function ThemeManager() {
   return null
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialViewportMode = 'desktop',
+}: {
+  children: React.ReactNode
+  initialViewportMode?: ViewportMode
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -40,12 +54,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeManager />
-        <RouteTopLoader />
-        <WarmRoutePrefetcher />
-        {children}
-      </QueryClientProvider>
+      <InitialViewportModeContext.Provider value={initialViewportMode}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeManager />
+          <RouteTopLoader />
+          <WarmRoutePrefetcher />
+          {children}
+        </QueryClientProvider>
+      </InitialViewportModeContext.Provider>
     </SessionProvider>
   )
 }

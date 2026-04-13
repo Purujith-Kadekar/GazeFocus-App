@@ -510,6 +510,44 @@ export class QuotaEngine {
   }
 
   /**
+   * Get playlist videos from RSS feed (zero API quota)
+   * Playlists support RSS at the same endpoint format as channels
+   */
+  static async getRSSPlaylistVideos(
+    playlistId: string
+  ): Promise<{ youtubeId: string; title: string; description: string; thumbnail: string; duration: number; position: number }[]> {
+    try {
+      const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      })
+      const text = await response.text()
+
+      // Simple XML parsing via regex for zero dependencies
+      const entries = text.split('<entry>').slice(1)
+      const videos = entries.map((entry, index) => {
+        const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
+        const titleMatch = entry.match(/<title>(.*?)<\/title>/)
+        const descMatch = entry.match(/<media:description>(.*?)<\/media:description>/)
+
+        const videoId = idMatch ? idMatch[1] : ''
+        return {
+          youtubeId: videoId,
+          title: titleMatch ? titleMatch[1] : 'Unknown Title',
+          description: descMatch ? descMatch[1] : '',
+          thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '',
+          duration: 0, // RSS doesn't provide duration for playlists, fetch if critical
+          position: index, // Position is based on RSS entry order
+        }
+      }).filter(v => v.youtubeId !== '')
+
+      return videos
+    } catch (error) {
+      console.error('[QuotaEngine] RSS playlist fetch failed:', error)
+      return []
+    }
+  }
+
+  /**
    * Unified Channel Synchronization
    */
   static async syncChannel(channelId: string, userId: string, pageToken?: string) {

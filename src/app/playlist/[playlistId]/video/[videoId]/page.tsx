@@ -22,6 +22,7 @@ export default function PlaylistVideoPage() {
   const [playlistVideos, setPlaylistVideos] = useState<Video[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [lookupExhausted, setLookupExhausted] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
   const lastProgressSaveRef = useRef(Date.now())
@@ -42,6 +43,14 @@ export default function PlaylistVideoPage() {
   useEffect(() => {
     async function loadData() {
       if (!playlistId || !videoId || status !== 'authenticated') return
+      setIsLoading(true)
+      setLookupExhausted(false)
+      setVideo(null)
+      setPlaylist(null)
+      setPlaylistVideos([])
+
+      let resolvedPlaylist = false
+      let resolvedVideo = false
       
       try {
         // Fetch playlist details
@@ -49,6 +58,7 @@ export default function PlaylistVideoPage() {
         if (playlistRes.ok) {
           const playlistData = await playlistRes.json()
           setPlaylist(playlistData)
+          resolvedPlaylist = true
         }
 
         // Fetch all videos in this playlist
@@ -58,10 +68,24 @@ export default function PlaylistVideoPage() {
           setPlaylistVideos(videosData)
           
           // Find current video index
-          const idx = videosData.findIndex((v: Video) => v.youtubeId === videoId)
+          const idx = videosData.findIndex((v: Video) => v.youtubeId === videoId || v.id === videoId)
           if (idx !== -1) {
             setCurrentIndex(idx)
             setVideo(videosData[idx])
+            resolvedVideo = true
+          } else {
+            const directVideoRes = await fetch(`/api/videos/${videoId}`)
+            if (directVideoRes.ok) {
+              const directVideo = await directVideoRes.json()
+              if (directVideo?.youtubeId) {
+                setVideo(directVideo)
+                resolvedVideo = true
+                const directIdx = videosData.findIndex((v: Video) => v.youtubeId === directVideo.youtubeId)
+                if (directIdx !== -1) {
+                  setCurrentIndex(directIdx)
+                }
+              }
+            }
           }
         }
 
@@ -79,7 +103,11 @@ export default function PlaylistVideoPage() {
         }
       } catch (error) {
         console.error('Failed to load video:', error)
+        setLookupExhausted(true)
       } finally {
+        if (!resolvedPlaylist || !resolvedVideo) {
+          setLookupExhausted(true)
+        }
         setIsLoading(false)
       }
     }
@@ -176,7 +204,7 @@ export default function PlaylistVideoPage() {
     )
   }
 
-  if (!video || !playlist) {
+  if ((!video || !playlist) && !isLoading && lookupExhausted) {
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -189,6 +217,11 @@ export default function PlaylistVideoPage() {
         </div>
       </MainLayout>
     )
+  }
+
+  // Type guard: video and playlist must exist from here on
+  if (!video || !playlist) {
+    return null
   }
 
   return (

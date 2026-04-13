@@ -4,6 +4,31 @@ import { getCurrentUser } from '@/lib/auth-helper'
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
+function getRequestOrigin(request: NextRequest): string | null {
+  const origin = request.headers.get('origin')
+  if (origin) return origin
+
+  const host = request.headers.get('host')
+  if (!host) return null
+
+  const proto = request.headers.get('x-forwarded-proto') || 'https'
+  return `${proto}://${host}`
+}
+
+async function youtubeFetch(request: NextRequest, url: string) {
+  const origin = getRequestOrigin(request)
+
+  return fetch(url, {
+    headers: origin
+      ? {
+          Referer: origin,
+          'X-Origin': origin,
+        }
+      : undefined,
+    cache: 'no-store',
+  })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -28,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Support id and type parameters for fetching details
     if (id && type) {
       if (type === 'video') {
-        const response = await fetch(
+        const response = await youtubeFetch(request,
           `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${id}&key=${YOUTUBE_API_KEY}`
         )
         const data = await response.json()
@@ -52,7 +77,7 @@ export async function GET(request: NextRequest) {
           duration: parseDuration(video.contentDetails.duration),
         })
       } else if (type === 'playlist') {
-        const response = await fetch(
+        const response = await youtubeFetch(request,
           `${YOUTUBE_API_BASE}/playlists?part=snippet,contentDetails&id=${id}&key=${YOUTUBE_API_KEY}`
         )
         const data = await response.json()
@@ -81,7 +106,7 @@ export async function GET(request: NextRequest) {
         const handle = id.startsWith('@') ? id.substring(1) : id
 
         if (id.startsWith('@')) {
-          const searchResponse = await fetch(
+          const searchResponse = await youtubeFetch(request,
             `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
           )
           const searchData = await searchResponse.json()
@@ -92,7 +117,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (actualChannelId === id || !actualChannelId.startsWith('UC')) {
-          const searchResponse = await fetch(
+          const searchResponse = await youtubeFetch(request,
             `${YOUTUBE_API_BASE}/channels?part=id&forHandle=${handle}&key=${YOUTUBE_API_KEY}`
           )
           const searchData = await searchResponse.json()
@@ -100,7 +125,7 @@ export async function GET(request: NextRequest) {
           if (searchData.items && searchData.items.length > 0) {
             actualChannelId = searchData.items[0].id
           } else {
-            const byUsernameResponse = await fetch(
+            const byUsernameResponse = await youtubeFetch(request,
               `${YOUTUBE_API_BASE}/channels?part=id&forUsername=${handle}&key=${YOUTUBE_API_KEY}`
             )
             const byUsernameData = await byUsernameResponse.json()
@@ -110,7 +135,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        const response = await fetch(
+        const response = await youtubeFetch(request,
           `${YOUTUBE_API_BASE}/channels?part=snippet,statistics&id=${actualChannelId}&key=${YOUTUBE_API_KEY}`
         )
         const data = await response.json()
@@ -137,7 +162,7 @@ export async function GET(request: NextRequest) {
 
     // Search for videos and playlists
     if (query) {
-      const response = await fetch(
+      const response = await youtubeFetch(request,
         `${YOUTUBE_API_BASE}/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video,playlist,channel&key=${YOUTUBE_API_KEY}`
       )
       const data = await response.json()
@@ -161,7 +186,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (videoId) {
-      const response = await fetch(
+      const response = await youtubeFetch(request,
         `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`
       )
       const data = await response.json()
@@ -187,7 +212,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (playlistId) {
-      const response = await fetch(
+      const response = await youtubeFetch(request,
         `${YOUTUBE_API_BASE}/playlists?part=snippet,contentDetails&id=${playlistId}&key=${YOUTUBE_API_KEY}`
       )
       const data = await response.json()
@@ -214,7 +239,7 @@ export async function GET(request: NextRequest) {
 
     const channelId = searchParams.get('channelId')
     if (channelId) {
-      const response = await fetch(
+      const response = await youtubeFetch(request,
         `${YOUTUBE_API_BASE}/channels?part=snippet,statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`
       )
       const data = await response.json()

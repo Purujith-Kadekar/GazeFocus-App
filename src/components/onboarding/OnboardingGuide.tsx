@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 
 interface OnboardingGuideProps {
   onComplete: () => void
+  mode?: 'mobile' | 'tablet' | 'desktop'
 }
 
 type TooltipPosition = 'right' | 'bottom' | 'left' | 'top'
@@ -38,7 +39,7 @@ interface Step {
   position: TooltipPosition
 }
 
-const steps: Step[] = [
+const desktopSteps: Step[] = [
   {
     targetId: null,
     icon: Sparkles,
@@ -159,7 +160,102 @@ const steps: Step[] = [
   },
 ]
 
-export function OnboardingGuide({ onComplete }: OnboardingGuideProps) {
+const mobileSteps: Step[] = [
+  {
+    targetId: null,
+    icon: Sparkles,
+    iconColor: 'text-yellow-400',
+    iconBg: 'bg-yellow-500/10',
+    title: 'Welcome to GazeFocus Mobile!',
+    description:
+      'This is your mobile-first layout. Let\'s quickly walk through the controls built for one-handed use.',
+    position: 'bottom',
+  },
+  {
+    targetId: 'onboarding-mobile-brand',
+    icon: Home,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Brand Home Link',
+    description: 'Tap the logo/name anytime to return to dashboard.',
+    position: 'bottom',
+  },
+  {
+    targetId: 'onboarding-mobile-search',
+    icon: Search,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Search',
+    description: 'Use this icon to quickly search videos, playlists, and channels.',
+    position: 'bottom',
+  },
+  {
+    targetId: 'onboarding-add-content',
+    icon: Plus,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Add Content',
+    description: 'Paste a YouTube URL to add videos or playlists instantly.',
+    position: 'bottom',
+  },
+  {
+    targetId: 'onboarding-mobile-nav-dashboard',
+    icon: Home,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Home Tab',
+    description: 'Your overview with streak, stats, and recent activity.',
+    position: 'top',
+  },
+  {
+    targetId: 'onboarding-mobile-nav-videos',
+    icon: Film,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Videos Tab',
+    description: 'See all saved videos and continue from where you left off.',
+    position: 'top',
+  },
+  {
+    targetId: 'onboarding-mobile-nav-playlists',
+    icon: ListVideo,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Playlists Tab',
+    description: 'Manage and watch your playlists in sequence.',
+    position: 'top',
+  },
+  {
+    targetId: 'onboarding-mobile-nav-calendar',
+    icon: Calendar,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Calendar Tab',
+    description: 'Schedule tasks, videos, and playlists for focused sessions.',
+    position: 'top',
+  },
+  {
+    targetId: 'onboarding-mobile-nav-settings',
+    icon: Settings,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Settings Tab',
+    description: 'Adjust preferences and re-run onboarding anytime.',
+    position: 'top',
+  },
+  {
+    targetId: null,
+    icon: CheckCircle2,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    title: 'Mobile Tour Complete',
+    description: 'You are ready to use GazeFocus on mobile.',
+    position: 'bottom',
+  },
+]
+
+export function OnboardingGuide({ onComplete, mode = 'desktop' }: OnboardingGuideProps) {
+  const steps = mode === 'mobile' ? mobileSteps : desktopSteps
   const [currentStep, setCurrentStep] = useState(0)
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -216,49 +312,66 @@ export function OnboardingGuide({ onComplete }: OnboardingGuideProps) {
     onComplete()
   }, [onComplete])
 
+  const getTooltipDimensions = () => {
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 390
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 844
+    const horizontalPadding = mode === 'mobile' ? 10 : 16
+    const baseWidth = !spotlightRect ? 420 : 360
+    const width = Math.min(baseWidth, viewportWidth - horizontalPadding * 2)
+    const estimatedHeight = mode === 'mobile' ? 290 : 320
+
+    return { viewportWidth, viewportHeight, horizontalPadding, width, estimatedHeight }
+  }
+
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
   // Calculate tooltip position relative to the spotlight
   const getTooltipStyle = (): React.CSSProperties => {
+    const { viewportWidth, viewportHeight, horizontalPadding, width, estimatedHeight } = getTooltipDimensions()
+
     if (!spotlightRect) {
       // Center for welcome/finish steps
       return {
+        width,
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
       }
     }
 
-    const pad = 16
-    const tooltipWidth = 360
+    const pad = mode === 'mobile' ? 10 : 16
+    const minX = horizontalPadding
+    const maxX = viewportWidth - width - horizontalPadding
+    const minY = 12
+    const maxY = viewportHeight - estimatedHeight - 12
+
+    const setPosition = (left: number, top: number): React.CSSProperties => ({
+      width,
+      left: clamp(left, minX, maxX),
+      top: clamp(top, minY, Math.max(minY, maxY)),
+    })
 
     switch (step.position) {
       case 'right':
-        return {
-          top: spotlightRect.top + spotlightRect.height / 2,
-          left: spotlightRect.right + pad,
-          transform: 'translateY(-50%)',
-          maxWidth: `${Math.min(tooltipWidth, window.innerWidth - spotlightRect.right - pad * 2)}px`,
-        }
+        return setPosition(
+          spotlightRect.right + pad,
+          spotlightRect.top + spotlightRect.height / 2 - estimatedHeight / 2
+        )
       case 'bottom':
-        return {
-          top: spotlightRect.bottom + pad,
-          left: spotlightRect.left + spotlightRect.width / 2,
-          transform: 'translateX(-50%)',
-          maxWidth: `${tooltipWidth}px`,
-        }
+        return setPosition(
+          spotlightRect.left + spotlightRect.width / 2 - width / 2,
+          spotlightRect.bottom + pad
+        )
       case 'left':
-        return {
-          top: spotlightRect.top + spotlightRect.height / 2,
-          right: window.innerWidth - spotlightRect.left + pad,
-          transform: 'translateY(-50%)',
-          maxWidth: `${tooltipWidth}px`,
-        }
+        return setPosition(
+          spotlightRect.left - width - pad,
+          spotlightRect.top + spotlightRect.height / 2 - estimatedHeight / 2
+        )
       case 'top':
-        return {
-          bottom: window.innerHeight - spotlightRect.top + pad,
-          left: spotlightRect.left + spotlightRect.width / 2,
-          transform: 'translateX(-50%)',
-          maxWidth: `${tooltipWidth}px`,
-        }
+        return setPosition(
+          spotlightRect.left + spotlightRect.width / 2 - width / 2,
+          spotlightRect.top - estimatedHeight - pad
+        )
     }
   }
 
@@ -313,8 +426,7 @@ export function OnboardingGuide({ onComplete }: OnboardingGuideProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className={cn(
-          "bg-card border-2 border-border/50 rounded-xl shadow-2xl overflow-hidden w-[360px]",
-          !spotlightRect && "w-[420px]"
+          "bg-card border-2 border-border/50 rounded-xl shadow-2xl overflow-hidden w-full max-h-[calc(100vh-24px)]"
         )}>
           {/* Progress bar */}
           <div className="h-1 bg-muted">

@@ -16,6 +16,7 @@ export default function VideoPage() {
   const [video, setVideo] = useState<Video | null>(null)
   const [playlistVideos, setPlaylistVideos] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [lookupExhausted, setLookupExhausted] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
   const [initialTime, setInitialTime] = useState(0)
   const videoId = params.id as string
@@ -36,6 +37,10 @@ export default function VideoPage() {
     if (!videoId || status !== 'authenticated') return
 
     const controller = new AbortController()
+    setIsLoading(true)
+    setLookupExhausted(false)
+    setVideo(null)
+    setPlaylistVideos([])
 
     const fetchData = async () => {
       try {
@@ -44,30 +49,42 @@ export default function VideoPage() {
           fetch(`/api/progress?youtubeId=${videoId}`, { signal: controller.signal })
         ])
 
+        let foundVideo: Video | null = null
+
         if (videoRes.ok) {
           const videoData = await videoRes.json()
-          let foundVideo = Array.isArray(videoData)
+          foundVideo = Array.isArray(videoData)
             ? videoData.find((v: Video) => v.youtubeId === videoId)
             : videoData;
 
-          if (foundVideo) {
-            setVideo(foundVideo)
-
-            // Fetch playlist siblings for prev/next navigation
-            if (foundVideo.playlistId) {
-              try {
-                const siblingRes = await fetch(`/api/videos?playlistId=${foundVideo.playlistId}`, {
-                  signal: controller.signal,
-                })
-                if (siblingRes.ok) {
-                  const siblings: Video[] = await siblingRes.json()
-                  setPlaylistVideos(siblings)
-                }
-              } catch {
-                // Non-critical; prev/next just won't show
-              }
+          if (!foundVideo) {
+            const directVideoRes = await fetch(`/api/videos/${videoId}`, { signal: controller.signal })
+            if (directVideoRes.ok) {
+              const directVideo = await directVideoRes.json()
+              foundVideo = directVideo?.youtubeId ? directVideo : null
             }
           }
+        }
+
+        if (foundVideo) {
+          setVideo(foundVideo)
+
+          // Fetch playlist siblings for prev/next navigation
+          if (foundVideo.playlistId) {
+            try {
+              const siblingRes = await fetch(`/api/videos?playlistId=${foundVideo.playlistId}`, {
+                signal: controller.signal,
+              })
+              if (siblingRes.ok) {
+                const siblings: Video[] = await siblingRes.json()
+                setPlaylistVideos(siblings)
+              }
+            } catch {
+              // Non-critical; prev/next just won't show
+            }
+          }
+        } else {
+          setLookupExhausted(true)
         }
 
         if (progressRes.ok) {
@@ -80,6 +97,7 @@ export default function VideoPage() {
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           console.error('Failed to fetch video data:', error)
+          setLookupExhausted(true)
         }
       } finally {
         setIsLoading(false)
@@ -179,7 +197,7 @@ export default function VideoPage() {
     )
   }
 
-  if (!video && !isLoading) {
+  if (!video && !isLoading && lookupExhausted && status === 'authenticated') {
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">

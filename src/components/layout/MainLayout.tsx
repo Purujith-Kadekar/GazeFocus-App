@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { SiteFooter } from './SiteFooter'
+import { MobileMainLayout } from './MobileMainLayout'
+import { TabletMainLayout } from './TabletMainLayout'
 import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore, useEyeTrackingStore } from '@/store/useStore'
 import { AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -18,12 +21,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { OnboardingGuide } from '@/components/onboarding/OnboardingGuide'
+import { useInitialViewportMode } from '@/app/providers'
 
 interface MainLayoutProps {
   children: React.ReactNode
 }
 
+function getViewportMode(width: number): 'mobile' | 'tablet' | 'desktop' {
+  if (width < 768) return 'mobile'
+  if (width < 1024) return 'tablet'
+  return 'desktop'
+}
+
 export function MainLayout({ children }: MainLayoutProps) {
+  const initialViewportMode = useInitialViewportMode()
   const router = useRouter()
   const { isSidebarOpen } = useUIStore()
   const pathname = usePathname()
@@ -58,7 +69,16 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const hasWarmedCoreRoutes = useRef(false)
   const hasWarmedFolderRoutes = useRef(false)
+  const [viewportMode, setViewportMode] = useState<'mobile' | 'tablet' | 'desktop'>(initialViewportMode)
   const { toast } = useToast()
+
+  useLayoutEffect(() => {
+    const applyViewport = () => setViewportMode(getViewportMode(window.innerWidth))
+
+    applyViewport()
+    window.addEventListener('resize', applyViewport)
+    return () => window.removeEventListener('resize', applyViewport)
+  }, [])
 
   useEffect(() => {
     if (hasWarmedCoreRoutes.current) return
@@ -110,7 +130,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       clearTimeout(readyTimer)
       window.removeEventListener('run-onboarding', handleRunOnboarding)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     Promise.all([
@@ -145,7 +165,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           .catch(() => setUser(session.user))
       }
     }).catch(() => {})
-  }, [setFolders, setUser]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setFolders, setUser])
 
   // Hydrate behavior settings early so alert logic never uses default values.
   useEffect(() => {
@@ -241,19 +261,27 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="flex min-h-screen w-full">
-        <Sidebar />
-        <div className="min-w-0 flex-1">
-          <Header />
-          <main className="p-4 md:p-6">
-            {children}
-          </main>
+      {viewportMode === 'desktop' ? (
+        <div className="flex min-h-screen w-full">
+          <Sidebar />
+          <div className="min-w-0 flex-1 flex flex-col">
+            <Header />
+            <main className="flex-1 p-4 md:p-6">
+              {children}
+            </main>
+            <SiteFooter />
+          </div>
         </div>
-      </div>
+      ) : viewportMode === 'tablet' ? (
+        <TabletMainLayout>{children}</TabletMainLayout>
+      ) : (
+        <MobileMainLayout>{children}</MobileMainLayout>
+      )}
 
       {/* Onboarding Guide */}
       {mounted && showOnboarding && (
         <OnboardingGuide
+          mode={viewportMode}
           onComplete={() => {
             setShowOnboarding(false)
             fetch('/api/settings', {

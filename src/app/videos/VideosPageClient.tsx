@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Play, Loader2, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, Plus } from 'lucide-react'
@@ -18,6 +18,7 @@ import {
 import { AddContentModal } from '@/components/search/AddContentModal'
 import { formatDuration } from '@/lib/utils'
 import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
+import { getDashboardBootstrapCache } from '@/lib/dashboard-bootstrap-cache'
 import type { Video, Playlist, Folder } from '@/types'
 import type React from 'react'
 
@@ -42,16 +43,28 @@ const VIDEOS_CACHE_KEY = 'gazefocus:videos-page-cache'
 export default function VideosPageClient({ initialVideos, initialFolders }: VideosPageClientProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const cached = readRouteCache<VideosPageCache>(VIDEOS_CACHE_KEY)
-  const [videos, setVideos] = useState<VideoWithPlaylist[]>(cached?.payload.videos || initialVideos || [])
-  const [folders, setFolders] = useState<Folder[]>(cached?.payload.folders || initialFolders || [])
+  const cached = useMemo(() => readRouteCache<VideosPageCache>(VIDEOS_CACHE_KEY), [])
+  const dashboardCached = useMemo(() => getDashboardBootstrapCache()?.payload, [])
+  const initialCachedVideos =
+    cached?.payload.videos ||
+    (Array.isArray(dashboardCached?.videos) ? (dashboardCached.videos as VideoWithPlaylist[]) : undefined) ||
+    initialVideos ||
+    []
+  const initialCachedFolders =
+    cached?.payload.folders ||
+    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as Folder[]) : undefined) ||
+    initialFolders ||
+    []
+
+  const [videos, setVideos] = useState<VideoWithPlaylist[]>(initialCachedVideos)
+  const [folders, setFolders] = useState<Folder[]>(initialCachedFolders)
   const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set(cached?.payload.completedVideos || []))
   const [videoFolderMap, setVideoFolderMap] = useState<Record<string, string | null>>(cached?.payload.videoFolderMap || {})
   const [addModalOpen, setAddModalOpen] = useState(false)
   const hasMounted = useRef(false)
   
-  const videosRef = useRef<VideoWithPlaylist[]>(cached?.payload.videos || initialVideos || [])
-  const foldersRef = useRef<Folder[]>(cached?.payload.folders || initialFolders || [])
+  const videosRef = useRef<VideoWithPlaylist[]>(initialCachedVideos)
+  const foldersRef = useRef<Folder[]>(initialCachedFolders)
   const completedVideosRef = useRef<Set<string>>(new Set(cached?.payload.completedVideos || []))
   const videoFolderMapRef = useRef<Record<string, string | null>>(cached?.payload.videoFolderMap || {})
 

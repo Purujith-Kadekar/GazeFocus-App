@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('channelId', channelId)
     } else if (playlistId !== null && playlistId !== undefined && playlistId !== '') {
       query = query.eq('playlistId', playlistId)
-    } else if (standaloneOnly || youtubeId === null) {
+    } else if (standaloneOnly) {
       query = query.is('playlistId', null).is('channelId', null)
     }
 

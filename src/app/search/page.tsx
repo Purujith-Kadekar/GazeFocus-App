@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from '@/components/ui/StableImage'
 import { Search, User, Loader2, Plus, Check, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,24 +17,33 @@ export default function SearchPage() {
   const [results, setResults] = useState<YouTubeSearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [addedVideos, setAddedVideos] = useState<Set<string>>(new Set())
   const [addingVideo, setAddingVideo] = useState<string | null>(null)
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!query.trim()) return
-
+  const runSearch = useCallback(async (term: string) => {
+    if (!term.trim()) return
     setIsLoading(true)
     setHasSearched(true)
+    setSearchError(null)
 
     try {
       const response = await fetch(
-        `/api/youtube?q=${encodeURIComponent(query)}`
+        `/api/youtube?q=${encodeURIComponent(term)}`
       )
       if (!response.ok) {
-        console.error('Search failed:', response.status)
+        let message = 'Search is temporarily unavailable. Please try again.'
+        try {
+          const errorPayload = await response.json()
+          if (typeof errorPayload?.error === 'string' && errorPayload.error.trim()) {
+            message = errorPayload.error
+          }
+        } catch {
+          // Ignore parse failures and keep fallback message.
+        }
+
+        setSearchError(message)
         setResults([])
-        setIsLoading(false)
         return
       }
       const data = await response.json()
@@ -42,17 +51,46 @@ export default function SearchPage() {
       if (Array.isArray(data)) {
         setResults(data)
       } else if (data.error) {
-        console.error('Search error:', data.error)
+        setSearchError(String(data.error))
         setResults([])
       } else {
         setResults([])
       }
     } catch (error) {
-      console.error('Search error:', error)
+      setSearchError('Network issue while searching. Please try again.')
       setResults([])
     } finally {
       setIsLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    const applyUrlQuery = () => {
+      const urlQuery = (new URLSearchParams(window.location.search).get('q') || '').trim()
+      if (!urlQuery) return
+      setQuery(urlQuery)
+      void runSearch(urlQuery)
+    }
+
+    const handleMobileHeaderSearch = (event: Event) => {
+      const customEvent = event as CustomEvent<{ query?: string }>
+      const term = customEvent.detail?.query?.trim()
+      if (!term) return
+      setQuery(term)
+      void runSearch(term)
+    }
+
+    applyUrlQuery()
+    window.addEventListener('mobile-header-search', handleMobileHeaderSearch)
+
+    return () => {
+      window.removeEventListener('mobile-header-search', handleMobileHeaderSearch)
+    }
+  }, [runSearch])
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    void runSearch(query)
   }
 
   const handleAddVideo = async (video: YouTubeSearchResult) => {
@@ -138,7 +176,9 @@ export default function SearchPage() {
 
         {!isLoading && hasSearched && results.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No videos found. Try a different search.</p>
+            <p className="text-muted-foreground">
+              {searchError || 'No videos found. Try a different search.'}
+            </p>
           </div>
         )}
 

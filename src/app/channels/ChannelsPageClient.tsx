@@ -22,7 +22,7 @@ import {
 import { cn } from '@/lib/utils'
 import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
 import { getDashboardBootstrapCache } from '@/lib/dashboard-bootstrap-cache'
-import type { Channel, Folder, ChannelWithFolder } from '@/types'
+import type { Channel, Folder, ChannelWithFolder, Video, Playlist } from '@/types'
 
 interface ChannelsPageClientProps {
   initialChannels?: ChannelWithFolder[]
@@ -55,6 +55,8 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 
   const [channels, setChannels] = useState<ChannelWithFolder[]>(initialCachedChannels)
   const [folders, setFolders] = useState<Folder[]>(initialCachedFolders)
+  const [videos, setVideos] = useState<Video[]>([])
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [syncingChannels, setSyncingChannels] = useState<Set<string>>(new Set())
   const channelsRef = useRef<ChannelWithFolder[]>(initialCachedChannels)
   const foldersRef = useRef<Folder[]>(initialCachedFolders)
@@ -85,9 +87,11 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 
     const loadChannels = async () => {
       try {
-        const [channelsRes, foldersRes] = await Promise.all([
+        const [channelsRes, foldersRes, videosRes, playlistsRes] = await Promise.all([
           fetch('/api/channels'),
           fetch('/api/folders'),
+          fetch('/api/videos'),
+          fetch('/api/playlists'),
         ])
 
         if (cancelled) return
@@ -103,6 +107,16 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
         if (foldersRes.ok) {
           const data = await foldersRes.json()
           nextFolders = Array.isArray(data) ? data : []
+        }
+
+        if (videosRes.ok) {
+          const data = await videosRes.json()
+          setVideos(Array.isArray(data) ? data : [])
+        }
+
+        if (playlistsRes.ok) {
+          const data = await playlistsRes.json()
+          setPlaylists(Array.isArray(data) ? data : [])
         }
 
         if (cancelled) return
@@ -274,6 +288,23 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 
   const liveChannels = channels.filter(c => c.isLive)
   const offlineChannels = channels.filter(c => !c.isLive)
+  const videoCountsByChannel = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const video of videos) {
+      if (!video.channelId) continue
+      counts.set(video.channelId, (counts.get(video.channelId) || 0) + 1)
+    }
+    return counts
+  }, [videos])
+
+  const playlistCountsByChannel = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const playlist of playlists) {
+      if (!playlist.channelId) continue
+      counts.set(playlist.channelId, (counts.get(playlist.channelId) || 0) + 1)
+    }
+    return counts
+  }, [playlists])
 
   if (status === 'unauthenticated') {
     return (
@@ -334,12 +365,14 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
                   </span>
                   Live Now
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                   {liveChannels.map((channel) => (
                     <ChannelCard
                       key={channel.id}
                       channel={channel}
                       isSyncing={syncingChannels.has(channel.id)}
+                      libraryVideoCount={videoCountsByChannel.get(channel.id) || 0}
+                      libraryPlaylistCount={(playlistCountsByChannel.get(channel.id) || 0) + (playlistCountsByChannel.get(channel.youtubeId) || 0)}
                       onClick={() => handleChannelClick(channel)}
                       onDelete={(e) => handleDeleteChannel(channel.id, e)}
                       onSync={() => handleSyncChannel(channel.id)}
@@ -356,12 +389,14 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
             {offlineChannels.length > 0 && (
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-muted-foreground">All Channels</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                   {offlineChannels.map((channel) => (
                     <ChannelCard
                       key={channel.id}
                       channel={channel}
                       isSyncing={syncingChannels.has(channel.id)}
+                      libraryVideoCount={videoCountsByChannel.get(channel.id) || 0}
+                      libraryPlaylistCount={(playlistCountsByChannel.get(channel.id) || 0) + (playlistCountsByChannel.get(channel.youtubeId) || 0)}
                       onClick={() => handleChannelClick(channel)}
                       onDelete={(e) => handleDeleteChannel(channel.id, e)}
                       onSync={() => handleSyncChannel(channel.id)}
@@ -383,6 +418,8 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 interface ChannelCardProps {
   channel: ChannelWithFolder
   isSyncing: boolean
+  libraryVideoCount: number
+  libraryPlaylistCount: number
   onClick: () => void
   onDelete: (e: React.MouseEvent) => void
   onSync: () => void
@@ -395,6 +432,8 @@ interface ChannelCardProps {
 function ChannelCard({
   channel,
   isSyncing,
+  libraryVideoCount,
+  libraryPlaylistCount,
   onClick,
   onDelete,
   onSync,
@@ -408,7 +447,7 @@ function ChannelCard({
   return (
     <Card
       className={cn(
-        'cursor-pointer hover:shadow-md transition-all group overflow-hidden',
+        'aspect-square cursor-pointer hover:shadow-md transition-all group overflow-hidden md:aspect-auto',
         channel.isLive && 'ring-2 ring-red-500'
       )}
       onClick={onClick}
@@ -451,7 +490,7 @@ function ChannelCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-0 right-0 h-8 w-8 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-0 right-0 h-8 w-8 bg-black/50 hover:bg-black/70 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
               >
                 <MoreVertical className="h-4 w-4 text-white" />
               </Button>
@@ -512,16 +551,14 @@ function ChannelCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="p-3">
-          <h3 className="font-medium line-clamp-2">{channel.title}</h3>
+        <div className="mt-auto p-2 md:p-3">
+          <h3 className="line-clamp-2 text-xs font-medium md:text-base">{channel.title}</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground md:text-xs">
+            {libraryVideoCount > 0 ? libraryVideoCount : channel.videoCount || 0} videos • {libraryPlaylistCount} playlists
+          </p>
           {channel.subscriberCount && (
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 text-[11px] text-muted-foreground md:text-sm">
               {formatSubscriberCount(channel.subscriberCount)} subscribers
-            </p>
-          )}
-          {channel.videoCount && (
-            <p className="text-xs text-muted-foreground">
-              {channel.videoCount} videos
             </p>
           )}
         </div>

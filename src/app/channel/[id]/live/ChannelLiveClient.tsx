@@ -140,7 +140,7 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
         </div>
 
         <div className="flex flex-col md:flex-row gap-6">
-          <div className="w-full md:w-64 shrink-0">
+          <div className="w-full md:w-64 shrink-0 flex justify-center md:justify-start">
             {channel.thumbnail ? (
               <Image
                 src={channel.thumbnail}
@@ -148,13 +148,13 @@ export default function ChannelLiveClient({ channel: initialChannel }: ChannelLi
                 width={256}
                 height={256}
                 className={cn(
-                  'w-full aspect-square object-cover rounded-lg',
+                  'h-24 w-24 rounded-full border bg-muted object-cover md:h-auto md:w-full md:rounded-lg md:border-0 md:aspect-square',
                   channel.isLive && 'ring-4 ring-red-500'
                 )}
               />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center bg-muted rounded-lg">
-                <Users className="h-16 w-16 text-muted-foreground/50" />
+              <div className="h-24 w-24 rounded-full border bg-muted flex items-center justify-center md:h-auto md:w-full md:aspect-square md:rounded-lg md:border-0">
+                <Users className="h-10 w-10 text-muted-foreground/50 md:h-16 md:w-16" />
               </div>
             )}
           </div>

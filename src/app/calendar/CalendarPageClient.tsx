@@ -101,7 +101,6 @@ export default function CalendarPageClient() {
 
   // Fetch calendar data from API. Note: We intentionally have no dependencies
   // to ensure this function is stable across renders. See useEffect below.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchData = useCallback(async () => {
     try {
       const [todosRes, videosRes, playlistsRes] = await Promise.all([
@@ -132,7 +131,6 @@ export default function CalendarPageClient() {
 
   // Initialize data on mount only. Using hasInitialized ref prevents
   // infinite loops that occur when cached object reference changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => {
     if (hasInitialized.current) return
     hasInitialized.current = true

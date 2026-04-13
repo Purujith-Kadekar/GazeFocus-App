@@ -4,14 +4,14 @@ import Image from "@/components/ui/StableImage";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Learn how GazeFocus helps users stay focused while learning from YouTube with tracking, planning, and productivity tools.",
+    "GazeFocus was built by Purujith Kadekar to help learners stay focused and consistent while studying YouTube video content. Learn about the mission and the founder.",
   alternates: {
     canonical: "/about",
   },
   openGraph: {
-    title: "About GazeFocus",
+    title: "About GazeFocus – Built by Purujith Kadekar",
     description:
-      "Focus-aware YouTube learning platform built to improve consistency and reduce distractions.",
+      "Purujith Kadekar created GazeFocus: a focus-aware YouTube learning platform to improve study consistency and reduce distractions.",
     url: "https://gaze-focus.vercel.app/about",
     type: "website",
   },

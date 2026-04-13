@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
     const isAuthenticated = !!token
     const isAuthPage = pathname.startsWith("/auth/")
-    const publicPaths = ["/", "/404", "/privacy-policy", "/terms-and-conditions", "/about", "/fyq"]
+    const publicPaths = ["/", "/404", "/privacy-policy", "/terms-and-conditions", "/about", "/fyq", "/sitemap"]
     const isPublicPage = publicPaths.includes(pathname)
 
     if (isAuthenticated && db) {

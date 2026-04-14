@@ -122,6 +122,13 @@ const personJsonLd = {
   },
 };
 
+const seoJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "GazeFocus",
+  url: "https://gaze-focus.vercel.app",
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -140,6 +147,12 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(seoJsonLd),
+          }}
         />
       </head>
       <body

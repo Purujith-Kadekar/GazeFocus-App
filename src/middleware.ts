@@ -34,6 +34,12 @@ export async function middleware(request: NextRequest) {
 
     console.log('[Middleware]', pathname)
 
+    // Always allow crawler-critical metadata routes.
+    const isCrawlerRoute = pathname === '/sitemap.xml' || pathname === '/robots.txt'
+    if (isCrawlerRoute) {
+      return supabaseResponse
+    }
+
   const isStaticFile = pathname.includes(".") || pathname.startsWith("/_next")
   const isApiAuth = pathname.startsWith("/api/auth/")
 

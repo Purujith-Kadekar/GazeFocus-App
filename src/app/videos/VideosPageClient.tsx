@@ -147,7 +147,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
     const loadVideos = async () => {
       try {
         const [videosRes, foldersRes] = await Promise.all([
-          fetch('/api/videos'),
+          fetch('/api/videos?standaloneOnly=true'),
           fetch('/api/folders'),
         ])
 
@@ -220,7 +220,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
           folderId,
         }),
       })
-      const response = await fetch('/api/videos')
+      const response = await fetch('/api/videos?standaloneOnly=true')
       if (response.ok) {
         const data = await response.json()
         const nextVideos = Array.isArray(data) ? data : []
@@ -295,7 +295,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
   useEffect(() => {
     const handleRefresh = () => {
       if (!hasMounted.current) return
-      fetch('/api/videos')
+      fetch('/api/videos?standaloneOnly=true')
         .then(r => r.ok ? r.json() : [])
         .then((data) => {
           const nextVideos = Array.isArray(data) ? data : []

@@ -15,13 +15,20 @@ export const firebaseTokenProvider: NextAuthOptions['providers'] = [
       idToken: { label: 'ID Token', type: 'text' },
     },
     async authorize(credentials) {
-      if (!credentials?.idToken) return null
+      if (!credentials?.idToken) {
+        console.error('[Firebase Provider] No credentials')
+        return null
+      }
 
       const firebaseAuth = await getFirebaseAuth()
-      if (!firebaseAuth) return null
+      if (!firebaseAuth) {
+        console.error('[Firebase Provider] No firebase auth')
+        return null
+      }
 
       try {
         const decodedToken = await firebaseAuth.verifyIdToken(credentials.idToken)
+        console.log('[Firebase Provider] Decoded token for:', decodedToken.email)
         const email = (decodedToken.email || '').toLowerCase()
         
         const user = {
@@ -33,7 +40,7 @@ export const firebaseTokenProvider: NextAuthOptions['providers'] = [
         
         return user
       } catch (error) {
-        // Silent fail
+        console.error('[Firebase Provider] Token verification failed:', error)
         return null
       }
     },

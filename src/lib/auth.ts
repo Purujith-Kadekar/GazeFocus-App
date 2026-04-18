@@ -76,14 +76,18 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       const extendedToken = token as any
 
+      console.log('[Auth JWT] user:', user?.email, 'token exists:', !!token)
+
       if (user && user.email) {
         try {
           const normalizedEmail = user.email.toLowerCase()
           const existingUser = await db.from('User').select('id').eq('email', normalizedEmail).single()
           
           if (existingUser.data) {
+            console.log('[Auth JWT] Found existing user:', existingUser.data.id)
             extendedToken.id = existingUser.data.id
           } else {
+            console.log('[Auth JWT] Creating new user for:', normalizedEmail)
             const newUserId = randomUUID()
             const now = new Date().toISOString()
             await db.from('User').insert({
@@ -99,6 +103,7 @@ export const authOptions: NextAuthOptions = {
             extendedToken.id = newUserId
           }
         } catch (e) {
+          console.error('[Auth JWT] Error:', e)
           extendedToken.id = user.id
         }
       }
@@ -108,6 +113,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       const extendedToken = token as any
       const extSession = session as any
+
+      console.log('[Auth Session] token.id:', extendedToken.id, 'user exists:', !!extSession.user)
 
       if (extSession.user && extendedToken.id) {
         extSession.user.id = extendedToken.id
@@ -124,7 +131,7 @@ export const authOptions: NextAuthOptions = {
             if (dbUser.data.image) extSession.user.image = dbUser.data.image
           }
         } catch (e) {
-          // Silent fail
+          console.error('[Auth Session] Error updating:', e)
         }
       }
 

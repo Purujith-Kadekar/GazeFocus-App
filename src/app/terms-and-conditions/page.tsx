@@ -121,7 +121,7 @@ export default function TermsAndConditionsPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">12. Contact</h2>
             <p>
-              For questions about these Terms, contact: <strong>puru0kadek@gmail.com</strong>
+              For questions about these Terms, contact: <strong>gazefocus.app@gmail.com</strong>
             </p>
             <p>
               Legal entity: <strong>Purujith Kadekar</strong>

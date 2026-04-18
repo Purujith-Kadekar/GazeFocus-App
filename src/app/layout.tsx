@@ -9,11 +9,12 @@ import { AutoSyncInit } from "@/components/AutoSyncInit";
 type ViewportMode = "mobile" | "tablet" | "desktop";
 
 function detectInitialViewportMode(requestHeaders: Headers): ViewportMode {
+  const ua = (requestHeaders.get("user-agent") || "").toLowerCase();
+  
+  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(ua)) return "tablet";
+
   const chMobile = requestHeaders.get("sec-ch-ua-mobile");
   if (chMobile === "?1") return "mobile";
-
-  const ua = (requestHeaders.get("user-agent") || "").toLowerCase();
-  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(ua)) return "tablet";
   if (/mobi|iphone|ipod|android.*mobile|windows phone/.test(ua)) return "mobile";
 
   return "desktop";

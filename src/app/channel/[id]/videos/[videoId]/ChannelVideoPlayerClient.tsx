@@ -157,7 +157,6 @@ export default function ChannelVideoPlayerClient({ channel, video }: ChannelVide
             saveProgress(currentTime, duration)
           }}
           onComplete={() => {
-            console.log('Video completed!')
             setIsCompleted(true)
           }}
         />

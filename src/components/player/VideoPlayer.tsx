@@ -330,7 +330,6 @@ export function VideoPlayer({
               if (hasMovedPastInitialRef.current || 
                   pausedTime >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS ||
                   hasPlayedRef.current) {
-                console.log(`[PAUSE] Saving position: ${pausedTime}`)
                 onPauseRef.current?.(pausedTime, pausedDur)
               }
             }
@@ -415,7 +414,6 @@ export function VideoPlayer({
           // Confirm the player has reached (or passed) the initial seek position.
           // Once confirmed, progress saves via onPause are unconditionally allowed.
           if (!hasMovedPastInitialRef.current && time >= initialTimeRef.current - SEEK_POSITION_TOLERANCE_SECONDS) {
-            console.log(`[SEEK] Confirmed: Player reached initial position ${initialTimeRef.current} (current: ${time})`)
             hasMovedPastInitialRef.current = true
           }
           onProgressRef.current?.(time, dur)

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import LandingPage from '@/components/landing/LandingPage'
 import LandingPageMobile from '@/components/landing/LandingPageMobile'
 import LandingPageTablet from '@/components/landing/LandingPageTablet'
-
 type ViewportMode = 'mobile' | 'tablet' | 'desktop'
 
 function getViewportMode(width: number): ViewportMode {

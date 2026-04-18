@@ -391,6 +391,8 @@ export function Dashboard() {
         folders={folders}
         playlists={playlists}
         channels={channels}
+        scheduledTasks={scheduledTasks}
+        pendingTasks={pendingTasks}
         isRefreshingLive={isRefreshingLive}
         onVideoClick={handleVideoClick}
         onNoteClick={handleNoteClick}

@@ -46,8 +46,6 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
         currentTime: Math.floor(currentTime),
         duration: Math.floor(duration),
       }),
-    }).then(res => {
-      if (res.ok) console.log(`[SAVED] Progress for ${videoId}: ${Math.floor(currentTime)}s`)
     }).catch((error) => console.error('Failed to save progress:', error))
   }, [videoId])
 
@@ -101,11 +99,8 @@ export default function ChannelLivePlayerClient({ channel, videoId }: ChannelLiv
         if (progressRes.ok) {
           const progressData = await progressRes.json()
           if (progressData.progress) {
-            console.log(`[LOADED] Progress for ${videoId}:`, progressData.progress.secondsWatched)
             setInitialTime(progressData.progress.secondsWatched || 0)
             setIsCompleted(progressData.progress.completed || false)
-          } else {
-            console.log(`[INFO] No existing progress found for ${videoId}, starting from 0.`)
           }
         }
       } catch (error) {

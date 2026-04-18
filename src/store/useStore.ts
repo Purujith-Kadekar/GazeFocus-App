@@ -324,6 +324,7 @@ export const useInactivityStore = create<InactivityStateStore>((set) => ({
 interface UIState {
   isSidebarOpen: boolean
   isDashboardBootLoading: boolean
+  isGlobalLoading: boolean
   isSearchModalOpen: boolean
   isAddModalOpen: boolean
   isSettingsOpen: boolean
@@ -331,6 +332,7 @@ interface UIState {
   currentView: 'dashboard' | 'folder' | 'playlist' | 'video' | 'settings' | 'search'
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
+  setGlobalLoading: (loading: boolean) => void
   setSearchModalOpen: (open: boolean) => void
   setAddModalOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
@@ -344,6 +346,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       isSidebarOpen: true,
       isDashboardBootLoading: false,
+      isGlobalLoading: false,
       isSearchModalOpen: false,
       isAddModalOpen: false,
       isSettingsOpen: false,
@@ -351,6 +354,7 @@ export const useUIStore = create<UIState>()(
       currentView: 'dashboard',
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+      setGlobalLoading: (loading) => set({ isGlobalLoading: loading }),
       setSearchModalOpen: (open) => set({ isSearchModalOpen: open }),
       setAddModalOpen: (open) => set({ isAddModalOpen: open }),
       setSettingsOpen: (open) => set({ isSettingsOpen: open }),

@@ -11,6 +11,7 @@ import { NotesPanel } from '@/components/player/NotesPanel'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import { useUIStore, useVideoStore, useFolderStore } from '@/store/useStore'
 import { clearDashboardBootstrapCache, getDashboardBootstrapCache, isDashboardBootstrapCacheFresh } from '@/lib/dashboard-bootstrap-cache'
+import { beginRouteLoading, endRouteLoading } from '@/components/layout/RouteTopLoader'
 import { Play, ListVideo, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
@@ -49,11 +50,20 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === 'loading') {
       setDashboardBootLoading(true)
-      return
+      const timer = setTimeout(() => beginRouteLoading(), 100)
+      return () => clearTimeout(timer)
     }
 
     if (status === 'unauthenticated') {
       setDashboardBootLoading(false)
+      endRouteLoading()
+    }
+
+    if (status === 'authenticated') {
+      setDashboardBootLoading(false)
+      endRouteLoading()
+
+      fetch('/api/activity', { method: 'POST' }).catch(() => {})
     }
   }, [status, setDashboardBootLoading])
 
@@ -142,7 +152,6 @@ export default function DashboardPage() {
                     })
                   }}
                   onComplete={() => {
-                    console.log('Video completed!')
                   }}
                 />
               </div>
@@ -152,7 +161,6 @@ export default function DashboardPage() {
               <NotesPanel 
                 videoId={currentVideo.youtubeId}
                 onSeekToTimestamp={(timestamp) => {
-                  console.log('Seek to:', timestamp)
                 }}
               />
             </div>

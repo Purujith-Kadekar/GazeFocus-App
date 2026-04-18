@@ -3,11 +3,12 @@
 import { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from './Sidebar'
-import { Header } from './Header'
+import { DesktopHeader } from './DesktopHeader'
 import { SiteFooter } from './SiteFooter'
 import { MobileMainLayout } from './MobileMainLayout'
 import { TabletMainLayout } from './TabletMainLayout'
 import { useUIStore, useFolderStore, useAuthStore, useInactivityStore, usePlayerStore, useEyeTrackingStore } from '@/store/useStore'
+import { motion } from 'framer-motion'
 import { AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -36,7 +37,7 @@ function getViewportMode(width: number): 'mobile' | 'tablet' | 'desktop' {
 export function MainLayout({ children }: MainLayoutProps) {
   const initialViewportMode = useInitialViewportMode()
   const router = useRouter()
-  const { isSidebarOpen } = useUIStore()
+  const { isSidebarOpen, isGlobalLoading } = useUIStore()
   const pathname = usePathname()
   const { folders, setFolders } = useFolderStore()
   const { setUser } = useAuthStore()
@@ -67,10 +68,21 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [sessionReady, setSessionReady] = useState(false)
   const [settingsHydrated, setSettingsHydrated] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [globalLoadingVisible, setGlobalLoadingVisible] = useState(false)
   const hasWarmedCoreRoutes = useRef(false)
   const hasWarmedFolderRoutes = useRef(false)
   const [viewportMode, setViewportMode] = useState<'mobile' | 'tablet' | 'desktop'>(initialViewportMode)
   const { toast } = useToast()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (isGlobalLoading) {
+      setGlobalLoadingVisible(true)
+    }
+  }, [isGlobalLoading])
 
   useLayoutEffect(() => {
     const applyViewport = () => setViewportMode(getViewportMode(window.innerWidth))
@@ -261,15 +273,36 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      {mounted && (
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: globalLoadingVisible ? 1 : 0 }}
+          transition={{ 
+            duration: globalLoadingVisible ? 0.4 : 0.3, 
+            ease: 'easeInOut' 
+          }}
+          onAnimationComplete={() => {
+            if (!isGlobalLoading) {
+              setGlobalLoadingVisible(false)
+            }
+          }}
+          className="fixed top-0 left-0 right-0 h-1 z-50 origin-left"
+          style={{ 
+            backgroundColor: '#D4870A',
+          }}
+        />
+      )}
       {viewportMode === 'desktop' ? (
         <div className="flex min-h-screen w-full">
           <Sidebar />
           <div className="min-w-0 flex-1 flex flex-col">
-            <Header />
-            <main className="flex-1 p-4 md:p-6">
-              {children}
-            </main>
-            <SiteFooter />
+            <DesktopHeader />
+            <div className="pt-16">
+              <main className="flex-1 p-4 md:p-6">
+                {children}
+              </main>
+              <SiteFooter />
+            </div>
           </div>
         </div>
       ) : viewportMode === 'tablet' ? (

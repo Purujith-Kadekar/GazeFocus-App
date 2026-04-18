@@ -22,12 +22,12 @@ const securityHeaders = [
       // 'unsafe-inline' is required by Next.js App Router for its inline style/script
       // hydration chunks. Nonce-based CSP would need custom server infrastructure.
       // 'wasm-unsafe-eval' is required by MediaPipe for WebAssembly compilation.
-      `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} 'wasm-unsafe-eval' https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com`,
+      `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} 'wasm-unsafe-eval' https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com https://apis.google.com https://accounts.google.com`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.googleusercontent.com https://*.ggpht.com",
       "font-src 'self'",
-      "connect-src 'self' https://www.googleapis.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com",
-      "frame-src https://www.youtube.com https://youtube.com",
+      "connect-src 'self' https://www.googleapis.com https://identitytoolkit.googleapis.com https://apis.google.com https://accounts.google.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com",
+      "frame-src https://www.youtube.com https://youtube.com https://gazefocus-38363.firebaseapp.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",

@@ -264,7 +264,6 @@ export default function VideoPage() {
               saveProgress(currentTime, duration)
             }}
             onComplete={() => {
-              console.log('Video completed!')
               setIsCompleted(true)
             }}
           />

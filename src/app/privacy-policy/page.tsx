@@ -109,7 +109,7 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">11. Contact</h2>
             <p>
-              For privacy-related questions or requests, contact us at: <strong>puru0kadek@gmail.com</strong>
+              For privacy-related questions or requests, contact us at: <strong>gazefocus.app@gmail.com</strong>
             </p>
             <p>
               Business/Controller name: <strong>Purujith Kadekar</strong>

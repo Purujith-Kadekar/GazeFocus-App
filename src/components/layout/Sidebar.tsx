@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { endRouteLoading, startRouteTopLoader } from './RouteTopLoader'
-import { signOut } from 'next-auth/react'
+import { clearUserData } from '@/lib/logout'
 import {
   Home,
   FolderOpen,
@@ -301,8 +301,7 @@ export function Sidebar({ className }: SidebarProps) {
   }
 
   const handleLogout = async () => {
-    logout()
-    await signOut({ redirect: true, callbackUrl: '/auth/login' })
+    await clearUserData()
   }
 
   const handleFolderClick = (folder: Folder) => {

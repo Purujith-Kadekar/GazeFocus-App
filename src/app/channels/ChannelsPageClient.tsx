@@ -53,13 +53,13 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
     initialFolders ||
     []
 
-  const [channels, setChannels] = useState<ChannelWithFolder[]>(initialCachedChannels)
-  const [folders, setFolders] = useState<Folder[]>(initialCachedFolders)
+  const [channels, setChannels] = useState<ChannelWithFolder[]>(initialCachedChannels || [])
+  const [folders, setFolders] = useState<Folder[]>(initialCachedFolders || [])
   const [videos, setVideos] = useState<Video[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [syncingChannels, setSyncingChannels] = useState<Set<string>>(new Set())
-  const channelsRef = useRef<ChannelWithFolder[]>(initialCachedChannels)
-  const foldersRef = useRef<Folder[]>(initialCachedFolders)
+  const channelsRef = useRef<ChannelWithFolder[]>(initialCachedChannels || [])
+  const foldersRef = useRef<Folder[]>(initialCachedFolders || [])
 
   useEffect(() => {
     channelsRef.current = channels
@@ -249,7 +249,6 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
         }),
       })
       if (response.ok) {
-        console.log('Channel copied to folder')
         window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
@@ -274,7 +273,6 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
         }),
       })
       if (response.ok) {
-        console.log('Channel moved to folder')
         window.dispatchEvent(new CustomEvent('refresh-dashboard'))
       }
     } catch (error) {
@@ -332,7 +330,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
           </div>
         </div>
 
-        <div>
+        <div className="space-y-1 pt-6">
           <h1 className="text-3xl font-bold">All Channels</h1>
           <p className="text-muted-foreground">
             {channels.length} channel{channels.length !== 1 ? 's' : ''} in your library
@@ -345,16 +343,16 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
         </div>
 
         {channels.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground mb-4">No channels yet</p>
-              <Button onClick={() => router.push('/dashboard')}>
-                Add Channel
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground mb-4">No channels yet</p>
+                <Button onClick={() => router.push('/dashboard')}>
+                  Add Channel
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
           <>
             {liveChannels.length > 0 && (
               <div className="space-y-4">

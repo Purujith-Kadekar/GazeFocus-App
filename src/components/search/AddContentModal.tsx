@@ -164,8 +164,6 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
           videoCount: previewData.videoCount,
         }),
       })
-
-      console.log('[AddContentModal] Response status:', response.status)
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -176,7 +174,6 @@ export function AddContentModal({ open, onOpenChange, folders }: AddContentModal
       }
 
       const result = await response.json()
-      console.log('[AddContentModal] Success:', result)
       
       setIsAdding(false)
       onOpenChange(false)

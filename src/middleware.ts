@@ -32,8 +32,6 @@ export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
     const supabaseResponse = createSupabaseClient(request)
 
-    console.log('[Middleware]', pathname)
-
     // Always allow crawler-critical metadata routes.
     const isCrawlerRoute = pathname === '/sitemap.xml' || pathname === '/robots.txt'
     if (isCrawlerRoute) {

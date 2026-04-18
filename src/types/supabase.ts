@@ -459,11 +459,15 @@ export type Database = {
       }
       User: {
         Row: {
+          authProvider: 'google' | 'credentials' | 'firebase' | null
           createdAt: string
           currentStreak: number
           deletionScheduledAt: string | null
           email: string | null
           emailVerified: string | null
+          firebaseIdToken: string | null
+          firebaseRefreshToken: string | null
+          firebaseUid: string | null
           id: string
           image: string | null
           isBlocked: boolean
@@ -478,11 +482,15 @@ export type Database = {
           weeklyVideosWatched: number
         }
         Insert: {
+          authProvider?: 'google' | 'credentials' | 'firebase' | null
           createdAt?: string
           currentStreak?: number
           deletionScheduledAt?: string | null
           email?: string | null
           emailVerified?: string | null
+          firebaseIdToken?: string | null
+          firebaseRefreshToken?: string | null
+          firebaseUid?: string | null
           id: string
           image?: string | null
           isBlocked?: boolean
@@ -497,11 +505,15 @@ export type Database = {
           weeklyVideosWatched?: number
         }
         Update: {
+          authProvider?: 'google' | 'credentials' | 'firebase' | null
           createdAt?: string
           currentStreak?: number
           deletionScheduledAt?: string | null
           email?: string | null
           emailVerified?: string | null
+          firebaseIdToken?: string | null
+          firebaseRefreshToken?: string | null
+          firebaseUid?: string | null
           id?: string
           image?: string | null
           isBlocked?: boolean

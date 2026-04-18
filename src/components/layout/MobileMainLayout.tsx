@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Play, ListVideo, FolderOpen, CalendarDays, Users, Settings } from 'lucide-react'
-import { Header } from './Header'
+import { MobileHeader } from './MobileHeader'
+import { MobileFooter } from './MobileFooter'
 
 interface MobileMainLayoutProps {
   children: React.ReactNode
@@ -24,12 +25,12 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <MobileHeader />
       <div className="mx-auto w-full max-w-md px-3 py-3 pb-28">
         <main className="min-h-[calc(100vh-220px)]">{children}</main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur">
         <div className="mx-auto grid max-w-md grid-cols-7 gap-0.5 px-1 py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -67,6 +68,7 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
           })}
         </div>
       </nav>
+      <MobileFooter />
     </div>
   )
 }

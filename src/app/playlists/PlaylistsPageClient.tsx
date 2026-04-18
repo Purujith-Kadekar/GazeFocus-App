@@ -174,7 +174,6 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
         }),
       })
       if (response.ok) {
-        console.log('Playlist copied to folder')
       }
     } catch (error) {
       console.error('Failed to copy playlist:', error)
@@ -198,7 +197,6 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
         }),
       })
       if (response.ok) {
-        console.log('Playlist moved to folder')
       }
     } catch (error) {
       console.error('Failed to move playlist:', error)

@@ -51,7 +51,7 @@ const faqJsonLd = {
   })),
 };
 
-export default function FYQPage() {
+export default function FAQPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <script
@@ -59,7 +59,7 @@ export default function FYQPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <div className="mx-auto w-full max-w-4xl px-6 py-14 md:py-20">
-        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">FYQ</h1>
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">FAQ</h1>
         <p className="mt-3 text-sm text-muted-foreground md:text-base">Frequently asked questions.</p>
 
         <div className="mt-10 space-y-6">

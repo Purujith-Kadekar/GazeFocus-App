@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Plus, Bell, Eye, EyeOff } from 'lucide-react'
+import { Search, Plus, Bell, Eye, EyeOff, Settings, LogOut } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ import { useEyeTrackingStore, useFolderStore } from '@/store/useStore'
 import { SearchModal } from '@/components/search/SearchModal'
 import { AddContentModal } from '@/components/search/AddContentModal'
 import { Logo } from './Logo'
+import { clearUserData } from '@/lib/logout'
 
 interface Notification {
   id: string
@@ -44,14 +46,15 @@ function timeAgo(dateStr: string): string {
   return `${days} day${days > 1 ? 's' : ''} ago`
 }
 
-export function Header() {
+export function MobileHeader() {
   const router = useRouter()
   const pathname = usePathname()
-  const { isEnabled: eyeTrackingEnabled, setEnabled: setEyeTrackingEnabled, isCalibrated, isLookingAtScreen } = useEyeTrackingStore()
+  const { isEnabled: eyeTrackingEnabled, setEnabled: setEyeTrackingEnabled } = useEyeTrackingStore()
   const { folders } = useFolderStore()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const { data: session } = useSession()
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -87,9 +90,9 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-        {/* Mobile Brand */}
-        <Link id="onboarding-mobile-brand" href="/dashboard" className="flex items-center gap-2 md:hidden">
+      <header className="fixed top-0 left-0 right-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
+        {/* Brand */}
+        <Link id="onboarding-mobile-brand" href="/dashboard" className="flex items-center gap-2">
           <Logo size={24} />
           <span className="text-sm font-semibold text-foreground">GazeFocus</span>
         </Link>
@@ -135,7 +138,7 @@ export function Header() {
                   variant={eyeTrackingEnabled ? 'default' : 'outline'}
                   size="icon"
                   aria-label={eyeTrackingEnabled ? 'Disable eye tracking' : 'Enable eye tracking'}
-                  className={eyeTrackingEnabled ? 'bg-green-600 hover:bg-green-700' : ''}
+                  className={`transition-colors duration-150 ${eyeTrackingEnabled ? 'bg-green-600 hover:bg-green-700' : ''}`}
                   onClick={() => setEyeTrackingEnabled(!eyeTrackingEnabled)}
                 >
                   {eyeTrackingEnabled ? (
@@ -154,16 +157,12 @@ export function Header() {
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative" aria-label="Open notifications menu">
+              <Button variant="ghost" size="icon" className="relative transition-transform" aria-label="Open notifications menu">
                 <Bell className="h-4 w-4" />
-                {unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center"
-                  >
-                    {unreadCount}
-                  </Badge>
-                )}
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center bg-destructive text-destructive-foreground transition-opacity"
+                  style={{ opacity: unreadCount > 0 ? 1 : 0 }}>
+                  {unreadCount}
+                </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
@@ -200,6 +199,45 @@ export function Header() {
                 onClick={clearAllNotifications}
               >
                 Clear all notifications
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* User Menu - Show on mobile */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full transition-all duration-150" 
+                aria-label="User menu"
+              >
+                {session?.user?.image ? (
+                  <img 
+                    src={session.user.image} 
+                    alt={session.user.name || 'User'} 
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm font-medium">
+                    {session?.user?.name?.[0] || session?.user?.email?.[0] || 'U'}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                {session?.user?.name || 'User'}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => router.push('/settings')}>
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={async () => {
+                await clearUserData()
+              }} className="text-red-500">
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

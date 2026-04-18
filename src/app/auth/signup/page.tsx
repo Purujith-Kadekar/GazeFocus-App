@@ -149,16 +149,18 @@ export default function SignupPage() {
             const now = new Date().toISOString()
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
-            await db.from('User').insert({
-              id: crypto.randomUUID(),
-              email: email,
-              name: name,
-              image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-              emailVerified: now,
-              createdAt: now,
-              updatedAt: now,
-              lastLoginDate: now,
-            })
+            try { 
+              await fetch('/api/user/create', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                  email, 
+                  name, 
+                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '', 
+                  emailVerified: now 
+                }) 
+              }) 
+            } catch (e) {} 
           }
         } catch (e) {}
       }
@@ -203,25 +205,27 @@ export default function SignupPage() {
             const now = new Date().toISOString()
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
-            await db.from('User').insert({
-              id: crypto.randomUUID(),
-              email: email,
-              name: name,
-              image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-              emailVerified: now,
-              createdAt: now,
-              updatedAt: now,
-              lastLoginDate: now,
-            })
+            try { 
+              await fetch('/api/user/create', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                  email, 
+                  name, 
+                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '', 
+                  emailVerified: now 
+                }) 
+              }) 
+            } catch (e) {} 
           }
         } catch (e) {}
       }
-      
+
       const signInResult = await signIn('firebase', {
         idToken,
         redirect: false,
       })
-      
+
       if (signInResult?.error) {
         setError('Sign up failed')
       } else {
@@ -257,25 +261,27 @@ export default function SignupPage() {
             const now = new Date().toISOString()
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
-            await db.from('User').insert({
-              id: crypto.randomUUID(),
-              email: email,
-              name: name,
-              image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-              emailVerified: now,
-              createdAt: now,
-              updatedAt: now,
-              lastLoginDate: now,
-            })
+            try { 
+              await fetch('/api/user/create', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                  email, 
+                  name, 
+                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '', 
+                  emailVerified: now 
+                }) 
+              }) 
+            } catch (e) {} 
           }
         } catch (e) {}
       }
-      
+
       const signInResult = await signIn('firebase', {
         idToken,
         redirect: false,
       })
-      
+
       if (signInResult?.error) {
         setError('Sign up failed')
       } else {

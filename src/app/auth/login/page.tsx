@@ -248,21 +248,22 @@ function LoginPageContent() {
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try {
-              const { error: insertError } = await db.from('User').insert({
-                id: crypto.randomUUID(),
-                email: email,
-                name: name,
-                image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-                emailVerified: now,
-                createdAt: now,
-                updatedAt: now,
-                lastLoginDate: now,
+              const createRes = await fetch('/api/user/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email,
+                  name,
+                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                  emailVerified: now,
+                }),
               })
-              if (insertError) {
-                console.error('User insert error:', insertError)
+              if (!createRes.ok) {
+                const errData = await createRes.json()
+                console.error('User create API error:', errData)
               }
             } catch (e: any) {
-              console.error('User insert exception:', e)
+              console.error('User create exception:', e)
             }
           }
         } catch (e) {}
@@ -309,16 +310,22 @@ function LoginPageContent() {
             const now = new Date().toISOString()
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
-            await db.from('User').insert({
-              id: crypto.randomUUID(),
-              email: email,
-              name: name,
-              image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-              emailVerified: now,
-              createdAt: now,
-              updatedAt: now,
-              lastLoginDate: now,
-            })
+            try {
+              const createRes = await fetch('/api/user/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email,
+                  name,
+                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                  emailVerified: now,
+                }),
+              })
+              if (!createRes.ok) {
+                const errData = await createRes.json()
+                console.error('User create API error:', errData)
+              }
+            } catch (e) { }
           }
         } catch (e) { }
       }
@@ -362,16 +369,22 @@ function LoginPageContent() {
             const now = new Date().toISOString()
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
-            await db.from('User').insert({
-              id: crypto.randomUUID(),
-              email: email,
-              name: name,
-              image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-              emailVerified: now,
-              createdAt: now,
-              updatedAt: now,
-              lastLoginDate: now,
-            })
+            try {
+              const createRes = await fetch('/api/user/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email,
+                  name,
+                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                  emailVerified: now,
+                }),
+              })
+              if (!createRes.ok) {
+                const errData = await createRes.json()
+                console.error('User create API error:', errData)
+              }
+            } catch (e) { }
           }
         } catch (e) { }
       }

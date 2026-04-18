@@ -247,16 +247,23 @@ function LoginPageContent() {
             const now = new Date().toISOString()
             const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
-            await db.from('User').insert({
-              id: crypto.randomUUID(),
-              email: email,
-              name: name,
-              image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
-              emailVerified: true,
-              createdAt: now,
-              updatedAt: now,
-              lastLoginDate: now,
-            })
+            try {
+              const { error: insertError } = await db.from('User').insert({
+                id: crypto.randomUUID(),
+                email: email,
+                name: name,
+                image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                emailVerified: true,
+                createdAt: now,
+                updatedAt: now,
+                lastLoginDate: now,
+              })
+              if (insertError) {
+                console.error('User insert error:', insertError)
+              }
+            } catch (e: any) {
+              console.error('User insert exception:', e)
+            }
           }
         } catch (e) {}
       }

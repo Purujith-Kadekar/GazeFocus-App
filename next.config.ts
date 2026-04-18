@@ -9,7 +9,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
+    value: "camera=(self), gyroscope=(), accelerometer=()",
   },
   {
     key: "Strict-Transport-Security",
@@ -31,7 +31,7 @@ const securityHeaders = [
       "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.googleusercontent.com https://*.ggpht.com",
       "font-src 'self'",
       "connect-src 'self' https://www.googleapis.com https://identitytoolkit.googleapis.com https://apis.google.com https://accounts.google.com https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net https://unpkg.com https://storage.googleapis.com https://www.gstatic.com https://vdpthllbslirkpbmsnjo.supabase.co",
-      "frame-src https://www.youtube.com https://youtube.com https://gazefocus-38363.firebaseapp.com",
+      "frame-src https://www.youtube.com https://youtube.com https://gazefocus-38363.firebaseapp.com https://*.firebaseapp.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",

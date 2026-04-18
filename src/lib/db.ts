@@ -5,16 +5,14 @@ const globalForSupabase = globalThis as unknown as {
   supabase: ReturnType<typeof createClient<Database>> | undefined
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 
 const _db =
   globalForSupabase.supabase ??
   createClient<Database>(
-    supabaseUrl || 'https://placeholder.supabase.co',
-    supabaseKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
+    supabaseUrl,
+    supabaseKey,
     {
       auth: {
         autoRefreshToken: false,

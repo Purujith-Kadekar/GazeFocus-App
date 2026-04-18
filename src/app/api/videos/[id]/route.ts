@@ -91,16 +91,6 @@ export async function DELETE(
 
     const { id } = await params
 
-    const { data: video } = await db.from('Video').select('id, youtubeId').eq('id', id).single()
-
-    if (!video) {
-      return NextResponse.json({ error: 'Video not found' }, { status: 404 })
-    }
-
-    await db.from('Note').delete().eq('youtubeId', video.youtubeId).eq('userId', user.id)
-
-    await db.from('LibraryItem').delete().eq('type', 'VIDEO').eq('userId', user.id).or(`externalId.eq.${video.youtubeId},externalId.eq.${video.id}`)
-
     await db.from('Video').delete().eq('id', id).eq('userId', user.id)
 
     return NextResponse.json({ success: true })

@@ -138,13 +138,56 @@ interface PlaylistVideo {
   position: number
 }
 
+async function fetchPlaylistVideosFromRSS(playlistId: string): Promise<PlaylistVideo[]> {
+  try {
+    const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    })
+
+    if (!response.ok) {
+      console.log('[fetchPlaylistVideosFromRSS] RSS failed with status:', response.status)
+      return []
+    }
+
+    const text = await response.text()
+    const entries = text.split('<entry>').slice(1)
+
+    return entries.map((entry, index) => {
+      const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
+      const titleMatch = entry.match(/<title>(.*?)<\/title>/)
+      const descMatch = entry.match(/<media:description>(.*?)<\/media:description>/)
+      const videoId = idMatch ? idMatch[1] : ''
+
+      return {
+        youtubeId: videoId,
+        title: titleMatch ? titleMatch[1] : 'Unknown Title',
+        description: descMatch ? descMatch[1] : '',
+        thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '',
+        duration: 0,
+        position: index,
+      }
+    }).filter(v => v.youtubeId !== '')
+  } catch (error) {
+    console.log('[fetchPlaylistVideosFromRSS] Error:', error)
+    return []
+  }
+}
+
 async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]> {
+  console.log('[fetchAllPlaylistVideos] Trying RSS first for playlist:', playlistId)
+  const rssVideos = await fetchPlaylistVideosFromRSS(playlistId)
+  
+  if (rssVideos.length > 0) {
+    console.log('[fetchAllPlaylistVideos] RSS returned', rssVideos.length, 'videos')
+    return rssVideos
+  }
+
+  console.log('[fetchAllPlaylistVideos] RSS empty/failed, falling back to API')
+  
   if (!YOUTUBE_API_KEY) {
     console.warn('YOUTUBE_API_KEY not set, cannot fetch playlist videos')
     return []
   }
-
-  console.log('[fetchAllPlaylistVideos] Starting for playlist:', playlistId)
   
   const videoIds: string[] = []
   const positionMap: Record<string, number> = {}

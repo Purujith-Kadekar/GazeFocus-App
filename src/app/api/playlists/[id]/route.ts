@@ -77,19 +77,8 @@ export async function DELETE(
     }
 
     const { id } = await params
-    console.log('[DELETE /api/playlists] Deleting playlist:', id)
 
-    console.log('[DELETE /api/playlists] Deleting videos...')
-    await db.from('Video').delete().eq('playlistId', id)
-    console.log('[DELETE /api/playlists] Videos deleted')
-
-    console.log('[DELETE /api/playlists] Deleting library items...')
-    await db.from('LibraryItem').delete().eq('externalId', id).eq('type', 'PLAYLIST').eq('userId', user.id)
-    console.log('[DELETE /api/playlists] Library items deleted')
-
-    console.log('[DELETE /api/playlists] Deleting playlist...')
     await db.from('Playlist').delete().eq('id', id).eq('userId', user.id)
-    console.log('[DELETE /api/playlists] Playlist deleted')
 
     return NextResponse.json({ success: true })
   } catch (error) {

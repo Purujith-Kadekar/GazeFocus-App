@@ -239,8 +239,11 @@ function LoginPageContent() {
         try {
           let existingUser: any = null
           try {
-            const res = await db.from('User').select('id').eq('email', email).single()
-            existingUser = res.data
+            const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
+            if (userRes.ok) {
+              const data = await userRes.json()
+              existingUser = data.exists ? { id: data.userId } : null
+            }
           } catch (e) { }
           
           if (!existingUser) {
@@ -302,8 +305,11 @@ function LoginPageContent() {
         try {
           let existingUser: any = null
           try {
-            const res = await db.from('User').select('id').eq('email', email).single()
-            existingUser = res.data
+            const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
+            if (userRes.ok) {
+              const data = await userRes.json()
+              existingUser = data.exists ? { id: data.userId } : null
+            }
           } catch (e) { }
 
           if (!existingUser) {
@@ -361,8 +367,11 @@ function LoginPageContent() {
         try {
           let existingUser: any = null
           try {
-            const res = await db.from('User').select('id').eq('email', email).single()
-            existingUser = res.data
+            const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
+            if (userRes.ok) {
+              const data = await userRes.json()
+              existingUser = data.exists ? { id: data.userId } : null
+            }
           } catch (e) { }
 
           if (!existingUser) {

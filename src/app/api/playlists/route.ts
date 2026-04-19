@@ -175,9 +175,10 @@ async function fetchPlaylistVideosFromRSS(playlistId: string): Promise<PlaylistV
 
 async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]> {
   console.log('[fetchAllPlaylistVideos] Using API for playlist:', playlistId)
+  console.log('[fetchAllPlaylistVideos] API key available:', !!YOUTUBE_API_KEY, 'key:', YOUTUBE_API_KEY?.substring(0, 10) + '...')
   
   if (!YOUTUBE_API_KEY) {
-    console.warn('YOUTUBE_API_KEY not set')
+    console.error('YOUTUBE_API_KEY not set - cannot fetch playlist videos')
     return []
   }
   

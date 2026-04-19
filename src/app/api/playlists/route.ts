@@ -214,8 +214,10 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
       if (data.items) {
         for (const item of data.items) {
           const videoId = item.snippet?.resourceId?.videoId || item.contentDetails?.videoId
+          const pos = item.snippet?.position ?? 0
           if (videoId) {
-            positionMap[videoId] = item.snippet?.position ?? 0
+            positionMap[videoId] = pos
+            console.log('[fetchAllPlaylistVideos] Video:', videoId, 'position:', pos)
           }
         }
       }
@@ -264,6 +266,8 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
   }
 
   videos.sort((a, b) => a.position - b.position)
+  console.log('[fetchAllPlaylistVideos] FINAL ORDER:')
+  videos.forEach((v, i) => console.log(`  ${i}: ${v.youtubeId} position=${v.position} "${v.title}"`))
   console.log('[fetchAllPlaylistVideos] Returning', videos.length, 'videos')
   return videos
 }

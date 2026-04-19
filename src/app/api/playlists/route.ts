@@ -389,9 +389,7 @@ export async function POST(request: NextRequest) {
     if (type === 'playlist') {
       console.log('[POST /api/playlists] Fetching playlist details for:', youtubeId)
       playlistData = YOUTUBE_API_KEY ? await fetchYouTubePlaylistDetails(youtubeId) : null;
-      if (YOUTUBE_API_KEY && playlistData) {
-        playlistVideos = await fetchAllPlaylistVideos(youtubeId);
-      }
+      playlistVideos = await fetchAllPlaylistVideos(youtubeId);
     } else {
       videoData = YOUTUBE_API_KEY ? await fetchYouTubeVideoDetails(youtubeId) : null;
     }

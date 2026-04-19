@@ -1,0 +1,39 @@
+name: Daily Channel Sync
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force sync all channels'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel sync
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "$VERCEL_APP_URL/api/cron/sync-channels" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"force": ${{ github.event.inputs.force }}')
+          
+          body=$(echo "$response" | sed '$d')
+          code=$(echo "$response" | tail -n1)
+          
+          echo "$body"
+          
+          if [ "$code" -eq 200 ]; then
+            echo "Sync completed successfully"
+          else
+            echo "Sync failed with status $code"
+            exit 1
+          fi

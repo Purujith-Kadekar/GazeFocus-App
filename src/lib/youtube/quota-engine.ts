@@ -302,11 +302,10 @@ export class QuotaEngine {
   /**
    * Fetches video metadata, prioritizing the global cache.
    */
-  static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata | null> {
-    // 1. Check Cache
+static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata | null> {
     const { data: cached } = await supabase
       .from('VideoCache')
-      .select('youtubeId,title,description,thumbnail,duration,publishedAt,channelId,liveBroadcastContent')
+      .select('youtubeId,title,description,thumbnail,duration,publishedAt,channelId,liveBroadcastContent,isLive')
       .eq('youtubeId', videoId)
       .maybeSingle()
 
@@ -895,6 +894,7 @@ export class QuotaEngine {
       publishedAt: video.publishedAt,
       channelId: video.channelId,
       liveBroadcastContent: video.liveBroadcastContent,
+      isLive: video.liveBroadcastContent === 'live',
       updatedAt: new Date().toISOString()
     })
   }
@@ -911,6 +911,7 @@ export class QuotaEngine {
         publishedAt: v.publishedAt,
         channelId: v.channelId,
         liveBroadcastContent: v.liveBroadcastContent,
+        isLive: v.liveBroadcastContent === 'live',
         updatedAt: new Date().toISOString()
       }))
     )

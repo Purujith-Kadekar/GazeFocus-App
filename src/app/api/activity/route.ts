@@ -27,11 +27,11 @@ export async function POST(request: NextRequest) {
     const userId = user.id
     const todayUTC = getTodayUTC()
 
-    const currentUserResult = await db.from('User').select('currentStreak, longestStreak, lastActiveDate, lastLoginDate').eq('id', userId).single()
-    const currentUser = currentUserResult.data
-
-    if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    // Fetch current streak and lastActiveDate in a transaction
+    const { data: currentUser, error: fetchError } = await db.rpc('get_user_activity_data', { p_user_id: userId })
+    if (fetchError || !currentUser) {
+      console.error('Error fetching user activity data:', fetchError)
+      return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 })
     }
 
     const lastActiveUTC = getDateUTC(currentUser.lastActiveDate)
@@ -40,15 +40,15 @@ export async function POST(request: NextRequest) {
     let newStreak = currentUser.currentStreak || 0
     let streakUpdated = false
 
-    if (daysSinceLastActive === -1) {
+    if (daysSinceLastActive === -1) { // First activity ever
       newStreak = 1
       streakUpdated = true
-    } else if (daysSinceLastActive === 0) {
+    } else if (daysSinceLastActive === 0) { // Active today, streak continues
       newStreak = currentUser.currentStreak || 0
-    } else if (daysSinceLastActive === 1) {
+    } else if (daysSinceLastActive === 1) { // Active yesterday, streak continues
       newStreak = (currentUser.currentStreak || 0) + 1
       streakUpdated = true
-    } else if (daysSinceLastActive > 1) {
+    } else if (daysSinceLastActive > 1) { // Gap in activity, reset streak
       newStreak = 1
       streakUpdated = true
     }
@@ -64,15 +64,15 @@ export async function POST(request: NextRequest) {
       updateData.currentStreak = newStreak
     }
 
-    const { data: updatedUser, error } = await db
+    const { data: updatedUser, error: updateError } = await db
       .from('User')
       .update(updateData)
       .eq('id', userId)
       .select('currentStreak, longestStreak, lastActiveDate, lastLoginDate')
       .single()
 
-    if (error) {
-      console.error('Error updating activity:', error)
+    if (updateError) {
+      console.error('Error updating activity:', updateError)
       return NextResponse.json({ error: 'Failed to update activity' }, { status: 500 })
     }
 
@@ -114,18 +114,9 @@ export async function GET() {
     let currentStreak = userData?.currentStreak || 0
     let longestStreak = userData?.longestStreak || 0
 
-    if (daysSinceLastActive > 1 && currentStreak > 0) {
-      const { data: updatedUser } = await db
-        .from('User')
-        .update({ currentStreak: 0 })
-        .eq('id', user.id)
-        .select('currentStreak, longestStreak, lastActiveDate, lastLoginDate')
-        .single()
-
-      if (updatedUser) {
-        currentStreak = 0
-      }
-    }
+    // This logic in GET is for displaying the streak, it should NOT modify the DB.
+    // If daysSinceLastActive > 1, it should just show 0, not reset it on GET.
+    // Resetting happens on POST activity.
 
     return NextResponse.json({
       streak: currentStreak,

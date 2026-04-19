@@ -20,7 +20,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
         run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "$VERCEL_APP_URL/api/cron/sync-channels" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \

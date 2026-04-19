@@ -28,7 +28,6 @@ export const firebaseTokenProvider: NextAuthOptions['providers'] = [
 
       try {
         const decodedToken = await firebaseAuth.verifyIdToken(credentials.idToken)
-        console.log('[Firebase Provider] Decoded token for:', decodedToken.email)
         const email = (decodedToken.email || '').toLowerCase()
         
         const user = {

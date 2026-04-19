@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { readRouteCache, writeRouteCache, clearRouteCache } from '@/lib/route-data-cache'
 import { beginRouteLoading, endRouteLoading } from '@/components/layout/RouteTopLoader'
+import { FoldersListSkeleton } from '@/components/folders/FoldersSkeleton'
 import type { Folder } from '@/types'
 
 const FOLDERS_CACHE_KEY = 'gazefocus:folders-page-cache'
@@ -26,16 +27,30 @@ interface FoldersPageClientProps {
 export default function FoldersPageClient({ initialFolders }: FoldersPageClientProps) {
   const { status } = useSession()
   const router = useRouter()
-  const cached = useMemo(() => readRouteCache<Folder[]>(FOLDERS_CACHE_KEY), [])
-  const [folders, setFolders] = useState<Folder[]>(cached?.payload || initialFolders || [])
+  
+  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [folders, setFolders] = useState<Folder[]>(initialFolders || [])
+
+  useEffect(() => {
+    const cached = readRouteCache<Folder[]>(FOLDERS_CACHE_KEY)
+    if (cached?.payload) {
+      setFolders(cached.payload)
+      setIsLoading(false)
+      setIsInitialLoad(false)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
 
     const loadFolders = async () => {
+      const currentCached = readRouteCache<Folder[]>(FOLDERS_CACHE_KEY)
       // If cache exists, show it immediately and only refresh if needed
-      if (cached?.payload) {
-        setFolders(cached.payload)
+      if (currentCached?.payload) {
+        setFolders(currentCached.payload)
+        setIsLoading(false)
+        setIsInitialLoad(false)
         // Optionally refresh in background
         try {
           const response = await fetch('/api/folders')
@@ -52,6 +67,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
       }
 
       // No cache - fetch on first load with loading indicator
+      setIsLoading(true)
       beginRouteLoading()
       try {
         const response = await fetch('/api/folders')
@@ -64,6 +80,8 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
       } catch {
         // keep existing state
       } finally {
+        setIsLoading(false)
+        setIsInitialLoad(false)
         endRouteLoading()
       }
     }
@@ -123,62 +141,64 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
           </p>
         </div>
 
-        {folders.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
-            {folders.map((folder) => (
-              <Card 
-                key={folder.id} 
-                className="aspect-square cursor-pointer transition-shadow hover:shadow-md md:aspect-auto md:min-h-[140px]"
-                onClick={() => router.push(`/folders/${folder.id}`)}
-              >
-                <CardHeader className="p-2 pb-1 md:p-6 md:pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-amber-500 md:h-5 md:w-5" />
-                      <CardTitle className="line-clamp-1 text-sm md:text-base">{folder.title}</CardTitle>
+        <FoldersListSkeleton loading={isLoading}>
+          {folders.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
+              {folders.map((folder) => (
+                <Card 
+                  key={folder.id} 
+                  className="aspect-square cursor-pointer transition-shadow hover:shadow-md md:aspect-auto md:min-h-[140px]"
+                  onClick={() => router.push(`/folders/${folder.id}`)}
+                >
+                  <CardHeader className="p-2 pb-1 md:p-6 md:pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-amber-500 md:h-5 md:w-5" />
+                        <CardTitle className="line-clamp-1 text-sm md:text-base">{folder.title}</CardTitle>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteFolder(folder.id)
+                            }}
+                            className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteFolder(folder.id)
-                          }}
-                          className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className="mt-auto p-2 pt-0 md:p-6 md:pt-0">
-                  <p className="line-clamp-3 text-xs text-muted-foreground md:text-sm">
-                    {folder.description || 'No description'}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FolderOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">No folders yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Create folders from the dashboard to organize your content
-            </p>
-          </div>
-        )}
+                  </CardHeader>
+                  <CardContent className="mt-auto p-2 pt-0 md:p-6 md:pt-0">
+                    <p className="line-clamp-3 text-xs text-muted-foreground md:text-sm">
+                      {folder.description || 'No description'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : !isInitialLoad ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FolderOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground">No folders yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Create folders from the dashboard to organize your content
+              </p>
+            </div>
+          ) : null}
+        </FoldersListSkeleton>
       </div>
     </MainLayout>
   )

@@ -39,20 +39,17 @@ export default function VerifyLinkPage() {
         const result = await signInWithEmailLink(firebaseAuth, email, window.location.href)
         const idToken = await result.user.getIdToken()
         
-        console.log('[VerifyLink] Firebase auth successful, calling NextAuth signIn')
         
         const signInResult = await signIn('firebase', {
           idToken,
           redirect: false,
         })
         
-        console.log('[VerifyLink] NextAuth result:', signInResult)
         
         if (signInResult?.error) {
           console.error('[VerifyLink] NextAuth error:', signInResult.error)
           setError('Authentication failed: ' + signInResult.error)
         } else {
-          console.log('[VerifyLink] Redirecting to dashboard')
           router.replace('/dashboard')
         }
       } catch (err: any) {

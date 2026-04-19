@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < channelIds.length; i += BATCH_SIZE) {
       if (isQuotaExhausted()) {
-        console.log('Quota exhausted, stopping sync')
         break
       }
 

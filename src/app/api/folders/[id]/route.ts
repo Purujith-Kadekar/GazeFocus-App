@@ -29,18 +29,24 @@ export async function GET(
       .from('LibraryItem')
       .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
       .eq('folderId', id)
+      .eq('userId', user.id)
     const folderItems = itemsResult.data || []
 
     const playlistIds = folderItems.filter((i: any) => i.type === 'PLAYLIST').map((i: any) => i.externalId)
     const videoExternalIds = folderItems.filter((i: any) => i.type === 'VIDEO').map((i: any) => i.externalId)
     
-    const playlistThumbnailsResult = playlistIds.length > 0 
-      ? await db.from('Playlist').select('id, thumbnail').in('id', playlistIds)
-      : { data: [] }
-    
-    const videoThumbnailsResult = videoExternalIds.length > 0 
-      ? await db.from('Video').select('id, youtubeId, thumbnail').eq('userId', user.id).or(`youtubeId.in.(${videoExternalIds.join(',')}),id.in.(${videoExternalIds.join(',')})`)
-      : { data: [] }
+    // Fetch thumbnails in parallel for efficiency
+    const [playlistThumbnailsResult, videoThumbnailsResult] = await Promise.all([
+      playlistIds.length > 0 
+        ? db.from('Playlist').select('id, thumbnail').eq('userId', user.id).in('id', playlistIds)
+        : Promise.resolve({ data: [] }),
+      videoExternalIds.length > 0 
+        ? db.from('Video')
+            .select('id, youtubeId, thumbnail')
+            .eq('userId', user.id)
+            .or(`youtubeId.in.(${videoExternalIds.map(id => `"${id}"`).join(',')}),id.in.(${videoExternalIds.map(id => `"${id}"`).join(',')})`)
+        : Promise.resolve({ data: [] })
+    ])
     
     const playlistThumbnails = playlistThumbnailsResult.data || []
     const videoThumbnails = videoThumbnailsResult.data || []
@@ -52,15 +58,21 @@ export async function GET(
       videoMap.set(video.youtubeId, video.thumbnail as string | null)
     }
     
-    const itemsWithThumbnails = (folderItems || []).map((item: any) => {
-      let thumbnail: string | null = null
-      if (item.type === 'PLAYLIST') {
-        thumbnail = playlistMap.get(item.externalId) ?? null
-      } else if (item.type === 'VIDEO') {
-        thumbnail = videoMap.get(item.externalId) ?? null
-      }
-      return { ...item, thumbnail }
-    })
+    const itemsWithThumbnails = (folderItems || [])
+      .filter((item: any) => {
+        if (item.type === 'PLAYLIST') return playlistMap.has(item.externalId)
+        if (item.type === 'VIDEO') return videoMap.has(item.externalId)
+        return false
+      })
+      .map((item: any) => {
+        let thumbnail: string | null = null
+        if (item.type === 'PLAYLIST') {
+          thumbnail = playlistMap.get(item.externalId) ?? null
+        } else if (item.type === 'VIDEO') {
+          thumbnail = videoMap.get(item.externalId) ?? null
+        }
+        return { ...item, thumbnail }
+      })
 
     return NextResponse.json({ ...folder, items: itemsWithThumbnails })
   } catch (error) {

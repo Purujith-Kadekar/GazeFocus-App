@@ -57,36 +57,52 @@ async function syncChannel(
 
   let addedCount = 0
   if (videos.length > 0) {
-    for (const video of videos) {
-      const { data: existingVideo } = await supabase
-        .from('Video')
-        .select('id')
-        .eq('youtubeId', video.youtubeId)
-        .eq('userId', channel.userId)
-        .maybeSingle()
+    // Collect video IDs for enrichment if needed (source is RSS or from cache but missing duration)
+    const videosToEnrich = videos.filter(v => v.duration === 0).map(v => v.youtubeId)
+    const enrichment = videosToEnrich.length > 0 
+      ? await QuotaEngine.enrichVideoMetadata(videosToEnrich, channel.userId)
+      : {}
 
-      if (!existingVideo) {
-        const videoId = crypto.randomUUID()
-        const now = new Date().toISOString()
+    const enrichedVideos = videos.map(v => ({
+      ...v,
+      duration: enrichment[v.youtubeId]?.duration ?? v.duration,
+      description: enrichment[v.youtubeId]?.description ?? v.description,
+      title: enrichment[v.youtubeId]?.title ?? v.title,
+      thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
+    }))
 
-        const { error: videoInsertError } = await supabase.from('Video').insert({
-          id: videoId,
-          youtubeId: video.youtubeId,
-          title: video.title,
-          description: video.description,
-          thumbnail: video.thumbnail,
-          duration: video.duration || 0,
+    // Find existing videos in one query
+    const fetchedIds = enrichedVideos.map(v => v.youtubeId)
+    const { data: existingVideos } = await supabase
+      .from('Video')
+      .select('youtubeId')
+      .eq('userId', channel.userId)
+      .in('youtubeId', fetchedIds)
+
+    const existingIds = new Set(existingVideos?.map(v => v.youtubeId) || [])
+    const newVideos = enrichedVideos.filter(v => !existingIds.has(v.youtubeId))
+
+    if (newVideos.length > 0) {
+      const now = new Date().toISOString()
+      const { error: insertError } = await supabase.from('Video').insert(
+        newVideos.map(v => ({
+          id: crypto.randomUUID(),
+          youtubeId: v.youtubeId,
+          title: v.title,
+          description: v.description,
+          thumbnail: v.thumbnail,
+          duration: v.duration || 0,
           channelId: channel.id,
           userId: channel.userId,
           createdAt: now,
           updatedAt: now,
-        })
+        }))
+      )
 
-        if (!videoInsertError) {
-          addedCount++
-        } else {
-          console.error('Error inserting video:', videoInsertError)
-        }
+      if (!insertError) {
+        addedCount = newVideos.length
+      } else {
+        console.error('Error batch inserting videos:', insertError)
       }
     }
   }

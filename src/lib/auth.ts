@@ -76,7 +76,6 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       const extendedToken = token as any
 
-      console.log('[Auth JWT] user:', user?.email, 'token exists:', !!token)
 
       if (user && user.email) {
         try {
@@ -84,10 +83,8 @@ export const authOptions: NextAuthOptions = {
           const existingUser = await db.from('User').select('id').eq('email', normalizedEmail).single()
           
           if (existingUser.data) {
-            console.log('[Auth JWT] Found existing user:', existingUser.data.id)
             extendedToken.id = existingUser.data.id
           } else {
-            console.log('[Auth JWT] Creating new user for:', normalizedEmail)
             const newUserId = randomUUID()
             const now = new Date().toISOString()
             await db.from('User').insert({
@@ -114,7 +111,6 @@ export const authOptions: NextAuthOptions = {
       const extendedToken = token as any
       const extSession = session as any
 
-      console.log('[Auth Session] token.id:', extendedToken.id, 'user exists:', !!extSession.user)
 
       if (extSession.user && extendedToken.id) {
         extSession.user.id = extendedToken.id

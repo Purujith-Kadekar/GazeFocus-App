@@ -438,7 +438,7 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
 
       const data = await response.json()
       if (data.items) {
-        const videos = data.items.map((item: any) => ({
+        const baseVideos = data.items.map((item: any) => ({
           youtubeId: item.contentDetails.videoId,
           title: item.snippet.title,
           description: item.snippet.description,
@@ -446,6 +446,19 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
           duration: 0,
           publishedAt: item.snippet.publishedAt,
           channelId: channelId
+        }))
+
+        // Surgical Enrichment for the 50 fetched videos (1 unit)
+        const videoIds = baseVideos.map(v => v.youtubeId)
+        const enrichment = await this.enrichVideoMetadata(videoIds, userId)
+        
+        const videos = baseVideos.map(v => ({
+          ...v,
+          duration: enrichment[v.youtubeId]?.duration ?? 0,
+          description: enrichment[v.youtubeId]?.description ?? v.description,
+          title: enrichment[v.youtubeId]?.title ?? v.title,
+          thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
+          liveBroadcastContent: enrichment[v.youtubeId]?.liveBroadcastContent
         }))
 
         // Update Cache in background
@@ -469,15 +482,15 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
   /**
    * Zero-quota fallback: Parsed metadata from RSS.
    * Scrapes Title, Description snippet, and Thumbnail from XML.
+   * Uses Surgical Enrichment to get full details (1 unit).
    */
-  static async getRSSVideos(channelId: string): Promise<VideoMetadata[]> {
+  static async getRSSVideos(channelId: string, userId?: string): Promise<VideoMetadata[]> {
     try {
       const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`)
       const text = await response.text()
       
-      // Simple XML parsing via regex for zero dependencies
       const entries = text.split('<entry>').slice(1)
-      const videos: VideoMetadata[] = entries.map(entry => {
+      const rssVideos: VideoMetadata[] = entries.map(entry => {
         const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
         const titleMatch = entry.match(/<title>(.*?)<\/title>/)
         const dateMatch = entry.match(/<published>(.*?)<\/published>/)
@@ -495,13 +508,26 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
         }
       }).filter(v => v.youtubeId !== '')
 
-      // Update cache
-      if (videos.length > 0) {
-        this.bulkUpdateVideoCache(videos).catch(console.error)
-        this.upsertChannelJsonSnapshot(channelId, videos).catch(console.error)
+      if (rssVideos.length > 0) {
+        // Enriched metadata (1 unit)
+        const videoIds = rssVideos.map(v => v.youtubeId)
+        const enrichment = await this.enrichVideoMetadata(videoIds, userId)
+        
+        const enrichedVideos = rssVideos.map(v => ({
+          ...v,
+          duration: enrichment[v.youtubeId]?.duration ?? 0,
+          description: enrichment[v.youtubeId]?.description ?? v.description,
+          title: enrichment[v.youtubeId]?.title ?? v.title,
+          thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
+          liveBroadcastContent: enrichment[v.youtubeId]?.liveBroadcastContent
+        }))
+
+        this.bulkUpdateVideoCache(enrichedVideos).catch(console.error)
+        this.upsertChannelJsonSnapshot(channelId, enrichedVideos).catch(console.error)
+        return enrichedVideos
       }
 
-      return videos
+      return rssVideos
     } catch (error) {
       console.error('RSS fetch failed:', error)
       return []
@@ -510,10 +536,11 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
 
   /**
    * Get playlist videos from RSS feed (zero API quota)
-   * Playlists support RSS at the same endpoint format as channels
+   * Uses Surgical Enrichment to get full details (1 unit).
    */
   static async getRSSPlaylistVideos(
-    playlistId: string
+    playlistId: string,
+    userId?: string
   ): Promise<{ youtubeId: string; title: string; description: string; thumbnail: string; duration: number; position: number }[]> {
     try {
       const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`, {
@@ -521,9 +548,8 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
       })
       const text = await response.text()
 
-      // Simple XML parsing via regex for zero dependencies
       const entries = text.split('<entry>').slice(1)
-      const videos = entries.map((entry, index) => {
+      const rssVideos = entries.map((entry, index) => {
         const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
         const titleMatch = entry.match(/<title>(.*?)<\/title>/)
         const descMatch = entry.match(/<media:description>(.*?)<\/media:description>/)
@@ -534,12 +560,25 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
           title: titleMatch ? titleMatch[1] : 'Unknown Title',
           description: descMatch ? descMatch[1] : '',
           thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '',
-          duration: 0, // RSS doesn't provide duration for playlists, fetch if critical
-          position: index, // Position is based on RSS entry order
+          duration: 0,
+          position: index,
         }
       }).filter(v => v.youtubeId !== '')
 
-      return videos
+      if (rssVideos.length > 0) {
+        const videoIds = rssVideos.map(v => v.youtubeId)
+        const enrichment = await this.enrichVideoMetadata(videoIds, userId)
+        
+        return rssVideos.map(v => ({
+          ...v,
+          duration: enrichment[v.youtubeId]?.duration ?? 0,
+          description: enrichment[v.youtubeId]?.description ?? v.description,
+          title: enrichment[v.youtubeId]?.title ?? v.title,
+          thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
+        }))
+      }
+
+      return rssVideos
     } catch (error) {
       console.error('[QuotaEngine] RSS playlist fetch failed:', error)
       return []
@@ -897,6 +936,42 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
       isLive: video.liveBroadcastContent === 'live',
       updatedAt: new Date().toISOString()
     })
+  }
+
+  /**
+   * Surgical Enrichment: Fetches details (duration, description, liveStatus)
+   * for up to 50 videos in a single API call (1 unit).
+   */
+  static async enrichVideoMetadata(videoIds: string[], userId?: string): Promise<Record<string, Partial<VideoMetadata>>> {
+    if (videoIds.length === 0 || !YOUTUBE_API_KEY) return {}
+
+    try {
+      if (!(await this.consumeUserTokensIfNeeded(userId, 1))) {
+        return {}
+      }
+
+      const response = await fetch(
+        `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${videoIds.slice(0, 50).join(',')}&key=${YOUTUBE_API_KEY}`
+      )
+      const data = await response.json()
+
+      if (data.items) {
+        const enrichment: Record<string, Partial<VideoMetadata>> = {}
+        for (const item of data.items) {
+          enrichment[item.id] = {
+            description: item.snippet.description,
+            duration: this.parseDuration(item.contentDetails.duration),
+            liveBroadcastContent: item.snippet.liveBroadcastContent,
+            title: item.snippet.title, // Update title in case RSS was truncated
+            thumbnail: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || '',
+          }
+        }
+        return enrichment
+      }
+    } catch (error) {
+      console.error('Error enriching video metadata:', error)
+    }
+    return {}
   }
 
   private static async bulkUpdateVideoCache(videos: VideoMetadata[]) {

@@ -24,7 +24,7 @@ jobs:
             "$VERCEL_APP_URL/api/cron/sync-channels" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            -d '{"force": ${{ github.event.inputs.force }}')
+            -d "{\"force\": ${{ github.event.inputs.force || 'false' }}}")
           
           body=$(echo "$response" | sed '$d')
           code=$(echo "$response" | tail -n1)

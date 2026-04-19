@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
     const userId = user.id
     const body = await request.json()
     const { youtubeId, currentTime, duration, completed } = body
-    console.log(`[DEBUG] POST /api/progress - user: ${user.email}, video: ${youtubeId}, time: ${currentTime}/${duration}, done: ${completed}`)
 
     if (!youtubeId) {
       return NextResponse.json(

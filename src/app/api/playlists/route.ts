@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { QuotaEngine } from '@/lib/youtube/quota-engine'
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
@@ -145,7 +146,6 @@ async function fetchPlaylistVideosFromRSS(playlistId: string): Promise<PlaylistV
     })
 
     if (!response.ok) {
-      console.log('[fetchPlaylistVideosFromRSS] RSS failed with status:', response.status)
       return []
     }
 
@@ -168,14 +168,11 @@ async function fetchPlaylistVideosFromRSS(playlistId: string): Promise<PlaylistV
       }
     }).filter(v => v.youtubeId !== '')
   } catch (error) {
-    console.log('[fetchPlaylistVideosFromRSS] Error:', error)
     return []
   }
 }
 
 async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]> {
-  console.log('[fetchAllPlaylistVideos] Using API for playlist:', playlistId)
-  console.log('[fetchAllPlaylistVideos] API key available:', !!YOUTUBE_API_KEY, 'key:', YOUTUBE_API_KEY?.substring(0, 10) + '...')
   
   if (!YOUTUBE_API_KEY) {
     console.error('YOUTUBE_API_KEY not set - cannot fetch playlist videos')
@@ -217,8 +214,7 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
           const pos = item.snippet?.position ?? 0
           if (videoId) {
             positionMap[videoId] = pos
-            console.log('[fetchAllPlaylistVideos] Video:', videoId, 'position:', pos)
-          }
+            }
         }
       }
 
@@ -230,7 +226,6 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
   } while (nextPageToken)
 
   const videoIds = Object.keys(positionMap)
-  console.log('[fetchAllPlaylistVideos] Found', videoIds.length, 'videos, fetching details...')
 
   for (let i = 0; i < videoIds.length; i += 50) {
     const batchIds = videoIds.slice(i, i + 50)
@@ -266,9 +261,6 @@ async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo
   }
 
   videos.sort((a, b) => a.position - b.position)
-  console.log('[fetchAllPlaylistVideos] FINAL ORDER:')
-  videos.forEach((v, i) => console.log(`  ${i}: ${v.youtubeId} position=${v.position} "${v.title}"`))
-  console.log('[fetchAllPlaylistVideos] Returning', videos.length, 'videos')
   return videos
 }
 
@@ -349,9 +341,23 @@ export async function POST(request: NextRequest) {
     let playlistVideos: any[] = [];
 
     if (type === 'playlist') {
-      console.log('[POST /api/playlists] Fetching playlist details for:', youtubeId)
       playlistData = YOUTUBE_API_KEY ? await fetchYouTubePlaylistDetails(youtubeId) : null;
-      playlistVideos = await fetchAllPlaylistVideos(youtubeId);
+      
+      // Use Hybrid Logic: RSS discovery + Surgical Enrichment (saves quota)
+      const rssVideos = await fetchPlaylistVideosFromRSS(youtubeId);
+      if (rssVideos.length > 0) {
+        const videoIds = rssVideos.map(v => v.youtubeId);
+        const enrichment = await QuotaEngine.enrichVideoMetadata(videoIds, userId);
+        playlistVideos = rssVideos.map(v => ({
+          ...v,
+          duration: enrichment[v.youtubeId]?.duration ?? 0,
+          description: enrichment[v.youtubeId]?.description ?? v.description,
+          title: enrichment[v.youtubeId]?.title ?? v.title,
+          thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
+        }));
+      } else {
+        playlistVideos = await fetchAllPlaylistVideos(youtubeId);
+      }
     } else {
       videoData = YOUTUBE_API_KEY ? await fetchYouTubeVideoDetails(youtubeId) : null;
     }
@@ -400,9 +406,9 @@ export async function POST(request: NextRequest) {
       if (playlistVideos.length > 0) {
         const totalDuration = playlistVideos.reduce((sum, v) => sum + (v.duration || 0), 0)
         
-        for (const video of playlistVideos) {
-          await db.from('Video').upsert({
-            id: crypto.randomUUID(),
+        // Bulk upsert instead of loop
+        const { error: upsertError } = await db.from('Video').upsert(
+          playlistVideos.map(video => ({
             youtubeId: video.youtubeId,
             title: video.title,
             description: video.description || '',
@@ -413,7 +419,11 @@ export async function POST(request: NextRequest) {
             position: video.position || 0,
             updatedAt: now,
             createdAt: now,
-          }, { onConflict: 'youtubeId,userId' })
+          })), { onConflict: 'youtubeId,userId' }
+        )
+
+        if (upsertError) {
+          console.error('Error batch upserting playlist videos:', upsertError)
         }
         
         await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)

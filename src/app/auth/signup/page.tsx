@@ -81,7 +81,6 @@ export default function SignupPage() {
 
       const data = await res.json()
 
-      console.log('[Signup] API Response:', { status: res.status, data })
 
       if (!res.ok) {
         const errorMsg = data.error || 'Failed to create account'

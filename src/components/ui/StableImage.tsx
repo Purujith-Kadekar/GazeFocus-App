@@ -1,6 +1,6 @@
 'use client'
 
-import type React from 'react'
+import React from 'react'
 
 type StableImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'width' | 'height'> & {
   src: string
@@ -26,8 +26,27 @@ export default function StableImage({
   loading,
   fetchPriority,
   decoding,
+  crossOrigin,
   ...rest
 }: StableImageProps) {
+  const [errorCount, setErrorCount] = React.useState(0)
+  const [currentSrc, setCurrentSrc] = React.useState(src)
+
+  React.useEffect(() => {
+    setCurrentSrc(src)
+    setErrorCount(0)
+  }, [src])
+
+  const handleError = () => {
+    if (errorCount < 2) {
+      // Simple retry by appending a cache-buster or just re-setting
+      setTimeout(() => {
+        setErrorCount(prev => prev + 1)
+        setCurrentSrc(`${src}${src.includes('?') ? '&' : '?'}retry=${errorCount}`)
+      }, 500)
+    }
+  }
+
   const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy')
   const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : 'auto')
   const resolvedDecoding = decoding ?? 'async'
@@ -38,7 +57,8 @@ export default function StableImage({
 
   return (
     <img
-      src={src}
+      key={currentSrc}
+      src={currentSrc}
       alt={alt}
       width={fill ? undefined : width}
       height={fill ? undefined : height}
@@ -48,6 +68,8 @@ export default function StableImage({
       decoding={resolvedDecoding}
       className={className}
       style={mergedStyle}
+      onError={handleError}
+      crossOrigin={crossOrigin || "anonymous"}
       {...rest}
     />
   )

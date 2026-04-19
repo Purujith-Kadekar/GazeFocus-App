@@ -105,7 +105,7 @@ export async function GET() {
         .order('position', { ascending: true }),
       db
         .from('Video')
-        .select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId')
+        .select('id,youtubeId,title,thumbnail,duration,playlistId,position,scheduledAt,createdAt,userId')
         .eq('userId', userId)
         .is('playlistId', null)
         .is('channelId', null)
@@ -113,7 +113,7 @@ export async function GET() {
         .order('createdAt', { ascending: true }),
       db
         .from('Note')
-        .select('id,content,timestampSeconds,isImportant,youtubeId,createdAt,updatedAt,userId')
+        .select('id,youtubeId,timestampSeconds,isImportant,createdAt')
         .eq('userId', userId)
         .order('createdAt', { ascending: false }),
       Promise.all([

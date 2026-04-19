@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { createClient } from '@supabase/supabase-js'
+import { QuotaEngine } from '@/lib/youtube/quota-engine'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -212,64 +213,71 @@ async function fetchChannelVideos(channelYoutubeId: string): Promise<any[]> {
 async function syncChannel(channel: { id: string; youtubeId: string; userId: string }) {
   const channelDetails = await fetchYouTubeChannelDetails(channel.youtubeId)
   const resolvedYoutubeId = channelDetails?.youtubeId || channel.youtubeId
-  const liveStatus = await checkLiveStatus(resolvedYoutubeId)
-
+  
   const now = new Date().toISOString()
   const updateData: any = {
-    isLive: liveStatus.isLive,
-    liveVideoId: liveStatus.liveVideoId,
-    liveTitle: liveStatus.liveTitle,
     updatedAt: now,
   }
 
   if (channelDetails) {
     updateData.title = channelDetails.title
-    updateData.thumbnail = channelDetails.thumbnail
+    if (channelDetails.thumbnail) {
+      updateData.thumbnail = channelDetails.thumbnail
+    }
     updateData.subscriberCount = channelDetails.subscriberCount
     updateData.videoCount = channelDetails.videoCount
     updateData.description = channelDetails.description
   }
 
+  // Smart discovery using RSS-first approach (QuotaEngine)
+  const { videos } = await QuotaEngine.smartFetchVideos(resolvedYoutubeId, 'refresh', 50, channel.userId)
+  
+  // Update channel live status from discovered videos (no search unit needed!)
+  const liveVideo = videos.find(v => v.liveBroadcastContent === 'live')
+  updateData.isLive = !!liveVideo
+  updateData.liveVideoId = liveVideo?.youtubeId || null
+  updateData.liveTitle = liveVideo?.title || null
+
   await supabase.from('Channel').update(updateData).eq('id', channel.id)
 
-  const channelVideos = await fetchChannelVideos(resolvedYoutubeId)
   let addedCount = 0
+  if (videos.length > 0) {
+    const fetchedIds = videos.map(v => v.youtubeId)
+    const { data: existingVideos } = await supabase
+      .from('Video')
+      .select('youtubeId')
+      .eq('userId', channel.userId)
+      .in('youtubeId', fetchedIds)
 
-  if (channelVideos.length > 0) {
-    for (const video of channelVideos.slice(0, 50)) {
-      const { data: existingVideo } = await supabase
-        .from('Video')
-        .select('id')
-        .eq('youtubeId', video.youtubeId)
-        .eq('userId', channel.userId)
-        .maybeSingle()
+    const existingIds = new Set(existingVideos?.map(v => v.youtubeId) || [])
+    const newVideos = videos.filter(v => !existingIds.has(v.youtubeId))
 
-      if (!existingVideo) {
-        const videoId = crypto.randomUUID()
-        await supabase.from('Video').insert({
-          id: videoId,
-          youtubeId: video.youtubeId,
-          title: video.title,
-          description: video.description,
-          thumbnail: video.thumbnail,
-          duration: video.duration,
-          position: video.position,
+    if (newVideos.length > 0) {
+      const { error: insertError } = await supabase.from('Video').insert(
+        newVideos.map(v => ({
+          id: crypto.randomUUID(),
+          youtubeId: v.youtubeId,
+          title: v.title,
+          description: v.description,
+          thumbnail: v.thumbnail,
+          duration: v.duration || 0,
+          position: 0,
           channelId: channel.id,
           userId: channel.userId,
           createdAt: now,
           updatedAt: now,
-        })
-        addedCount++
-      }
+        }))
+      )
+      if (!insertError) addedCount = newVideos.length
     }
   }
 
   return {
     channelId: channel.id,
     addedCount,
-    isLive: liveStatus.isLive,
-    liveVideoId: liveStatus.liveVideoId,
-    liveTitle: liveStatus.liveTitle,
+    isLive: updateData.isLive,
+    liveVideoId: updateData.liveVideoId,
+    liveTitle: updateData.liveTitle,
     title: channelDetails?.title,
   }
 }

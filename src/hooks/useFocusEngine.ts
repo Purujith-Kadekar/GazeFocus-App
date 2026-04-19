@@ -91,7 +91,6 @@ export function useFocusEngine(isActive: boolean = true) {
 
   const startTracking = useCallback(async () => {
     if (isTrackingRef.current) {
-      console.log('startTracking: already tracking, returning')
       return
     }
     setError(null)
@@ -99,7 +98,6 @@ export function useFocusEngine(isActive: boolean = true) {
     isCancelledRef.current = false
 
     try {
-      console.log('Initializing Gaze Focus Engine...', { isActive })
       
       // 2. Setup hidden video
       const video = document.createElement('video')

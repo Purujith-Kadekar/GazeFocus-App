@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const longestStreak = Math.max(currentUser.longestStreak || 0, newStreak)
 
     const updateData: Record<string, unknown> = {
-      lastActiveDate: todayUTC.toISOString(),
+      lastActiveDate: todayUTC.toISOString(), // Always update lastActiveDate on activity
       longestStreak: longestStreak,
     }
 

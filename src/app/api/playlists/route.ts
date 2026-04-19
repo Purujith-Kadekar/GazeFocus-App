@@ -174,140 +174,60 @@ async function fetchPlaylistVideosFromRSS(playlistId: string): Promise<PlaylistV
 }
 
 async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]> {
-  console.log('[fetchAllPlaylistVideos] Trying RSS first for playlist:', playlistId)
+  console.log('[fetchAllPlaylistVideos] Using RSS for playlist:', playlistId)
+  
   const rssVideos = await fetchPlaylistVideosFromRSS(playlistId)
   
-  if (rssVideos.length > 0) {
-    console.log('[fetchAllPlaylistVideos] RSS returned', rssVideos.length, 'videos')
+  if (rssVideos.length === 0) {
+    console.log('[fetchAllPlaylistVideos] RSS returned nothing')
+    return []
+  }
+
+  console.log('[fetchAllPlaylistVideos] RSS returned', rssVideos.length, 'videos, fetching durations via API...')
+  
+  if (!YOUTUBE_API_KEY) {
+    console.warn('[fetchAllPlaylistVideos] No API key, returning without durations')
     return rssVideos
   }
 
-  console.log('[fetchAllPlaylistVideos] RSS empty/failed, falling back to API')
-  
-  if (!YOUTUBE_API_KEY) {
-    console.warn('YOUTUBE_API_KEY not set, cannot fetch playlist videos')
-    return []
-  }
-  
-  const videoIds: string[] = []
-  const positionMap: Record<string, number> = {}
-
-  let nextPageToken: string | undefined = undefined
-
-  do {
-    try {
-      const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`)
-      url.searchParams.set('part', 'snippet,contentDetails')
-      url.searchParams.set('playlistId', playlistId)
-      url.searchParams.set('maxResults', '50')
-      if (YOUTUBE_API_KEY) {
-        url.searchParams.set('key', YOUTUBE_API_KEY)
-      }
-      if (nextPageToken) {
-        url.searchParams.set('pageToken', nextPageToken)
-      }
-
-      const response = await fetch(url.toString())
-      const data = await response.json() as {
-        items?: {
-          snippet: {
-            title: string;
-            description: string;
-            thumbnails: {
-              maxres?: { url: string };
-              medium?: { url: string };
-            };
-            position: number;
-            resourceId: {
-              videoId: string;
-            };
-          };
-          contentDetails: {
-            videoId: string;
-            videoPublishedAt: string;
-          } | null;
-        }[];
-        nextPageToken?: string;
-        error?: any;
-      }
-
-      if (data.error) {
-        console.error('[fetchAllPlaylistVideos] YouTube API error:', data.error)
-        break
-      }
-      
-      if (data.items) {
-        for (const item of data.items) {
-          const videoId = item.snippet?.resourceId?.videoId || item.contentDetails?.videoId
-          if (videoId && item.snippet) {
-            videoIds.push(videoId)
-            positionMap[videoId] = item.snippet.position || 0
-          }
-        }
-      }
-
-      nextPageToken = data.nextPageToken
-    } catch (error) {
-      console.error('[fetchAllPlaylistVideos] Error fetching playlist videos:', error)
-      break
-    }
-  } while (nextPageToken)
-
-  console.log('[fetchAllPlaylistVideos] Total video IDs found:', videoIds.length)
-
+  const videoIds = rssVideos.map(v => v.youtubeId)
   const videos: PlaylistVideo[] = []
-  const batchSize = 50
-
-  for (let i = 0; i < videoIds.length; i += batchSize) {
-    const batchIds = videoIds.slice(i, i + batchSize)
+  
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const batchIds = videoIds.slice(i, i + 50)
     
     try {
-      const url = `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${batchIds.join(',')}&key=${YOUTUBE_API_KEY}`
-      
+      const url = `${YOUTUBE_API_BASE}/videos?part=contentDetails&id=${batchIds.join(',')}&key=${YOUTUBE_API_KEY}`
       const response = await fetch(url)
       const data = await response.json() as {
-        items?: {
-          id: string;
-          snippet: {
-            title: string;
-            description: string;
-            thumbnails: {
-              maxres?: { url: string };
-              medium?: { url: string };
-            };
-          };
-          contentDetails: {
-            duration: string;
-          };
-        }[];
-        error?: any;
-      }
-
-      if (data.error) {
-        console.error('YouTube API error fetching video details:', data.error)
-        continue
+        items?: { id: string; contentDetails: { duration: string } }[]
       }
 
       if (data.items) {
         for (const item of data.items) {
-          if (item.id && item.snippet) {
+          const duration = item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : 0
+          const original = rssVideos.find(v => v.youtubeId === item.id)
+          if (original) {
             videos.push({
-              youtubeId: item.id,
-              title: item.snippet.title || 'Untitled',
-              description: item.snippet.description || '',
-              thumbnail: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.medium?.url || '',
-              duration: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : 0,
-              position: positionMap[item.id] || 0,
+              ...original,
+              duration,
             })
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching video details batch:', error)
+      console.error('[fetchAllPlaylistVideos] Error fetching durations:', error)
     }
   }
 
-  return videos.sort((a, b) => a.position - b.position)
+  for (const rv of rssVideos) {
+    if (!videos.find(v => v.youtubeId === rv.youtubeId)) {
+      videos.push(rv)
+    }
+  }
+
+  console.log('[fetchAllPlaylistVideos] Returning', videos.length, 'videos with durations')
+  return videos
 }
 
 export async function GET(request: NextRequest) {

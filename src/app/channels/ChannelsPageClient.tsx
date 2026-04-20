@@ -314,28 +314,29 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 overflow-x-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.push('/dashboard')}>
+            <Button variant="ghost" onClick={() => router.push('/dashboard')} className="px-2">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
+              <span className="hidden sm:inline">Back to Dashboard</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefreshLiveStatus}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Check Live Status
+            <Button variant="outline" size="sm" onClick={handleRefreshLiveStatus} className="text-xs">
+              <RefreshCw className="h-3.5 w-3.5 mr-2" />
+              Live Status
             </Button>
           </div>
         </div>
 
-        <div className="space-y-1 pt-6">
-          <h1 className="text-3xl font-bold">All Channels</h1>
-          <p className="text-muted-foreground">
-            {channels.length} channel{channels.length !== 1 ? 's' : ''} in your library
+        <div className="space-y-1 pt-2 md:pt-6">
+          <h1 className="text-2xl md:text-3xl font-bold">All Channels</h1>
+          <p className="text-xs md:text-sm text-muted-foreground flex flex-wrap items-center">
+            <span>{channels.length} channel{channels.length !== 1 ? 's' : ''} in your library</span>
             {liveChannels.length > 0 && (
-              <span className="ml-2 text-red-500 font-medium">
+              <span className="ml-2 text-red-500 font-medium whitespace-nowrap">
                 ({liveChannels.length} live now)
               </span>
             )}
@@ -353,17 +354,17 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
               </CardContent>
             </Card>
           ) : (
-          <>
+          <div className="space-y-8">
             {liveChannels.length > 0 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <span className="relative flex h-3 w-3">
+                <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                   </span>
                   Live Now
                 </h2>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                   {liveChannels.map((channel) => (
                     <ChannelCard
                       key={channel.id}
@@ -386,8 +387,8 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
 
             {offlineChannels.length > 0 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-muted-foreground">All Channels</h2>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                <h2 className="text-lg md:text-xl font-semibold text-muted-foreground">All Channels</h2>
+                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
                   {offlineChannels.map((channel) => (
                     <ChannelCard
                       key={channel.id}
@@ -406,7 +407,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </MainLayout>
@@ -445,7 +446,7 @@ function ChannelCard({
   return (
     <Card
       className={cn(
-        'aspect-square cursor-pointer hover:shadow-md transition-all group overflow-hidden md:aspect-auto',
+        'cursor-pointer hover:shadow-md transition-all group overflow-hidden',
         channel.isLive && 'ring-2 ring-red-500'
       )}
       onClick={onClick}

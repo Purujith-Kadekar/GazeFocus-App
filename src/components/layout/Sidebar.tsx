@@ -594,7 +594,7 @@ export function Sidebar({ className }: SidebarProps) {
           </ScrollArea>
 
           <div className="border-t bg-background/95 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur">
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"

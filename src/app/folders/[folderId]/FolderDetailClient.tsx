@@ -55,7 +55,7 @@ export default function FolderDetailClient({
   // Initial cache load to prevent flicker, but safely inside useEffect to avoid hydration error
   useEffect(() => {
     const cached = readRouteCache<FolderDetailCache>(cacheKey)
-    if (cached?.payload) {
+    if (cached?.payload && (cached.payload.items?.length > 0 || cached.payload.folder)) {
       setFolders(cached.payload.allFolders || [])
       setSelectedFolder(cached.payload.folder || null)
       setFolderItems(cached.payload.items || [])
@@ -75,8 +75,14 @@ export default function FolderDetailClient({
     let cancelled = false
 
     const loadFolderDetails = async () => {
-      setIsLoading(true)
-      beginRouteLoading()
+      const currentCached = readRouteCache<FolderDetailCache>(cacheKey)
+      // If we have valid cache, we already set isLoading(false) in the other useEffect
+      // But we still want to refresh in background.
+      
+      if (!currentCached?.payload) {
+        setIsLoading(true)
+        beginRouteLoading()
+      }
 
       try {
         const [folderRes, allFoldersRes, completedRes] = await Promise.all([

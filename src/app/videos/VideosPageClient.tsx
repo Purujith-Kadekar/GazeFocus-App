@@ -332,24 +332,26 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-x-hidden">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push('/')}>
+          <Button variant="ghost" onClick={() => router.push('/')} className="px-2">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">All Videos</h1>
-            <p className="text-muted-foreground">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold truncate">All Videos</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">
               {videos.length} video{videos.length !== 1 ? 's' : ''} in your library
             </p>
           </div>
-          <Button onClick={() => setAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Video
+          <Button onClick={() => setAddModalOpen(true)} size="sm" className="shrink-0 text-xs">
+            <Plus className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Add Video</span>
+            <span className="md:hidden">Add</span>
           </Button>
         </div>
 
@@ -364,7 +366,7 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {videos.map((video) => {
               const isCompleted = completedVideos.has(video.youtubeId)
               const isInFolder = videoFolderMap[video.youtubeId] !== undefined && videoFolderMap[video.youtubeId] !== null

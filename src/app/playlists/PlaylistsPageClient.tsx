@@ -240,18 +240,21 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-x-hidden">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push('/')}>
+          <Button variant="ghost" onClick={() => router.push('/')} className="px-2">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
 
-        <h1 className="text-3xl font-bold">All Playlists</h1>
-        <p className="text-muted-foreground">
-          {playlists.length} playlist{playlists.length !== 1 ? 's' : ''} in your library
-        </p>
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold">All Playlists</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            {playlists.length} playlist{playlists.length !== 1 ? 's' : ''} in your library
+          </p>
+        </div>
 
         {playlists.length === 0 ? (
           <Card>
@@ -264,7 +267,7 @@ export default function PlaylistsPageClient({ initialPlaylists, initialFolders }
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {playlists.map((playlist) => (
               <Card
                 key={playlist.id}

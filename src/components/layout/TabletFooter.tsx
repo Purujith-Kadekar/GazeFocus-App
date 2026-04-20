@@ -34,9 +34,9 @@ export function TabletFooter() {
             <Info size={12} />
             About
           </Link>
-          <Link href="/fyq" className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+          <Link href="/faq" className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
             <CircleHelp size={12} />
-            FYQ
+            FAQ
           </Link>
         </nav>
       </div>

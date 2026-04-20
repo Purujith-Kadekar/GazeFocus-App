@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { QuotaEngine } from '@/lib/youtube/quota-engine'
+import { randomUUID } from 'crypto'
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
@@ -289,6 +290,7 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
     // Bulk upsert instead of loop
     const { error: upsertError } = await db.from('Video').upsert(
       missingVideos.map(video => ({
+        id: randomUUID(),
         youtubeId: video.youtubeId,
         title: video.title,
         description: video.description,

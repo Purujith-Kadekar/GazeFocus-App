@@ -1022,7 +1022,7 @@ export function VideoPlayer({
                   {/* Play / Pause */}
                   <button
                     onClick={togglePlayManual}
-                    className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                    className="text-white hover:text-white/80 transition-colors p-2 flex-shrink-0"
                     aria-label={isPlaying ? 'Pause' : 'Play'}
                   >
                     {isPlaying
@@ -1035,7 +1035,7 @@ export function VideoPlayer({
                   {prevVideo && (
                     <button
                       onClick={navigatePrev}
-                      className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                      className="text-white hover:text-white/80 transition-colors p-2 flex-shrink-0"
                       aria-label="Previous video"
                     >
                       <SkipBack className="h-4 w-4 sm:h-5 sm:w-5 fill-white" />
@@ -1046,7 +1046,7 @@ export function VideoPlayer({
                   {nextVideo && (
                     <button
                       onClick={navigateNext}
-                      className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                      className="text-white hover:text-white/80 transition-colors p-2 flex-shrink-0"
                       aria-label="Next video"
                     >
                       <SkipForward className="h-4 w-4 sm:h-5 sm:w-5 fill-white" />
@@ -1095,7 +1095,7 @@ export function VideoPlayer({
                   {/* ── Right controls ────────────────────────── */}
                   <button
                     onClick={handleSnapshot}
-                    className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                    className="text-white hover:text-white/80 transition-colors p-2 flex-shrink-0"
                     aria-label="Take snapshot"
                     title="Snapshot"
                   >
@@ -1176,7 +1176,7 @@ export function VideoPlayer({
                   {/* Video URL / copy */}
                   <button
                     onClick={copyVideoUrl}
-                    className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                    className="text-white hover:text-white/80 transition-colors p-2 flex-shrink-0"
                     aria-label="Copy video URL"
                     title="Copy YouTube URL"
                   >
@@ -1189,7 +1189,7 @@ export function VideoPlayer({
                   {/* Fullscreen */}
                   <button
                     onClick={handleFullscreen}
-                    className="text-white hover:text-white/80 transition-colors p-1 flex-shrink-0"
+                    className="text-white hover:text-white/80 transition-colors p-2 flex-shrink-0"
                     aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
                   >
                     {isFullscreen

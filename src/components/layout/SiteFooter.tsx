@@ -35,9 +35,9 @@ export function SiteFooter() {
             <Info size={14} />
             About
           </Link>
-          <Link href="/fyq" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
-            <CircleHelp size={14} />
-            FYQ
+          <Link href="/faq" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
+            <CircleHelp className="h-4 w-4" />
+            FAQ
           </Link>
           <Link href="/sitemap" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
             <FileText size={14} />

@@ -529,7 +529,7 @@ export function Dashboard() {
                         >
                           {note.content}
                         </p>
-                        <DropdownMenu>
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button 
                               variant="ghost" 

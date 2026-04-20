@@ -5,12 +5,12 @@ export const metadata: Metadata = {
   title: "FAQ",
   description: "Frequently asked questions about GazeFocus, features, accounts, privacy, and usage.",
   alternates: {
-    canonical: "/fyq",
+    canonical: "/faq",
   },
   openGraph: {
     title: "GazeFocus FAQ",
     description: "Find answers to common questions about GazeFocus and how the platform works.",
-    url: "https://gaze-focus.vercel.app/fyq",
+    url: "https://gaze-focus.vercel.app/faq",
     type: "website",
   },
 };

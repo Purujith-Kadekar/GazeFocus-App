@@ -155,7 +155,7 @@ export function TabletHeader() {
           </TooltipProvider>
 
           {/* Notifications */}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative transition-transform" aria-label="Open notifications menu">
                 <Bell className="h-4 w-4" />
@@ -204,7 +204,7 @@ export function TabletHeader() {
           </DropdownMenu>
 
           {/* User Menu - Show on tablet */}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 

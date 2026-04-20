@@ -409,6 +409,7 @@ export async function POST(request: NextRequest) {
         // Bulk upsert instead of loop
         const { error: upsertError } = await db.from('Video').upsert(
           playlistVideos.map(video => ({
+            id: crypto.randomUUID(),
             youtubeId: video.youtubeId,
             title: video.title,
             description: video.description || '',

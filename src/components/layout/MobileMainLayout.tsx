@@ -24,14 +24,15 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
   const pathname = usePathname()
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <MobileHeader />
-      <div className="mx-auto w-full max-w-md px-3 py-3 pb-28">
-        <main className="min-h-[calc(100vh-220px)]">{children}</main>
+      <div className="mx-auto w-full max-w-lg px-3 pt-20 pb-24">
+        <main className="min-h-[calc(100dvh-220px)]">{children}</main>
+        <MobileFooter />
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-7 gap-0.5 px-1 py-1.5">
+        <div className="mx-auto grid max-w-lg grid-cols-7 gap-0.5 px-1 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -68,7 +69,6 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
           })}
         </div>
       </nav>
-      <MobileFooter />
     </div>
   )
 }

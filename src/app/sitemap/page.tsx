@@ -45,7 +45,7 @@ const categories = [
     pages: [
       { label: 'Home',           href: '/',                      icon: Home,         desc: 'Landing page'        },
       { label: 'About',          href: '/about',                  icon: Info,         desc: 'Mission & founder'   },
-      { label: 'FAQ',            href: '/fyq',                   icon: CircleHelp,   desc: 'Common questions'    },
+      { label: 'FAQ',            href: '/faq',                   icon: CircleHelp,   desc: 'Common questions'    },
       { label: 'Privacy Policy', href: '/privacy-policy',         icon: Lock,         desc: 'Data practices'      },
       { label: 'Terms',          href: '/terms-and-conditions',   icon: FileText,     desc: 'Terms of service'    },
     ],

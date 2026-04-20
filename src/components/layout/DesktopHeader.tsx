@@ -159,7 +159,7 @@ export function DesktopHeader() {
           </TooltipProvider>
 
           {/* Notifications */}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative transition-transform" aria-label="Open notifications menu">
                 <Bell className="h-4 w-4" />

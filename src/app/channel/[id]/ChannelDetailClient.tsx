@@ -107,13 +107,13 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => router.push('/channels')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Channels
+      <div className="space-y-6 overflow-x-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Button variant="ghost" onClick={() => router.push('/channels')} className="min-w-0">
+            <ArrowLeft className="h-4 w-4 mr-2 shrink-0" />
+            <span className="truncate">Back to Channels</span>
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -142,21 +142,21 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
                 width={256}
                 height={256}
                 className={cn(
-                  'w-40 h-40 md:w-64 md:h-64 object-cover rounded-full',
+                  'w-32 h-32 md:w-64 md:h-64 object-cover rounded-full',
                   channel.isLive && 'ring-4 ring-red-500'
                 )}
               />
             ) : (
-              <div className="w-40 h-40 md:w-64 md:h-64 flex items-center justify-center bg-muted rounded-full">
-                <Users className="h-16 w-16 text-muted-foreground/50" />
+              <div className="w-32 h-32 md:w-64 md:h-64 flex items-center justify-center bg-muted rounded-full">
+                <Users className="h-12 w-12 text-muted-foreground/50" />
               </div>
             )}
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{channel.title}</h1>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl md:text-2xl font-bold truncate">{channel.title}</h1>
               {channel.isLive && (
-                <Badge className="bg-red-600 text-white animate-pulse">
+                <Badge className="bg-red-600 text-white animate-pulse shrink-0">
                   <span className="relative flex h-2 w-2 mr-1">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
@@ -166,9 +166,9 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
               )}
             </div>
             {channel.description && (
-              <p className="text-muted-foreground mt-2 line-clamp-2">{channel.description}</p>
+              <p className="text-muted-foreground mt-2 line-clamp-2 text-sm md:text-base">{channel.description}</p>
             )}
-            <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-xs md:text-sm text-muted-foreground">
               {channel.subscriberCount && (
                 <span>{formatSubscriberCount(channel.subscriberCount)} subscribers</span>
               )}
@@ -177,20 +177,20 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
               )}
             </div>
             {channel.isLive && channel.liveTitle && (
-              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Radio className="h-5 w-5 text-red-500 animate-pulse" />
-                  <div className="flex-1">
-                    <p className="font-medium text-red-500">Currently Live</p>
-                    <p className="text-sm">{channel.liveTitle}</p>
+              <div className="mt-4 p-3 md:p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <div className="flex items-start md:items-center gap-3">
+                  <Radio className="h-5 w-5 text-red-500 animate-pulse mt-1 md:mt-0 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-red-500 text-sm">Currently Live</p>
+                    <p className="text-xs md:text-sm line-clamp-1">{channel.liveTitle}</p>
                   </div>
                   <Button
                     size="sm"
-                    className="bg-red-600 hover:bg-red-700"
+                    className="bg-red-600 hover:bg-red-700 shrink-0"
                     onClick={() => channel.liveVideoId && router.push(`/channel/${channel.id}/live/${channel.liveVideoId}`)}
                   >
-                    <Play className="h-4 w-4 mr-2" />
-                    Watch Now
+                    <Play className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Watch Now</span>
                   </Button>
                 </div>
               </div>
@@ -200,13 +200,13 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
 
         <div className="border-t pt-4">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Play className="h-5 w-5" />
-                Recent Videos
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base md:text-lg font-semibold flex items-center gap-2 min-w-0">
+                <Play className="h-4 w-4 md:h-5 md:w-5 shrink-0" />
+                <span className="truncate">Recent Videos</span>
               </h2>
-              <Button variant="outline" size="sm" onClick={() => router.push(`/channel/${channel.id}/videos`)}>
-                View All Videos
+              <Button variant="outline" size="sm" onClick={() => router.push(`/channel/${channel.id}/videos`)} className="shrink-0 text-xs">
+                View All
               </Button>
             </div>
 
@@ -221,7 +221,7 @@ export default function ChannelDetailClient({ channel: initialChannel, initialVi
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                 {videos.slice(0, 8).map((video) => (
                   <VideoCard
                     key={video.id}

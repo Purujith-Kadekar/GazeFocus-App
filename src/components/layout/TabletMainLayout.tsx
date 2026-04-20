@@ -52,8 +52,8 @@ export function TabletMainLayout({ children }: TabletMainLayoutProps) {
         </div>
 
         <main className="min-h-[calc(100vh-190px)]">{children}</main>
+        <TabletFooter />
       </div>
-      <TabletFooter />
     </div>
   )
 }

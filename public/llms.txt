@@ -14,7 +14,7 @@ Help learners stay focused while studying video content and improve consistency 
 ## Important URLs
 - https://gaze-focus.vercel.app/
 - https://gaze-focus.vercel.app/about
-- https://gaze-focus.vercel.app/fyq
+- https://gaze-focus.vercel.app/faq
 - https://gaze-focus.vercel.app/privacy-policy
 - https://gaze-focus.vercel.app/terms-and-conditions
 

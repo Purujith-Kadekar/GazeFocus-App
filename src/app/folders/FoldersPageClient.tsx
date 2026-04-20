@@ -34,7 +34,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
 
   useEffect(() => {
     const cached = readRouteCache<Folder[]>(FOLDERS_CACHE_KEY)
-    if (cached?.payload) {
+    if (cached?.payload && cached.payload.length > 0) {
       setFolders(cached.payload)
       setIsLoading(false)
       setIsInitialLoad(false)
@@ -46,12 +46,12 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
 
     const loadFolders = async () => {
       const currentCached = readRouteCache<Folder[]>(FOLDERS_CACHE_KEY)
-      // If cache exists, show it immediately and only refresh if needed
-      if (currentCached?.payload) {
+      // If cache exists and is not empty, show it immediately and refresh in background
+      if (currentCached?.payload && currentCached.payload.length > 0) {
         setFolders(currentCached.payload)
         setIsLoading(false)
         setIsInitialLoad(false)
-        // Optionally refresh in background
+        
         try {
           const response = await fetch('/api/folders')
           if (!response.ok || cancelled) return
@@ -61,12 +61,12 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
           setFolders(nextFolders)
           writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
         } catch {
-          // keep cached data if refresh fails
+          // keep cached data
         }
         return
       }
 
-      // No cache - fetch on first load with loading indicator
+      // No cache or empty cache - fetch with loading indicator
       setIsLoading(true)
       beginRouteLoading()
       try {
@@ -189,7 +189,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
                 </Card>
               ))}
             </div>
-          ) : !isInitialLoad ? (
+          ) : !isLoading && !isInitialLoad ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FolderOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">No folders yet</p>

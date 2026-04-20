@@ -4,8 +4,8 @@ import { Logo } from '@/components/layout/Logo'
 
 export function MobileFooter() {
   return (
-    <footer className="mt-4 border-t border-border/60 bg-background py-4">
-      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 px-3 text-center">
+    <footer className="mt-8 border-t border-border/60 bg-background pt-6 pb-0">
+      <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-1 px-4 text-center">
         <div className="flex items-center justify-center gap-2">
           <Logo size={20} />
           <span className="text-sm font-semibold text-foreground">GazeFocus</span>
@@ -28,8 +28,8 @@ export function MobileFooter() {
           <Link href="/about" className="hover:text-foreground transition-colors">
             About
           </Link>
-          <Link href="/fyq" className="hover:text-foreground transition-colors">
-            FYQ
+          <Link href="/faq" className="hover:text-foreground transition-colors">
+            FAQ
           </Link>
         </nav>
       </div>

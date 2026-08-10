@@ -69,7 +69,7 @@ async function syncChannel(
       .eq('userId', channel.userId)
       .in('youtubeId', fetchedIds)
 
-    const existingIds = new Set(existingVideos?.map(v => v.youtubeId) || [])
+    const existingIds = new Set<string>((existingVideos || []).map((v: any) => v.youtubeId))
     const newVideos = enrichedVideos.filter(v => !existingIds.has(v.youtubeId))
 
     if (newVideos.length > 0) {

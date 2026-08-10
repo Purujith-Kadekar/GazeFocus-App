@@ -55,7 +55,7 @@ async function insertOrUpdateVideos(
     .eq('userId', userId)
     .in('youtubeId', youtubeIds)
 
-  const existingYoutubeIds = new Set((existingVideos || []).map((v: any) => v.youtubeId))
+  const existingYoutubeIds = new Set<string>((existingVideos || []).map((v: any) => v.youtubeId))
 
   const now = new Date().toISOString()
   const videosToInsert: any[] = []
@@ -127,7 +127,7 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
 
   // Get existing videos from DB
   const existingVideosResult = await db.from('Video').select('youtubeId').eq('userId', userId).eq('playlistId', playlistId)
-  const existingVideoIds = new Set((existingVideosResult.data || []).map((v: any) => v.youtubeId))
+  const existingVideoIds = new Set<string>((existingVideosResult.data || []).map((v: any) => v.youtubeId))
 
   // Get stored totalVideos count
   const playlistMeta = await db.from('Playlist').select('totalVideos').eq('id', playlistId).maybeSingle()

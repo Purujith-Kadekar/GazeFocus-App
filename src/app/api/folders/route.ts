@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest) {
 
     // Validate that all folderIds belong to the current user
     const ownedFoldersResult = await db.from('Folder').select('id').eq('userId', userId).in('id', folderIds)
-    const ownedFolderIds = new Set((ownedFoldersResult.data || []).map((f: any) => f.id))
+    const ownedFolderIds = new Set<string>((ownedFoldersResult.data || []).map((f: any) => f.id))
     
     const unauthorizedIds = folderIds.filter(id => !ownedFolderIds.has(id))
     if (unauthorizedIds.length > 0) {

@@ -20,24 +20,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const existingResult = await db.from('VideoProgress').select('id').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
+    const now = new Date().toISOString()
+    const isCompleted = completed ?? true
 
-    let progress
-    if (existingResult.data) {
-      const updateResult = await db.from('VideoProgress').update({
-        completed: completed ?? true,
-        completedAt: completed ? new Date().toISOString() : null,
-      }).eq('id', existingResult.data.id).select().single()
-      progress = updateResult.data
-    } else {
-      const insertResult = await db.from('VideoProgress').insert({
-        userId,
-        youtubeId,
-        secondsWatched: 0,
-        completed: completed ?? true,
-        completedAt: completed ? new Date().toISOString() : null,
-      }).select().single()
-      progress = insertResult.data
+    // Use upsert to avoid race conditions (concurrent requests could both
+    // see no existing record in the old select-then-insert pattern).
+    const { data: progress, error: upsertError } = await db.from('VideoProgress').upsert({
+      userId,
+      youtubeId,
+      secondsWatched: 0,
+      durationSeconds: 0,
+      completed: isCompleted,
+      completedAt: isCompleted ? now : null,
+      updatedAt: now,
+      createdAt: now,
+    }, { onConflict: 'userId,youtubeId' }).select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt').single()
+
+    if (upsertError) {
+      console.error('Error upserting completion:', upsertError)
+      return NextResponse.json({ error: 'Failed to update completion' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, progress })

@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { QuotaEngine } from '@/lib/youtube/quota-engine'
+import { fetchPlaylistFromInvidious, fetchPlaylistFromPiped, type AltPlaylistVideo } from '@/lib/youtube/alt-sources'
+import { fetchAllPlaylistVideosFromAPI, fetchPlaylistVideosFromRSS, parseDuration } from '@/lib/youtube/shared'
 import { randomUUID } from 'crypto'
-
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
 interface PlaylistVideo {
   youtubeId: string
@@ -21,308 +20,316 @@ interface SyncResult {
   youtubeId: string
   addedCount: number
   totalVideos: number
+  source: string
 }
 
-function parseDuration(isoDuration: string): number {
-  const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/)
-  if (!match) return 0
+/**
+ * Insert new videos and update existing ones WITHOUT overwriting the id column.
+ *
+ * The old code used upsert with `id: randomUUID()` which overwrites the existing
+ * row's `id` on conflict — breaking foreign-key references (Note → Video,
+ * VideoProgress → Video).  This helper mirrors the pattern already used in
+ * the playlist import route (playlists/route.ts) which correctly separates
+ * insert vs update operations.
+ */
+async function insertOrUpdateVideos(
+  videos: Array<{
+    youtubeId: string
+    title: string
+    description: string
+    thumbnail: string
+    duration: number
+    position: number
+  }>,
+  userId: string,
+  playlistId: string
+): Promise<{ inserted: number; updated: number }> {
+  if (videos.length === 0) return { inserted: 0, updated: 0 }
 
-  const hours = parseInt(match[1] || '0')
-  const minutes = parseInt(match[2] || '0')
-  const seconds = parseInt(match[3] || '0')
+  const youtubeIds = videos.map(v => v.youtubeId)
 
-  return hours * 3600 + minutes * 60 + seconds
-}
-
-async function fetchPlaylistVideosFromRSS(playlistYoutubeId: string): Promise<PlaylistVideo[]> {
-  try {
-    const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistYoutubeId}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    })
-
-    if (!response.ok) {
-      return []
-    }
-
-    const text = await response.text()
-    const entries = text.split('<entry>').slice(1)
-
-    return entries.map((entry, index) => {
-      const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
-      const titleMatch = entry.match(/<title>(.*?)<\/title>/)
-      const descMatch = entry.match(/<media:description>(.*?)<\/media:description>/)
-      const videoId = idMatch ? idMatch[1] : ''
-
-      return {
-        youtubeId: videoId,
-        title: titleMatch ? titleMatch[1] : 'Unknown Title',
-        description: descMatch ? descMatch[1] : '',
-        thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '',
-        duration: 0,
-        position: index,
-      }
-    }).filter(v => v.youtubeId !== '')
-  } catch {
-    return []
-  }
-}
-
-async function fetchAllPlaylistVideosFromAPI(playlistYoutubeId: string): Promise<PlaylistVideo[]> {
-  if (!YOUTUBE_API_KEY) {
-    return []
-  }
-
-  const videoIds: string[] = []
-  const positionMap: Record<string, number> = {}
-  let nextPageToken: string | undefined = undefined
-
-  do {
-    const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`)
-    url.searchParams.set('part', 'snippet,contentDetails')
-    url.searchParams.set('playlistId', playlistYoutubeId)
-    url.searchParams.set('maxResults', '50')
-    url.searchParams.set('key', YOUTUBE_API_KEY)
-
-    if (nextPageToken) {
-      url.searchParams.set('pageToken', nextPageToken)
-    }
-
-    const response = await fetch(url.toString())
-    const data = await response.json() as {
-      items?: {
-        snippet?: {
-          position?: number
-          resourceId?: { videoId?: string }
-        }
-        contentDetails?: { videoId?: string }
-      }[]
-      nextPageToken?: string
-      error?: { message?: string }
-    }
-
-    if (data.error) {
-      throw new Error(data.error.message || 'Failed to fetch playlist items from YouTube')
-    }
-
-    if (data.items) {
-      for (const item of data.items) {
-        const videoId = item.snippet?.resourceId?.videoId || item.contentDetails?.videoId
-        if (videoId) {
-          videoIds.push(videoId)
-          positionMap[videoId] = item.snippet?.position ?? 0
-        }
-      }
-    }
-
-    nextPageToken = data.nextPageToken
-  } while (nextPageToken)
-
-  if (videoIds.length === 0) {
-    return []
-  }
-
-  const videos: PlaylistVideo[] = []
-  const batchSize = 50
-
-  for (let i = 0; i < videoIds.length; i += batchSize) {
-    const batchIds = videoIds.slice(i, i + batchSize)
-    const response = await fetch(
-      `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${batchIds.join(',')}&key=${YOUTUBE_API_KEY}`
-    )
-
-    const data = await response.json() as {
-      items?: {
-        id: string
-        snippet?: {
-          title?: string
-          description?: string
-          thumbnails?: {
-            maxres?: { url: string }
-            medium?: { url: string }
-          }
-        }
-        contentDetails?: {
-          duration?: string
-        }
-      }[]
-      error?: { message?: string }
-    }
-
-    if (data.error) {
-      throw new Error(data.error.message || 'Failed to fetch playlist video details from YouTube')
-    }
-
-    if (!data.items) {
-      continue
-    }
-
-    for (const item of data.items) {
-      if (!item.id || !item.snippet) {
-        continue
-      }
-
-      videos.push({
-        youtubeId: item.id,
-        title: item.snippet.title || 'Untitled',
-        description: item.snippet.description || '',
-        thumbnail:
-          item.snippet.thumbnails?.maxres?.url ||
-          item.snippet.thumbnails?.medium?.url ||
-          `https://img.youtube.com/vi/${item.id}/maxresdefault.jpg`,
-        duration: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : 0,
-        position: positionMap[item.id] ?? 0,
-      })
-    }
-  }
-
-  return videos.sort((a, b) => a.position - b.position)
-}
-
-async function detectPotentialGap(playlistId: string, rssVideos: PlaylistVideo[]): Promise<boolean> {
-  if (rssVideos.length === 0) return false
-  if (rssVideos.length < 15) return false
-
-  const { data: existing } = await db
-    .from('Video')
-    .select('youtubeId')
-    .eq('playlistId', playlistId)
-    .limit(1)
-
-  return Boolean(existing && existing.length > 0)
-}
-
-async function fillGapWithAPI(playlistYoutubeId: string, existingVideoIds: Set<string>): Promise<PlaylistVideo[]> {
-  const apiVideos = await fetchAllPlaylistVideosFromAPI(playlistYoutubeId)
-  return apiVideos.filter(v => !existingVideoIds.has(v.youtubeId))
-}
-
-async function checkAndMarkLiveVideos(playlistId: string): Promise<void> {
-  if (!YOUTUBE_API_KEY) return
-
-  const { data: playlistVideos } = await db
-    .from('Video')
-    .select('youtubeId')
-    .eq('playlistId', playlistId)
-    .order('createdAt', { ascending: false })
-    .limit(50)
-
-  if (!playlistVideos || playlistVideos.length === 0) return
-
-  const url = new URL(`${YOUTUBE_API_BASE}/search`)
-  url.searchParams.set('part', 'snippet')
-  url.searchParams.set('eventType', 'live')
-  url.searchParams.set('type', 'video')
-  url.searchParams.set('maxResults', '50')
-  url.searchParams.set('key', YOUTUBE_API_KEY)
-
-  const response = await fetch(url.toString())
-  const data = await response.json() as {
-    items?: { id?: { videoId?: string }; snippet?: { liveBroadcastContent?: string } }[]
-  }
-
-  const liveIds = new Set(
-    (data.items || [])
-      .filter(item => item.id?.videoId && item.snippet?.liveBroadcastContent === 'live')
-      .map(item => item.id!.videoId!)
-  )
-
-  const trackedIds = (playlistVideos as { youtubeId: string }[]).map(v => v.youtubeId)
-  if (trackedIds.length === 0) return
-
-  await db
-    .from('Video')
-    .update({ isLive: false, liveBroadcastContent: null })
-    .eq('playlistId', playlistId)
-    .in('youtubeId', trackedIds)
-
-  const idsToMarkLive = trackedIds.filter(id => liveIds.has(id))
-  if (idsToMarkLive.length > 0) {
-    await db
-      .from('Video')
-      .update({ isLive: true, liveBroadcastContent: 'live' })
-      .eq('playlistId', playlistId)
-      .in('youtubeId', idsToMarkLive)
-  }
-}
-
-async function fetchAllPlaylistVideosHybrid(playlistId: string, playlistYoutubeId: string, userId?: string): Promise<PlaylistVideo[]> {
-  const rssVideos = await fetchPlaylistVideosFromRSS(playlistYoutubeId)
-  if (rssVideos.length === 0) {
-    return fetchAllPlaylistVideosFromAPI(playlistYoutubeId)
-  }
-
-  // Surgical Enrichment for RSS videos (1 unit for up to 50 videos)
-  const videoIds = rssVideos.map(v => v.youtubeId)
-  const enrichment = await QuotaEngine.enrichVideoMetadata(videoIds, userId)
-  
-  const enrichedRssVideos = rssVideos.map(v => ({
-    ...v,
-    duration: enrichment[v.youtubeId]?.duration ?? 0,
-    description: enrichment[v.youtubeId]?.description ?? v.description,
-    title: enrichment[v.youtubeId]?.title ?? v.title,
-    thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
-  }))
-
-  const hasGap = await detectPotentialGap(playlistId, rssVideos)
-  if (!hasGap) {
-    return enrichedRssVideos
-  }
-
+  // Check which youtubeIds already exist in the DB for this user
   const { data: existingVideos } = await db
     .from('Video')
-    .select('youtubeId')
-    .eq('playlistId', playlistId)
+    .select('id, youtubeId')
+    .eq('userId', userId)
+    .in('youtubeId', youtubeIds)
 
-  const existingIds = new Set<string>((existingVideos || []).map((v: any) => v.youtubeId))
-  const gapVideos = await fillGapWithAPI(playlistYoutubeId, existingIds)
-  return [...enrichedRssVideos, ...gapVideos]
-}
+  const existingYoutubeIds = new Set((existingVideos || []).map((v: any) => v.youtubeId))
 
-async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: string }): Promise<SyncResult> {
-  const playlistVideos = await fetchAllPlaylistVideosHybrid(playlist.id, playlist.youtubeId, playlist.userId)
+  const now = new Date().toISOString()
+  const videosToInsert: any[] = []
+  const videosToUpdate: any[] = []
 
-  const existingVideosResult = await db.from('Video').select('youtubeId').eq('userId', playlist.userId).eq('playlistId', playlist.id)
-  const existingVideos = existingVideosResult.data || []
-  const existingVideoIds = new Set(existingVideos.map((video: any) => video.youtubeId))
-  const missingVideos = playlistVideos.filter(video => !existingVideoIds.has(video.youtubeId))
-
-  if (missingVideos.length > 0) {
-    // Bulk upsert instead of loop
-    const { error: upsertError } = await db.from('Video').upsert(
-      missingVideos.map(video => ({
+  for (const video of videos) {
+    if (existingYoutubeIds.has(video.youtubeId)) {
+      // Existing video — update metadata fields but NOT the id
+      videosToUpdate.push(video)
+    } else {
+      // New video — insert with a fresh id
+      videosToInsert.push({
         id: randomUUID(),
         youtubeId: video.youtubeId,
         title: video.title,
         description: video.description,
         thumbnail: video.thumbnail,
         duration: video.duration,
+        playlistId,
+        userId,
         position: video.position,
-        playlistId: playlist.id,
-        userId: playlist.userId,
-      })), { onConflict: 'youtubeId,userId' }
-    )
-
-    if (upsertError) {
-      console.error('Error batch upserting videos:', upsertError)
+        updatedAt: now,
+        createdAt: now,
+      })
     }
   }
 
-  const allVideosResult = await db.from('Video').select('duration').eq('userId', playlist.userId).eq('playlistId', playlist.id)
-  const allPlaylistVideos = allVideosResult.data || []
-  const totalDuration = allPlaylistVideos.reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
-
-  await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)
-  
-  // We no longer need separate checkAndMarkLiveVideos because enrichment already provides liveBroadcastContent
-  // But we need to apply it to the DB if we want to track it per video.
-  // For now, let's keep it simple or just add isLive to the Video table.
-  
-  return {
-    playlistId: playlist.id,
-    youtubeId: playlist.youtubeId,
-    addedCount: missingVideos.length,
-    totalVideos: allPlaylistVideos.length,
+  // Insert truly new videos
+  if (videosToInsert.length > 0) {
+    const { error: insertError } = await db.from('Video').insert(videosToInsert)
+    if (insertError) {
+      console.error('Error inserting new videos:', insertError)
+    }
   }
+
+  // Update existing videos — only metadata fields, never id
+  for (const video of videosToUpdate) {
+    await db.from('Video').update({
+      title: video.title,
+      description: video.description,
+      thumbnail: video.thumbnail,
+      duration: video.duration,
+      playlistId,
+      position: video.position,
+      updatedAt: now,
+    }).eq('youtubeId', video.youtubeId).eq('userId', userId)
+  }
+
+  return { inserted: videosToInsert.length, updated: videosToUpdate.length }
+}
+
+/**
+ * Sync a playlist using the RSS-first strategy:
+ *
+ * 1. RSS check (free, ≤15 most recent videos)
+ *    → Compare RSS video IDs against existing DB videos
+ *    → If no new IDs found → SKIP (0 API calls)
+ *    → If new IDs found → add them directly + enrich duration
+ *
+ * 2. If RSS empty/fails AND playlist has fewer videos than totalVideos stored:
+ *    → Try Invidious (free)
+ *    → Try Piped (free)
+ *    → Fall back to YouTube API (quota-burn)
+ *
+ * 3. If we have more videos stored than the stored total, re-check total from API metadata
+ */
+async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: string; totalVideos?: number }): Promise<SyncResult> {
+  const { id: playlistId, youtubeId: playlistYoutubeId, userId } = playlist
+
+  // Get existing videos from DB
+  const existingVideosResult = await db.from('Video').select('youtubeId').eq('userId', userId).eq('playlistId', playlistId)
+  const existingVideoIds = new Set((existingVideosResult.data || []).map((v: any) => v.youtubeId))
+
+  // Get stored totalVideos count
+  const playlistMeta = await db.from('Playlist').select('totalVideos').eq('id', playlistId).maybeSingle()
+  const storedTotalVideos = playlistMeta.data?.totalVideos || 0
+
+  // --- Step 1: RSS check (free, fast) ---
+  const rssVideos = await fetchPlaylistVideosFromRSS(playlistYoutubeId)
+
+  if (rssVideos.length > 0) {
+    // Find new video IDs from RSS (these are the most recent videos)
+    const newRssVideos = rssVideos.filter(v => !existingVideoIds.has(v.youtubeId))
+
+    if (newRssVideos.length > 0) {
+      // Enrich duration for new videos that don't have it
+      const enrichmentNeeded = newRssVideos.filter(v => v.duration === 0)
+      let enrichment: Record<string, any> = {}
+
+      if (enrichmentNeeded.length > 0) {
+        enrichment = await QuotaEngine.enrichVideoMetadata(
+          enrichmentNeeded.map(v => v.youtubeId),
+          userId
+        )
+      }
+
+      const finalNewVideos = newRssVideos.map(v => ({
+        youtubeId: v.youtubeId,
+        title: enrichment[v.youtubeId]?.title || v.title,
+        description: enrichment[v.youtubeId]?.description || v.description,
+        thumbnail: enrichment[v.youtubeId]?.thumbnail || v.thumbnail,
+        duration: v.duration || enrichment[v.youtubeId]?.duration || 0,
+        position: v.position,
+      }))
+
+      // Insert new videos and update existing ones without overwriting id
+      if (finalNewVideos.length > 0) {
+        await insertOrUpdateVideos(finalNewVideos, userId, playlistId)
+      }
+
+      // Update total duration
+      const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      await db.from('Playlist').update({ totalDuration, totalVideos: Math.max(storedTotalVideos, existingVideoIds.size + finalNewVideos.length) }).eq('id', playlistId)
+
+      return {
+        playlistId,
+        youtubeId: playlistYoutubeId,
+        addedCount: finalNewVideos.length,
+        totalVideos: (allVideosResult.data || []).length,
+        source: 'rss',
+      }
+    }
+
+    // All RSS IDs exist in DB already — check if we might be missing videos
+    // If stored total > current DB count, there might be old videos we never fetched
+    if (storedTotalVideos > existingVideoIds.size) {
+      // We have fewer videos than expected — try full fetch from alt sources
+      const altResult = await fetchFullPlaylistAndFillGap(playlistId, playlistYoutubeId, userId, existingVideoIds)
+      if (altResult) return altResult
+    }
+
+    // No new videos found, and no gap detected
+    return {
+      playlistId,
+      youtubeId: playlistYoutubeId,
+      addedCount: 0,
+      totalVideos: existingVideoIds.size,
+      source: 'rss-none',
+    }
+  }
+
+  // --- Step 2: RSS failed/empty — try Invidious/Piped ---
+  const altResult = await fetchFullPlaylistAndFillGap(playlistId, playlistYoutubeId, userId, existingVideoIds)
+  if (altResult) return altResult
+
+  // --- Step 3: All alternative sources failed — try YouTube API ---
+  // Only use if we think there are missing videos
+  if (storedTotalVideos > existingVideoIds.size || storedTotalVideos === 0) {
+    const apiVideos = await fetchAllPlaylistVideosFromAPI(playlistYoutubeId)
+    const newApiVideos = apiVideos.filter(v => !existingVideoIds.has(v.youtubeId))
+
+    if (newApiVideos.length > 0) {
+      await insertOrUpdateVideos(newApiVideos, userId, playlistId)
+
+      const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      await db.from('Playlist').update({ totalDuration, totalVideos: Math.max(storedTotalVideos, apiVideos.length) }).eq('id', playlistId)
+
+      return {
+        playlistId,
+        youtubeId: playlistYoutubeId,
+        addedCount: newApiVideos.length,
+        totalVideos: (allVideosResult.data || []).length,
+        source: 'youtube-api',
+      }
+    }
+  }
+
+  // Nothing new from any source
+  return {
+    playlistId,
+    youtubeId: playlistYoutubeId,
+    addedCount: 0,
+    totalVideos: existingVideoIds.size,
+    source: 'none',
+  }
+}
+
+/**
+ * Try Invidious then Piped to fill missing videos in a playlist.
+ * Returns a SyncResult if new videos were found, or null if no new videos.
+ */
+async function fetchFullPlaylistAndFillGap(
+  playlistId: string,
+  playlistYoutubeId: string,
+  userId: string,
+  existingVideoIds: Set<string>
+): Promise<SyncResult | null> {
+  // Try Invidious
+  const invidiousResult = await fetchPlaylistFromInvidious(playlistYoutubeId)
+  if (invidiousResult) {
+    const newVideos = invidiousResult.videos.filter(v => !existingVideoIds.has(v.youtubeId))
+
+    if (newVideos.length > 0) {
+      // Enrich duration for videos that have 0
+      const enrichmentNeeded = newVideos.filter(v => v.duration === 0)
+      let enrichment: Record<string, any> = {}
+      if (enrichmentNeeded.length > 0) {
+        enrichment = await QuotaEngine.enrichVideoMetadata(
+          enrichmentNeeded.map(v => v.youtubeId),
+          userId
+        )
+      }
+
+      const finalNewVideos = newVideos.map(v => ({
+        youtubeId: v.youtubeId,
+        title: enrichment[v.youtubeId]?.title || v.title,
+        description: enrichment[v.youtubeId]?.description || v.description,
+        thumbnail: enrichment[v.youtubeId]?.thumbnail || v.thumbnail,
+        duration: v.duration || enrichment[v.youtubeId]?.duration || 0,
+        position: v.position,
+      }))
+
+      await insertOrUpdateVideos(finalNewVideos, userId, playlistId)
+
+      // Update playlist metadata
+      const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      const newTotalVideos = Math.max(invidiousResult.info.videoCount, existingVideoIds.size + finalNewVideos.length)
+      await db.from('Playlist').update({ totalDuration, totalVideos: newTotalVideos }).eq('id', playlistId)
+
+      return {
+        playlistId,
+        youtubeId: playlistYoutubeId,
+        addedCount: finalNewVideos.length,
+        totalVideos: (allVideosResult.data || []).length,
+        source: 'invidious',
+      }
+    }
+  }
+
+  // Try Piped
+  const pipedResult = await fetchPlaylistFromPiped(playlistYoutubeId)
+  if (pipedResult) {
+    const newVideos = pipedResult.videos.filter(v => !existingVideoIds.has(v.youtubeId))
+
+    if (newVideos.length > 0) {
+      const enrichmentNeeded = newVideos.filter(v => v.duration === 0)
+      let enrichment: Record<string, any> = {}
+      if (enrichmentNeeded.length > 0) {
+        enrichment = await QuotaEngine.enrichVideoMetadata(
+          enrichmentNeeded.map(v => v.youtubeId),
+          userId
+        )
+      }
+
+      const finalNewVideos = newVideos.map(v => ({
+        youtubeId: v.youtubeId,
+        title: enrichment[v.youtubeId]?.title || v.title,
+        description: enrichment[v.youtubeId]?.description || v.description,
+        thumbnail: enrichment[v.youtubeId]?.thumbnail || v.thumbnail,
+        duration: v.duration || enrichment[v.youtubeId]?.duration || 0,
+        position: v.position,
+      }))
+
+      await insertOrUpdateVideos(finalNewVideos, userId, playlistId)
+
+      const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      const newTotalVideos = Math.max(pipedResult.info.videoCount, existingVideoIds.size + finalNewVideos.length)
+      await db.from('Playlist').update({ totalDuration, totalVideos: newTotalVideos }).eq('id', playlistId)
+
+      return {
+        playlistId,
+        youtubeId: playlistYoutubeId,
+        addedCount: finalNewVideos.length,
+        totalVideos: (allVideosResult.data || []).length,
+        source: 'piped',
+      }
+    }
+  }
+
+  return null // no new videos from alt sources
 }
 
 export async function POST(request: NextRequest) {
@@ -338,7 +345,7 @@ export async function POST(request: NextRequest) {
     if (!playlistId) {
       const playlistsResult = await db
         .from('Playlist')
-        .select('id, youtubeId, userId')
+        .select('id, youtubeId, userId, totalVideos')
         .eq('userId', user.id)
 
       const playlists = playlistsResult.data || []
@@ -359,7 +366,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const playlistResult = await db.from('Playlist').select('id, youtubeId, userId').eq('id', playlistId).eq('userId', user.id).maybeSingle()
+    const playlistResult = await db.from('Playlist').select('id, youtubeId, userId, totalVideos').eq('id', playlistId).eq('userId', user.id).maybeSingle()
     const playlist = playlistResult.data
 
     if (!playlist) {

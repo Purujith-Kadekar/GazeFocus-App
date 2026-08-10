@@ -52,7 +52,9 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     
     setIsSearching(true)
     try {
-      const response = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`)
+      // When a specific type tab is active, search only that type for better results
+      const searchTypeParam = activeTab !== 'all' ? `&searchType=${activeTab}` : ''
+      const response = await fetch(`/api/youtube?q=${encodeURIComponent(query)}${searchTypeParam}`)
       const data = await response.json()
       
       if (data.error) {

@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/lib/db'
 import { QuotaEngine, isQuotaExhausted, markQuotaExhausted } from '@/lib/youtube/quota-engine'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 
@@ -45,7 +35,7 @@ async function syncChannel(
       updatedAt: new Date().toISOString(),
     }
 
-    const { error: channelUpdateError } = await supabase
+    const { error: channelUpdateError } = await db
       .from('Channel')
       .update(updateData)
       .eq('id', channel.id)
@@ -73,7 +63,7 @@ async function syncChannel(
 
     // Find existing videos in one query
     const fetchedIds = enrichedVideos.map(v => v.youtubeId)
-    const { data: existingVideos } = await supabase
+    const { data: existingVideos } = await db
       .from('Video')
       .select('youtubeId')
       .eq('userId', channel.userId)
@@ -84,7 +74,7 @@ async function syncChannel(
 
     if (newVideos.length > 0) {
       const now = new Date().toISOString()
-      const { error: insertError } = await supabase.from('Video').insert(
+      const { error: insertError } = await db.from('Video').insert(
         newVideos.map(v => ({
           id: crypto.randomUUID(),
           youtubeId: v.youtubeId,
@@ -107,7 +97,7 @@ async function syncChannel(
     }
   }
 
-  const { count: totalVideos } = await supabase
+  const { count: totalVideos } = await db
     .from('Video')
     .select('id', { count: 'exact', head: true })
     .eq('channelId', channel.id)
@@ -140,7 +130,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
     }
 
-    const { data: channel } = await supabase
+    const { data: channel } = await db
       .from('Channel')
       .select('id, youtubeId, userId')
       .eq('id', channelId)

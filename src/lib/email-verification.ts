@@ -1,4 +1,4 @@
-import { createHash, randomInt } from 'crypto'
+import { createHash, randomBytes, randomInt } from 'crypto'
 import { promises as dns } from 'dns'
 
 const OTP_LENGTH = Number(process.env.EMAIL_OTP_LENGTH || 6)
@@ -57,10 +57,69 @@ export function generateOtpCode(): string {
   return randomInt(0, max).toString().padStart(OTP_LENGTH, '0')
 }
 
+/**
+ * Hash an OTP code with a per-verification random salt.
+ * Returns a string in the format `saltHex:hashHex` for storage in the
+ * verificationCodeHash column.
+ *
+ * The hash is computed as: sha256(salt + normalizedEmail + code + secret)
+ * The salt ensures each verification is unique even if the same email+code
+ * combination is reused, preventing rainbow-table or precomputation attacks.
+ */
 export function hashOtpCode(code: string, email: string): string {
   const normalizedEmail = normalizeEmail(email)
   const secret = getHashSecret()
-  return createHash('sha256').update(`${normalizedEmail}:${code}:${secret}`).digest('hex')
+  const salt = randomBytes(16)
+  const saltHex = salt.toString('hex')
+  const hashHex = createHash('sha256')
+    .update(salt)
+    .update(normalizedEmail)
+    .update(code)
+    .update(secret)
+    .digest('hex')
+  return `${saltHex}:${hashHex}`
+}
+
+/**
+ * Verify an OTP code against a stored hash (in `salt:hash` format).
+ *
+ * @param email  - The user's email address (will be normalized internally)
+ * @param code   - The OTP code the user submitted
+ * @param storedHash - The value from the verificationCodeHash column (`salt:hash`)
+ * @returns true if the code matches, false otherwise
+ */
+export function verifyOtpCode(email: string, code: string, storedHash: string): boolean {
+  const parts = storedHash.split(':')
+  if (parts.length !== 2) {
+    // Legacy format without salt — cannot verify safely
+    return false
+  }
+
+  const [saltHex, expectedHashHex] = parts
+  const normalizedEmail = normalizeEmail(email)
+  const secret = getHashSecret()
+
+  // Reconstruct the salt buffer from the hex string
+  const salt = Buffer.from(saltHex, 'hex')
+
+  const computedHashHex = createHash('sha256')
+    .update(salt)
+    .update(normalizedEmail)
+    .update(code)
+    .update(secret)
+    .digest('hex')
+
+  // Use constant-time comparison to prevent timing attacks
+  try {
+    const expected = Buffer.from(expectedHashHex, 'hex')
+    const computed = Buffer.from(computedHashHex, 'hex')
+    if (expected.length !== computed.length) {
+      return false
+    }
+    return expected.equals(computed)
+  } catch {
+    return false
+  }
 }
 
 export function getOtpExpiryTimestamp(): string {

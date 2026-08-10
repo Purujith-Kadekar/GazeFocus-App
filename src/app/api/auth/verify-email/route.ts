@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
-import { getOtpSettings, hashOtpCode, isValidEmailFormat, normalizeEmail } from '@/lib/email-verification'
+import { getOtpSettings, verifyOtpCode, isValidEmailFormat, normalizeEmail } from '@/lib/email-verification'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,8 +46,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Verification code expired. Please request a new code.' }, { status: 400 })
     }
 
-    const expectedHash = hashOtpCode(code, normalizedEmail)
-    if (!user.verificationCodeHash || expectedHash !== user.verificationCodeHash) {
+    // Use the new verifyOtpCode function (constant-time comparison with per-verification salt)
+    const isValid = verifyOtpCode(normalizedEmail, code, user.verificationCodeHash || '')
+    if (!isValid) {
       await db
         .from('User')
         .update({

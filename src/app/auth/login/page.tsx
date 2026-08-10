@@ -187,7 +187,7 @@ function LoginPageContent() {
 
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      router.replace('/dashboard')
+      window.location.href = '/dashboard'
     } catch (err) {
       console.error('Login error:', err)
       setError('Something went wrong')
@@ -277,7 +277,7 @@ function LoginPageContent() {
         setIsLoading(false)
         setIsRedirecting(true)
         await signIn('firebase', { idToken, redirect: false })
-        router.replace('/dashboard')
+        window.location.href = '/dashboard'
     } catch (err: any) {
       logFirebaseError('Google Login', err)
       setError(getFirebaseErrorMessage(err))
@@ -339,7 +339,7 @@ function LoginPageContent() {
       setIsLoading(false)
       setIsRedirecting(true)
       await signIn('firebase', { idToken, redirect: false })
-      router.replace('/dashboard')
+      window.location.href = '/dashboard'
     } catch (err: any) {
       logFirebaseError('GitHub Login', err)
       setError(getFirebaseErrorMessage(err))
@@ -401,7 +401,7 @@ function LoginPageContent() {
       setIsLoading(false)
       setIsRedirecting(true)
       await signIn('firebase', { idToken, redirect: false })
-      router.replace('/dashboard')
+      window.location.href = '/dashboard'
     } catch (err: any) {
       logFirebaseError('Twitter Login', err)
       setError(getFirebaseErrorMessage(err))

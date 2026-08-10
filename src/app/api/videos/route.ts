@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+import { db } from '@/lib/db'
+import { parseDuration } from '@/lib/youtube/shared'
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
@@ -75,14 +66,6 @@ async function fetchYouTubeVideoDetails(videoId: string): Promise<YouTubeVideoDe
   return null
 }
 
-function parseDuration(isoDuration: string): number {
-  const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/)
-  if (!match) return 0
-  const hours = parseInt(match[1] || '0')
-  const minutes = parseInt(match[2] || '0')
-  const seconds = parseInt(match[3] || '0')
-  return hours * 3600 + minutes * 60 + seconds
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -98,7 +81,7 @@ export async function GET(request: NextRequest) {
     const standaloneOnly = searchParams.get('standaloneOnly') === 'true'
     const channelId = searchParams.get('channelId')
 
-    let query = supabase
+    let query = db
       .from('Video')
       .select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId')
       .eq('userId', userId)
@@ -125,7 +108,7 @@ export async function GET(request: NextRequest) {
     if (videos && videos.length > 0 && !standaloneOnly) {
       const playlistIds = videos.map(v => v.playlistId).filter((id): id is string => id !== null)
       if (playlistIds.length > 0) {
-        const { data: playlists } = await supabase
+        const { data: playlists } = await db
           .from('Playlist')
           .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
           .in('id', playlistIds)
@@ -165,7 +148,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid YouTube ID' }, { status: 400 })
     }
 
-    const { data: existing } = await supabase.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
+    const { data: existing } = await db.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
 
     if (existing) {
       return NextResponse.json({ error: 'This video already exists in your library' }, { status: 400 })
@@ -184,7 +167,7 @@ export async function POST(request: NextRequest) {
     const videoId = `video-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
     const now = new Date().toISOString()
 
-    const { data: video, error: videoError } = await supabase.from('Video').insert({
+    const { data: video, error: videoError } = await db.from('Video').insert({
       id: videoId,
       youtubeId,
       title: finalTitle,
@@ -204,7 +187,7 @@ export async function POST(request: NextRequest) {
     }
 
     const libraryItemId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-    await supabase.from('LibraryItem').upsert({
+    await db.from('LibraryItem').upsert({
       id: libraryItemId,
       userId,
       type: 'VIDEO',

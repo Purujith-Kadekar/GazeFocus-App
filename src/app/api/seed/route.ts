@@ -2,7 +2,17 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
+/**
+ * Seed endpoint — DISABLED in production for security.
+ * This endpoint allows any authenticated user to seed their database with test data.
+ * Only available in development mode for testing purposes.
+ */
 export async function POST() {
+  // Block in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 404 })
+  }
+
   try {
     const user = await getCurrentUser()
 

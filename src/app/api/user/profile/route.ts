@@ -11,7 +11,17 @@ export async function PUT(request: NextRequest) {
 
     const { name } = await request.json()
 
-    const updatedUserResult = await db.from('User').update({ name }).eq('id', user.id).select('id, name, email').single()
+    // Validate name: must be 1-100 chars after trimming
+    if (!name || typeof name !== 'string') {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    }
+
+    const trimmedName = name.trim()
+    if (trimmedName.length === 0 || trimmedName.length > 100) {
+      return NextResponse.json({ error: 'Name must be between 1 and 100 characters' }, { status: 400 })
+    }
+
+    const updatedUserResult = await db.from('User').update({ name: trimmedName }).eq('id', user.id).select('id, name, email').single()
     const updatedUser = updatedUserResult.data
 
     return NextResponse.json({
@@ -35,7 +45,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    db.from('User').delete().lte('deletionScheduledAt', new Date().toISOString()).neq('deletionScheduledAt', null).then(() => {}).catch(() => {})
+    // REMOVED: Fire-and-forget delete of expired users.
+    // User cleanup should be handled by an admin-only cron endpoint,
+    // not as a side effect of a profile GET request.
 
     const userDataResult = await db.from('User').select(`
       id,

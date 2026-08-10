@@ -50,7 +50,7 @@ export default function VerifyLinkPage() {
           console.error('[VerifyLink] NextAuth error:', signInResult.error)
           setError('Authentication failed: ' + signInResult.error)
         } else {
-          router.replace('/dashboard')
+          window.location.href = '/dashboard'
         }
       } catch (err: any) {
         console.error('Email link verify error:', err)

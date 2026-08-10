@@ -43,61 +43,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (folderId) {
-      const existingInFolderResult = await db.from('LibraryItem').select('id').eq('userId', user.id).eq('type', type).eq('externalId', externalId).eq('folderId', folderId).maybeSingle()
-      const existingInFolder = existingInFolderResult.data
-
-      if (existingInFolder) {
-        return NextResponse.json(existingInFolder)
-      }
-
-      try {
-        const itemResult = await db.from('LibraryItem').insert({
-          userId: user.id,
-          type,
-          externalId,
-          folderId,
-          title: title || externalId,
-        }).select().single()
-        return NextResponse.json(itemResult.data, { status: 201 })
-      } catch (createError: any) {
-        if (createError?.code === '23505') {
-          const existingResult = await db
-            .from('LibraryItem')
-            .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
-            .eq('userId', user.id)
-            .eq('type', type)
-            .eq('externalId', externalId)
-            .maybeSingle()
-          return NextResponse.json(existingResult.data)
-        }
-        throw createError
-      }
+    const validTypes = ['VIDEO', 'PLAYLIST', 'CHANNEL', 'FOLDER']
+    if (!validTypes.includes(type)) {
+      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
     }
 
-    const existingItemResult = await db
-      .from('LibraryItem')
-      .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
-      .eq('userId', user.id)
-      .eq('type', type)
-      .eq('externalId', externalId)
-      .is('folderId', null)
-      .maybeSingle()
-    const existingItem = existingItemResult.data
-
-    if (existingItem) {
-      return NextResponse.json(existingItem)
-    }
-
-    const itemResult = await db.from('LibraryItem').insert({
+    // Use upsert to avoid race conditions (concurrent requests could both
+    // pass the select check and both try to insert, causing a unique
+    // constraint violation). If the item already exists, update its
+    // folderId and title.
+    const now = new Date().toISOString()
+    const { data: item, error: upsertError } = await db.from('LibraryItem').upsert({
+      id: crypto.randomUUID(),
       userId: user.id,
       type,
       externalId,
-      folderId: null,
+      folderId: folderId || null,
       title: title || externalId,
-    }).select().single()
+      updatedAt: now,
+      createdAt: now,
+    }, { onConflict: 'userId,type,externalId' }).select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt').single()
 
-    return NextResponse.json(itemResult.data, { status: 201 })
+    if (upsertError) {
+      console.error('Error creating library item:', upsertError)
+      return NextResponse.json({ error: 'Failed to create library item' }, { status: 500 })
+    }
+
+    return NextResponse.json(item, { status: 201 })
   } catch (error) {
     console.error('Error creating library item:', error)
     return NextResponse.json(

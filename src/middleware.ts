@@ -1,35 +1,42 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import { jwtVerify } from "jose"
 import { verifyAdminRequest } from "@/lib/admin-auth"
 import { createClient as createSupabaseClient } from "@/utils/supabase/middleware"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-const db =
-  supabaseUrl && serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      })
-    : null
+import { db } from "@/lib/db"
 
 function isLocalAdminHost(request: NextRequest): boolean {
-  const forwardedHost = request.headers.get('x-forwarded-host')
-  const hostHeader = request.headers.get('host')
-  const rawHost = (forwardedHost || hostHeader || request.nextUrl.hostname || '').trim().toLowerCase()
-  const hostname = rawHost.split(':')[0]
-
+  const hostname = request.nextUrl.hostname.trim().toLowerCase().split(':')[0]
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
-export async function middleware(request: NextRequest) {
+/**
+ * Verify a Bearer token from the Authorization header.
+ * Used by Chrome Extension and APK to authenticate API requests.
+ * Returns the decoded JWT payload or null if invalid.
+ */
+async function verifyBearerInMiddleware(request: NextRequest): Promise<{ id: string; email: string } | null> {
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) return null
+
+  const token = authHeader.substring(7)
+  const secret = process.env.NEXTAUTH_SECRET
+  if (!secret) return null
+
   try {
-    const { pathname } = request.nextUrl
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret))
+    if (!payload.id || !payload.email) return null
+    return { id: payload.id as string, email: payload.email as string }
+  } catch {
+    return null
+  }
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  try {
     const supabaseResponse = createSupabaseClient(request)
 
     // Always allow crawler-critical metadata routes.
@@ -38,38 +45,37 @@ export async function middleware(request: NextRequest) {
       return supabaseResponse
     }
 
-  const isStaticFile = pathname.includes(".") || pathname.startsWith("/_next")
-  const isApiAuth = pathname.startsWith("/api/auth/")
+    const isStaticFile = pathname.includes(".") || pathname.startsWith("/_next")
+    const isApiAuth = pathname.startsWith("/api/auth/")
 
-  if (isStaticFile) {
-    return supabaseResponse
-  }
+    if (isStaticFile) {
+      return supabaseResponse
+    }
 
-  // --- Admin routes ---
+    // --- Admin routes ---
+    // Admin portal is accessible from any origin but requires admin auth.
+    // The local-only restriction has been removed to allow remote access.
+    // Security is enforced by the admin JWT session (verifyAdminRequest).
     if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    // Admin portal is local-only for security hardening.
-      if (!isLocalAdminHost(request)) {
-        return NextResponse.redirect(new URL('/404', request.url))
-      }
-
-    // Admin login page and admin auth API are always accessible
-      if (pathname === "/admin/login" || pathname.startsWith("/api/admin/auth")) {
+      // Admin login page is always accessible
+      if (pathname === "/admin/login") {
         return supabaseResponse
       }
-    // All other admin routes require admin session
+
+      // All other admin routes require admin session
       const isAdmin = await verifyAdminRequest(request)
       if (!isAdmin) {
-        return NextResponse.redirect(new URL("/admin/login", request.url))
+        // Redirect to admin login for page routes, return 401 for API routes
+        if (pathname.startsWith('/api/')) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        return NextResponse.redirect(new URL('/admin/login', request.url))
       }
       return supabaseResponse
     }
 
-  // Admin API routes
+    // Admin API routes
     if (pathname.startsWith("/api/admin/")) {
-      if (!isLocalAdminHost(request)) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 })
-      }
-
       if (pathname.startsWith("/api/admin/auth")) {
         return supabaseResponse
       }
@@ -80,19 +86,27 @@ export async function middleware(request: NextRequest) {
       return supabaseResponse
     }
 
-  // --- Regular auth ---
+    // --- Regular auth ---
     if (isApiAuth) {
       return supabaseResponse
     }
 
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
-    const isAuthenticated = !!token
+    const bearerUser = await verifyBearerInMiddleware(request)
+    const isAuthenticated = !!token || !!bearerUser
     const isAuthPage = pathname.startsWith("/auth/")
+    const isApiRoute = pathname.startsWith("/api/")
     const publicPaths = ["/", "/404", "/privacy-policy", "/terms-and-conditions", "/about", "/faq", "/sitemap"]
     const isPublicPage = publicPaths.includes(pathname)
 
-    if (isAuthenticated && db) {
-      const tokenId = (token as any)?.id as string | undefined
+    // For API routes, Bearer token auth is sufficient — let them pass through
+    // to the route handler which will verify the token via getCurrentUser().
+    if (isApiRoute && bearerUser) {
+      return supabaseResponse
+    }
+
+    if (isAuthenticated) {
+      const tokenId = ((token as any)?.id as string | undefined) || bearerUser?.id
       if (tokenId) {
         const blockedResult = await db
           .from('User')
@@ -126,8 +140,47 @@ export async function middleware(request: NextRequest) {
     }
 
     return supabaseResponse
-  } catch {
-    return NextResponse.next()
+  } catch (error) {
+    console.error('Middleware error:', error)
+
+    // Try to verify the token without DB access — the JWT check is self-contained
+    // and doesn't depend on the database. If the token is valid, we know the user
+    // was authenticated and the DB error was likely in the isBlocked check.
+    // In that case we should let authenticated users through for page routes.
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    const isAuthenticatedOnFallback = !!token
+    const isAuthPage = pathname.startsWith('/auth/')
+    const publicPaths = ['/', '/404', '/privacy-policy', '/terms-and-conditions', '/about', '/faq', '/sitemap']
+    const isPublicPage = publicPaths.includes(pathname)
+
+    // For API routes, return 503 Service Unavailable — API handlers may need DB data
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable' },
+        { status: 503 }
+      )
+    }
+
+    // For page routes:
+    // - If token is valid (DB error was only in isBlocked check), let the user through
+    //   rather than forcing a logout. The isBlocked status will be re-checked on the
+    //   next successful middleware run.
+    // - If token is invalid (we couldn't verify auth at all), redirect to login.
+    if (isAuthenticatedOnFallback) {
+      // Authenticated user whose DB check failed — allow page access as a grace period
+      // but prevent accessing auth pages (they're already logged in)
+      if (isAuthPage) {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+      return NextResponse.next()
+    }
+
+    // Unauthenticated or token verification also failed
+    if (isAuthPage || isPublicPage) {
+      return NextResponse.next()
+    }
+
+    return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 }
 

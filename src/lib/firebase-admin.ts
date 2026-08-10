@@ -1,14 +1,15 @@
 import { cert, initializeApp, getApps } from 'firebase-admin/app'
 import { getAuth as getFirebaseAdminAuth } from 'firebase-admin/auth'
 
-let serviceAccount: any = {}
+let serviceAccount: Record<string, unknown> = {}
+let firebaseAdminInitialized = false
 try {
   const jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
   if (jsonStr) {
     serviceAccount = JSON.parse(jsonStr)
   }
 } catch (e) {
-  // Silent fail
+  console.error('[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', e instanceof Error ? e.message : String(e))
 }
 
 let app: ReturnType<typeof initializeApp> | undefined
@@ -19,7 +20,7 @@ try {
   
   if (!existingApps.length && serviceAccount.project_id) {
     app = initializeApp({
-      credential: cert(serviceAccount),
+      credential: cert(serviceAccount as any),
     })
   } else if (existingApps.length > 0) {
     app = existingApps[0]
@@ -27,9 +28,10 @@ try {
 
   if (app) {
     auth = getFirebaseAdminAuth(app)
+    firebaseAdminInitialized = true
   }
 } catch (e) {
-  // Silent fail
+  console.error('[Firebase Admin] Initialization failed:', e instanceof Error ? e.message : String(e))
 }
 
-export { app, auth }
+export { app, auth, firebaseAdminInitialized }

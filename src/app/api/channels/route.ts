@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/lib/db'
 import { QuotaEngine } from '@/lib/youtube/quota-engine'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
 
 async function fetchYouTubeChannelDetails(channelIdOrHandle: string): Promise<{
   title: string
@@ -238,43 +229,89 @@ async function syncChannel(channel: { id: string; youtubeId: string; userId: str
   updateData.liveVideoId = liveVideo?.youtubeId || null
   updateData.liveTitle = liveVideo?.title || null
 
-  await supabase.from('Channel').update(updateData).eq('id', channel.id)
+  await db.from('Channel').update(updateData).eq('id', channel.id)
 
   let addedCount = 0
+  let adoptedCount = 0
   if (videos.length > 0) {
     const fetchedIds = videos.map(v => v.youtubeId)
-    const { data: existingVideos } = await supabase
+    
+    // === CRITICAL FIX: Proper content categorization ===
+    // Find ALL existing videos with these youtubeIds (regardless of channelId)
+    // This includes standalone videos (channelId=null) and videos from other contexts
+    const { data: existingVideos } = await db
       .from('Video')
-      .select('youtubeId')
+      .select('id, youtubeId, channelId, playlistId')
       .eq('userId', channel.userId)
       .in('youtubeId', fetchedIds)
 
-    const existingIds = new Set(existingVideos?.map(v => v.youtubeId) || [])
-    const newVideos = videos.filter(v => !existingIds.has(v.youtubeId))
-
-    if (newVideos.length > 0) {
-      const { error: insertError } = await supabase.from('Video').insert(
-        newVideos.map(v => ({
+    const existingMap = new Map((existingVideos || []).map(v => [v.youtubeId, v]))
+    
+    // Separate into: videos to adopt (standalone → channel), videos to insert (new), videos to skip
+    const videosToAdopt: string[] = [] // youtubeIds of standalone videos to claim for this channel
+    const videosToInsert: any[] = [] // truly new videos
+    
+    for (const video of videos) {
+      const existing = existingMap.get(video.youtubeId)
+      
+      if (existing) {
+        // Video already exists
+        if (!existing.channelId && !existing.playlistId) {
+          // Standalone video → adopt it for this channel
+          // This moves it from the Videos section to the Channel section
+          videosToAdopt.push(video.youtubeId)
+        }
+        // If it's already in a playlist or another channel, leave it there
+        // The user explicitly added it in that context, don't override
+      } else {
+        // Truly new video → insert with channelId set
+        videosToInsert.push({
           id: crypto.randomUUID(),
-          youtubeId: v.youtubeId,
-          title: v.title,
-          description: v.description,
-          thumbnail: v.thumbnail,
-          duration: v.duration || 0,
+          youtubeId: video.youtubeId,
+          title: video.title,
+          description: video.description,
+          thumbnail: video.thumbnail,
+          duration: video.duration || 0,
           position: 0,
           channelId: channel.id,
           userId: channel.userId,
           createdAt: now,
           updatedAt: now,
-        }))
-      )
-      if (!insertError) addedCount = newVideos.length
+        })
+      }
+    }
+
+    // Insert new videos
+    if (videosToInsert.length > 0) {
+      const { error: insertError } = await db.from('Video').insert(videosToInsert)
+      if (!insertError) addedCount = videosToInsert.length
+    }
+
+    // Adopt standalone videos: update their channelId
+    // This moves them from the dashboard's "Videos" section to the "Channels" section
+    for (const youtubeId of videosToAdopt) {
+      await db.from('Video')
+        .update({ channelId: channel.id, updatedAt: now })
+        .eq('youtubeId', youtubeId)
+        .eq('userId', channel.userId)
+      adoptedCount++
+    }
+
+    // Clean up stale LibraryItems: standalone VIDEO items that now belong to a channel
+    // should be removed so the video doesn appear in both sections
+    if (videosToAdopt.length > 0) {
+      await db.from('LibraryItem')
+        .delete()
+        .eq('userId', channel.userId)
+        .eq('type', 'VIDEO')
+        .in('externalId', videosToAdopt)
     }
   }
 
   return {
     channelId: channel.id,
     addedCount,
+    adoptedCount,
     isLive: updateData.isLive,
     liveVideoId: updateData.liveVideoId,
     liveTitle: updateData.liveTitle,
@@ -289,7 +326,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: channels, error } = await supabase
+    const { data: channels, error } = await db
       .from('Channel')
       .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .eq('userId', user.id)
@@ -332,7 +369,7 @@ export async function POST(request: NextRequest) {
 
     const resolvedYoutubeId = channelDetails.youtubeId
 
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('Channel')
       .select('id')
       .eq('youtubeId', resolvedYoutubeId)
@@ -346,7 +383,7 @@ export async function POST(request: NextRequest) {
     const channelId = crypto.randomUUID()
     const now = new Date().toISOString()
 
-    const { data: channel, error } = await supabase
+    const { data: channel, error } = await db
       .from('Channel')
       .insert({
         id: channelId,
@@ -372,7 +409,7 @@ export async function POST(request: NextRequest) {
     }
 
     const libraryItemId = crypto.randomUUID()
-    await supabase.from('LibraryItem').insert({
+    await db.from('LibraryItem').insert({
       id: libraryItemId,
       userId: user.id,
       externalId: channel.id,

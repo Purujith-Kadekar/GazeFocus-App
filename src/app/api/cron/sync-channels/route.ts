@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { QuotaEngine, isQuotaExhausted } from '@/lib/youtube/quota-engine'
+import { timingSafeEqual } from 'crypto'
 
 const BATCH_SIZE = 5
 const SYNC_THRESHOLD_HOURS = 24
@@ -32,7 +33,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
     }
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    // Use timing-safe comparison to prevent timing attacks
+    const expected = `Bearer ${cronSecret}`
+    const isAuthed = authHeader && expected.length === authHeader.length &&
+      timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected))
+    if (!isAuthed) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

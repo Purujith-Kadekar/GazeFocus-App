@@ -175,7 +175,7 @@ export default function SignupPage() {
       if (signInResult?.error) {
         setError('Sign up failed')
       } else {
-        router.replace('/dashboard')
+        window.location.href = '/dashboard'
       }
     } catch (err: any) {
       console.error('Firebase signup error:', err)
@@ -234,7 +234,7 @@ export default function SignupPage() {
       if (signInResult?.error) {
         setError('Sign up failed')
       } else {
-        router.replace('/dashboard')
+        window.location.href = '/dashboard'
       }
     } catch (err: any) {
       console.error('GitHub signup error:', err)
@@ -293,7 +293,7 @@ export default function SignupPage() {
       if (signInResult?.error) {
         setError('Sign up failed')
       } else {
-        router.replace('/dashboard')
+        window.location.href = '/dashboard'
       }
     } catch (err: any) {
       console.error('Twitter signup error:', err)

@@ -2,267 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { QuotaEngine } from '@/lib/youtube/quota-engine'
-
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
-
-interface YouTubePlaylistDetails {
-  title: string;
-  description: string;
-  thumbnail: string;
-  channelId: string;
-  channelName: string;
-}
-
-interface YouTubeVideoDetails {
-  title: string;
-  description: string;
-  thumbnail: string;
-  channelId: string;
-  channelName: string;
-  duration: number;
-}
-
-async function fetchYouTubePlaylistDetails(playlistId: string): Promise<YouTubePlaylistDetails | null> {
-  if (!YOUTUBE_API_KEY) {
-    console.warn('YOUTUBE_API_KEY is not set. Playlist details cannot be fetched.');
-    return null;
-  }
-
-  try {
-    const response = await fetch(
-      `${YOUTUBE_API_BASE}/playlists?part=snippet&id=${playlistId}&key=${YOUTUBE_API_KEY}`
-    )
-    const data = await response.json() as {
-      items?: {
-        snippet: {
-          title: string;
-          description: string;
-          thumbnails: {
-            maxres?: { url: string };
-            medium?: { url: string };
-          };
-          channelId: string;
-          channelTitle: string;
-        };
-      }[];
-      error?: any;
-    };
-
-    if (data.error) {
-      console.error('YouTube API error fetching playlist details:', data.error)
-      return null
-    }
-
-    if (data.items && data.items.length > 0) {
-      const playlist = data.items[0]
-      return {
-        title: playlist.snippet.title,
-        description: playlist.snippet.description,
-        thumbnail: playlist.snippet.thumbnails.maxres?.url || playlist.snippet.thumbnails.medium?.url || '',
-        channelId: playlist.snippet.channelId,
-        channelName: playlist.snippet.channelTitle,
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching YouTube playlist details:', error)
-  }
-  return null
-}
-
-async function fetchYouTubeVideoDetails(videoId: string): Promise<YouTubeVideoDetails | null> {
-  if (!YOUTUBE_API_KEY) {
-    console.warn('YOUTUBE_API_KEY is not set. Video details cannot be fetched.');
-    return null;
-  }
-
-  try {
-    const response = await fetch(
-      `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`
-    )
-    const data = await response.json() as {
-      items?: {
-        snippet: {
-          title: string;
-          description: string;
-          thumbnails: {
-            maxres?: { url: string };
-            medium?: { url: string };
-          };
-          channelId: string;
-          channelTitle: string;
-        };
-        contentDetails: {
-          duration: string;
-        };
-      }[];
-      error?: any;
-    };
-
-    if (data.error) {
-      console.error('Error fetching YouTube video details:', data.error)
-      return null
-    }
-
-    if (data.items && data.items.length > 0) {
-      const video = data.items[0]
-      return {
-        title: video.snippet.title,
-        description: video.snippet.description,
-        thumbnail: video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.medium?.url || '',
-        channelId: video.snippet.channelId,
-        channelName: video.snippet.channelTitle,
-        duration: parseDuration(video.contentDetails.duration),
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching YouTube video details:', error)
-  }
-  return null
-}
-
-function parseDuration(isoDuration: string): number {
-  const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/)
-  if (!match) return 0
-  const hours = parseInt(match[1] || '0')
-  const minutes = parseInt(match[2] || '0')
-  const seconds = parseInt(match[3] || '0')
-  return hours * 3600 + minutes * 60 + seconds
-}
-
-interface PlaylistVideo {
-  youtubeId: string
-  title: string
-  description: string
-  thumbnail: string
-  duration: number
-  position: number
-}
-
-async function fetchPlaylistVideosFromRSS(playlistId: string): Promise<PlaylistVideo[]> {
-  try {
-    const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    })
-
-    if (!response.ok) {
-      return []
-    }
-
-    const text = await response.text()
-    const entries = text.split('<entry>').slice(1)
-
-    return entries.map((entry, index) => {
-      const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/)
-      const titleMatch = entry.match(/<title>(.*?)<\/title>/)
-      const descMatch = entry.match(/<media:description>(.*?)<\/media:description>/)
-      const videoId = idMatch ? idMatch[1] : ''
-
-      return {
-        youtubeId: videoId,
-        title: titleMatch ? titleMatch[1] : 'Unknown Title',
-        description: descMatch ? descMatch[1] : '',
-        thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '',
-        duration: 0,
-        position: index,
-      }
-    }).filter(v => v.youtubeId !== '')
-  } catch (error) {
-    return []
-  }
-}
-
-async function fetchAllPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]> {
-  
-  if (!YOUTUBE_API_KEY) {
-    console.error('YOUTUBE_API_KEY not set - cannot fetch playlist videos')
-    return []
-  }
-  
-  const videos: PlaylistVideo[] = []
-  const positionMap: Record<string, number> = {}
-  let nextPageToken: string | undefined = undefined
-
-  do {
-    try {
-      const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`)
-      url.searchParams.set('part', 'snippet,contentDetails')
-      url.searchParams.set('playlistId', playlistId)
-      url.searchParams.set('maxResults', '50')
-      url.searchParams.set('key', YOUTUBE_API_KEY)
-      if (nextPageToken) {
-        url.searchParams.set('pageToken', nextPageToken)
-      }
-
-      const response = await fetch(url.toString())
-      const data = await response.json() as {
-        items?: {
-          snippet: {
-            title: string;
-            thumbnails: { maxres?: { url: string }; medium?: { url: string } };
-            position: number;
-            resourceId: { videoId: string };
-          };
-          contentDetails: { videoId: string };
-        }[];
-        nextPageToken?: string;
-      }
-
-      if (data.items) {
-        for (const item of data.items) {
-          const videoId = item.snippet?.resourceId?.videoId || item.contentDetails?.videoId
-          const pos = item.snippet?.position ?? 0
-          if (videoId) {
-            positionMap[videoId] = pos
-            }
-        }
-      }
-
-      nextPageToken = data.nextPageToken
-    } catch (error) {
-      console.error('[fetchAllPlaylistVideos] Error:', error)
-      break
-    }
-  } while (nextPageToken)
-
-  const videoIds = Object.keys(positionMap)
-
-  for (let i = 0; i < videoIds.length; i += 50) {
-    const batchIds = videoIds.slice(i, i + 50)
-    
-    try {
-      const url = `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${batchIds.join(',')}&key=${YOUTUBE_API_KEY}`
-      const response = await fetch(url)
-      const data = await response.json() as {
-        items?: {
-          id: string;
-          snippet: { title: string; description: string; thumbnails: { maxres?: { url: string }; medium?: { url: string } } };
-          contentDetails: { duration: string };
-        }[];
-      }
-
-      if (data.items) {
-        for (const item of data.items) {
-          if (item.id && item.snippet) {
-            videos.push({
-              youtubeId: item.id,
-              title: item.snippet.title || 'Untitled',
-              description: item.snippet.description || '',
-              thumbnail: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.medium?.url || '',
-              duration: item.contentDetails?.duration ? parseDuration(item.contentDetails.duration) : 0,
-              position: positionMap[item.id] ?? 0,
-            })
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[fetchAllPlaylistVideos] Error fetching details:', error)
-    }
-  }
-
-  videos.sort((a, b) => a.position - b.position)
-  return videos
-}
+import { fetchPlaylistWithFallback, fetchVideoWithFallback, type AltPlaylistVideo } from '@/lib/youtube/alt-sources'
+import { fetchYouTubePlaylistDetails, fetchYouTubeVideoDetails, fetchAllPlaylistVideosFromAPI, parseDuration } from '@/lib/youtube/shared'
 
 export async function GET(request: NextRequest) {
   try {
@@ -275,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const playlistsResult = await db
       .from('Playlist')
-      .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
+      .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,totalVideos,scheduledAt,createdAt,updatedAt,userId')
       .eq('userId', userId)
       .order('createdAt', { ascending: false })
     const playlists = playlistsResult.data || []
@@ -327,60 +68,131 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      const existingResult = await db.from('Video').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
+      const existingResult = await db.from('Video').select('id, playlistId, channelId').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
       if (existingResult.data) {
+        // If the video exists but is standalone (not in any playlist or channel), it's a duplicate standalone add
+        if (!existingResult.data.playlistId && !existingResult.data.channelId) {
+          return NextResponse.json(
+            { error: 'This video already exists in your library' },
+            { status: 400 }
+          )
+        }
+        // If the video exists as part of a playlist/channel, user might be re-adding as standalone
+        // Allow this by creating a new standalone reference (the video stays in its playlist/channel
+        // AND we acknowledge the user wants it as standalone too)
+        // Actually, this is ambiguous. For now, block it - user should remove from playlist first
         return NextResponse.json(
-          { error: 'This video already exists in your library' },
+          { error: 'This video already exists in a playlist or channel in your library' },
           { status: 400 }
         )
       }
     }
 
-    let playlistData: YouTubePlaylistDetails | null = null;
-    let videoData: YouTubeVideoDetails | null = null;
-    let playlistVideos: any[] = [];
-
+    // --- PLAYLIST IMPORT ---
     if (type === 'playlist') {
-      playlistData = YOUTUBE_API_KEY ? await fetchYouTubePlaylistDetails(youtubeId) : null;
-      
-      // Use Hybrid Logic: RSS discovery + Surgical Enrichment (saves quota)
-      const rssVideos = await fetchPlaylistVideosFromRSS(youtubeId);
-      if (rssVideos.length > 0) {
-        const videoIds = rssVideos.map(v => v.youtubeId);
-        const enrichment = await QuotaEngine.enrichVideoMetadata(videoIds, userId);
-        playlistVideos = rssVideos.map(v => ({
-          ...v,
-          duration: enrichment[v.youtubeId]?.duration ?? 0,
-          description: enrichment[v.youtubeId]?.description ?? v.description,
-          title: enrichment[v.youtubeId]?.title ?? v.title,
-          thumbnail: enrichment[v.youtubeId]?.thumbnail ?? v.thumbnail,
-        }));
-      } else {
-        playlistVideos = await fetchAllPlaylistVideos(youtubeId);
+      let playlistTitle = title || ''
+      let playlistDescription = description || ''
+      let playlistThumbnail = thumbnail || ''
+      let playlistChannelId = channelId || ''
+      let playlistChannelName = channelName || ''
+      let totalVideoCount = 0
+
+      // Try to get playlist metadata from YouTube API (1 unit, gives itemCount)
+      const ytPlaylistDetails = await fetchYouTubePlaylistDetails(youtubeId)
+      if (ytPlaylistDetails) {
+        playlistTitle = title || ytPlaylistDetails.title
+        playlistDescription = description || ytPlaylistDetails.description
+        playlistThumbnail = thumbnail || ytPlaylistDetails.thumbnail
+        playlistChannelId = channelId || ytPlaylistDetails.channelId
+        playlistChannelName = channelName || ytPlaylistDetails.channelName
+        totalVideoCount = ytPlaylistDetails.itemCount
       }
-    } else {
-      videoData = YOUTUBE_API_KEY ? await fetchYouTubeVideoDetails(youtubeId) : null;
-    }
-    
-    const finalTitle = title || (playlistData?.title ?? videoData?.title ?? '') || `YouTube ${type}`
-    const finalDescription = description || (playlistData?.description ?? videoData?.description ?? '') || ''
-    const finalThumbnail = thumbnail || (playlistData?.thumbnail ?? videoData?.thumbnail ?? '') || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
-    const finalChannelId = channelId || (playlistData?.channelId ?? videoData?.channelId ?? '') || ''
-    const finalChannelName = channelName || (playlistData?.channelName ?? videoData?.channelName ?? '') || 'Unknown Channel'
-    const finalDuration = videoData?.duration ?? 0
 
-    if (type === 'playlist') {
+      // Fetch videos: Invidious → Piped → YouTube API
+      const result = await fetchPlaylistWithFallback(youtubeId, fetchAllPlaylistVideosFromAPI)
+
+      if (!result || result.videos.length === 0) {
+        // No videos found from any source — still create the playlist (user can sync later)
+        const now = new Date().toISOString()
+        const playlistResult = await db.from('Playlist').insert({
+          id: crypto.randomUUID(),
+          youtubeId,
+          title: playlistTitle || `YouTube Playlist ${youtubeId}`,
+          description: playlistDescription,
+          thumbnail: playlistThumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+          channelId: playlistChannelId,
+          channelName: playlistChannelName || 'Unknown Channel',
+          userId,
+          totalDuration: 0,
+          totalVideos: totalVideoCount,
+          updatedAt: now,
+          createdAt: now,
+        }).select().single()
+
+        if (playlistResult.error || !playlistResult.data) {
+          return NextResponse.json({ error: 'Failed to create playlist' }, { status: 500 })
+        }
+
+        await db.from('LibraryItem').insert({
+          id: crypto.randomUUID(),
+          userId,
+          externalId: playlistResult.data.id,
+          type: 'PLAYLIST',
+          title: playlistResult.data.title,
+          folderId: folderId || null,
+          updatedAt: now,
+          createdAt: now,
+        })
+
+        return NextResponse.json({ 
+          ...playlistResult.data, 
+          videosCreated: 0,
+          videoCount: 0,
+          source: 'none',
+        }, { status: 201 })
+      }
+
+      // Enrich videos that have missing duration (from RSS/Piped, duration may be 0)
+      const videosNeedingEnrichment = result.videos.filter(v => v.duration === 0)
+      let enrichedVideos: Record<string, any> = {}
+
+      if (videosNeedingEnrichment.length > 0 && result.source !== 'youtube-api') {
+        const videoIds = videosNeedingEnrichment.map(v => v.youtubeId)
+        enrichedVideos = await QuotaEngine.enrichVideoMetadata(videoIds, userId)
+      }
+
+      const finalVideos = result.videos.map(v => ({
+        youtubeId: v.youtubeId,
+        title: v.title || enrichedVideos[v.youtubeId]?.title || 'Unknown',
+        description: v.description || enrichedVideos[v.youtubeId]?.description || '',
+        thumbnail: v.thumbnail || enrichedVideos[v.youtubeId]?.thumbnail || `https://img.youtube.com/vi/${v.youtubeId}/maxresdefault.jpg`,
+        duration: v.duration || enrichedVideos[v.youtubeId]?.duration || 0,
+        position: v.position,
+      }))
+
+      // If we got playlist info from Invidious/Piped, update our metadata
+      if (result.info) {
+        if (!playlistTitle) playlistTitle = result.info.title
+        if (!playlistDescription) playlistDescription = result.info.description
+        if (!playlistThumbnail) playlistThumbnail = result.info.thumbnail
+        if (!playlistChannelName) playlistChannelName = result.info.author
+        if (totalVideoCount === 0) totalVideoCount = result.info.videoCount
+      }
+
+      const storedTotalVideos = Math.max(totalVideoCount, finalVideos.length)
+
       const now = new Date().toISOString()
       const playlistResult = await db.from('Playlist').insert({
         id: crypto.randomUUID(),
         youtubeId,
-        title: finalTitle,
-        description: finalDescription,
-        thumbnail: finalThumbnail,
-        channelId: finalChannelId,
-        channelName: finalChannelName,
+        title: playlistTitle || `YouTube Playlist ${youtubeId}`,
+        description: playlistDescription,
+        thumbnail: playlistThumbnail,
+        channelId: playlistChannelId,
+        channelName: playlistChannelName || 'Unknown Channel',
         userId,
         totalDuration: 0,
+        totalVideos: storedTotalVideos,
         updatedAt: now,
         createdAt: now,
       }).select().single()
@@ -397,54 +209,130 @@ export async function POST(request: NextRequest) {
         userId,
         externalId: playlist.id,
         type: 'PLAYLIST',
-        title: finalTitle,
+        title: playlistTitle,
         folderId: folderId || null,
         updatedAt: now,
         createdAt: now,
       })
 
-      if (playlistVideos.length > 0) {
-        const totalDuration = playlistVideos.reduce((sum, v) => sum + (v.duration || 0), 0)
-        
-        // Bulk upsert instead of loop
-        const { error: upsertError } = await db.from('Video').upsert(
-          playlistVideos.map(video => ({
-            id: crypto.randomUUID(),
-            youtubeId: video.youtubeId,
-            title: video.title,
-            description: video.description || '',
-            thumbnail: video.thumbnail || `https://img.youtube.com/vi/${video.youtubeId}/maxresdefault.jpg`,
-            duration: video.duration || 0,
-            playlistId: playlist.id,
-            userId,
-            position: video.position || 0,
-            updatedAt: now,
-            createdAt: now,
-          })), { onConflict: 'youtubeId,userId' }
-        )
+      if (finalVideos.length > 0) {
+        const totalDuration = finalVideos.reduce((sum, v) => sum + (v.duration || 0), 0)
 
-        if (upsertError) {
-          console.error('Error batch upserting playlist videos:', upsertError)
+        // === CRITICAL FIX: Proper content categorization ===
+        // Instead of bulk upsert (which overwrites video id), we must:
+        // 1. Check which videos already exist for this user
+        // 2. For existing standalone videos: UPDATE playlistId (move to playlist)
+        // 3. For new videos: INSERT with playlistId set
+        // 4. Clean up stale LibraryItems (standalone VIDEO items that now belong to a playlist)
+
+        const fetchedYoutubeIds = finalVideos.map(v => v.youtubeId)
+        
+        // Find existing videos for this user with these youtubeIds
+        const { data: existingVideos } = await db
+          .from('Video')
+          .select('id, youtubeId, playlistId, channelId')
+          .eq('userId', userId)
+          .in('youtubeId', fetchedYoutubeIds)
+
+        const existingMap = new Map((existingVideos || []).map(v => [v.youtubeId, v]))
+        
+        // Separate into videos to update vs insert
+        const videosToUpdate: Array<{ youtubeId: string; playlistId: string; title?: string; thumbnail?: string; duration?: number; position?: number }> = []
+        const videosToInsert: Array<any> = []
+
+        for (const video of finalVideos) {
+          const existing = existingMap.get(video.youtubeId)
+          
+          if (existing) {
+            // Video already exists - UPDATE it to belong to this playlist
+            // Only update playlistId (don't overwrite id or other critical fields)
+            // If the video was standalone (playlistId=null, channelId=null), it moves to this playlist
+            // If the video was in another playlist, it's now in THIS playlist (user chose to add this playlist)
+            // If the video was in a channel, it stays in channel AND also in this playlist
+            // Note: a video can only have ONE playlistId, so adding it to a new playlist means
+            // removing it from the old one. This is correct: the user is choosing this playlist.
+            
+            videosToUpdate.push({
+              youtubeId: video.youtubeId,
+              playlistId: playlist.id,
+              // Also update metadata if we have better data
+              title: video.title !== 'Unknown' ? video.title : undefined,
+              thumbnail: video.thumbnail || undefined,
+              duration: video.duration || undefined,
+              position: video.position || undefined,
+            })
+          } else {
+            // New video - INSERT with playlistId set
+            videosToInsert.push({
+              id: crypto.randomUUID(),
+              youtubeId: video.youtubeId,
+              title: video.title,
+              description: video.description || '',
+              thumbnail: video.thumbnail,
+              duration: video.duration || 0,
+              playlistId: playlist.id,
+              userId,
+              position: video.position || 0,
+              updatedAt: now,
+              createdAt: now,
+            })
+          }
         }
-        
-        await db.from('Playlist').update({ totalDuration }).eq('id', playlist.id)
 
-        const videoCountResult = await db.from('Video').select('id', { count: 'exact', head: true }).eq('playlistId', playlist.id).eq('userId', userId)
-        const videoCount = videoCountResult.count || 0
+        // Insert new videos
+        if (videosToInsert.length > 0) {
+          const { error: insertError } = await db.from('Video').insert(videosToInsert)
+          if (insertError) {
+            console.error('Error inserting new playlist videos:', insertError)
+          }
+        }
 
-        return NextResponse.json({ 
-          ...playlist, 
-          videosCreated: playlistVideos.length,
-          videoCount,
-        }, { status: 201 })
+        // Update existing videos to belong to this playlist
+        for (const update of videosToUpdate) {
+          const updateData: Record<string, any> = {
+            playlistId: update.playlistId,
+            updatedAt: now,
+          }
+          if (update.title) updateData.title = update.title
+          if (update.thumbnail) updateData.thumbnail = update.thumbnail
+          if (update.duration) updateData.duration = update.duration
+          if (update.position !== undefined) updateData.position = update.position
+          
+          await db.from('Video').update(updateData).eq('youtubeId', update.youtubeId).eq('userId', userId)
+        }
+
+        // Clean up stale LibraryItems: if a video was previously added as standalone (VIDEO type)
+        // and now belongs to a playlist, the standalone LibraryItem should be removed
+        // so the video doesn appear in both the Videos section AND the Playlist
+        const updatedYoutubeIds = videosToUpdate.map(v => v.youtubeId)
+        if (updatedYoutubeIds.length > 0) {
+          await db.from('LibraryItem')
+            .delete()
+            .eq('userId', userId)
+            .eq('type', 'VIDEO')
+            .in('externalId', updatedYoutubeIds)
+        }
+
+        await db.from('Playlist').update({ totalDuration, totalVideos: storedTotalVideos }).eq('id', playlist.id)
       }
 
       return NextResponse.json({ 
         ...playlist, 
-        videosCreated: 0,
-        videoCount: 0,
+        videosCreated: finalVideos.length,
+        source: result.source,
       }, { status: 201 })
     }
+
+    // --- SINGLE VIDEO IMPORT ---
+    // Try Invidious → Piped → YouTube API
+    const altVideo = await fetchVideoWithFallback(youtubeId, fetchYouTubeVideoDetails)
+
+    const finalTitle = title || altVideo?.title || `YouTube Video ${youtubeId}`
+    const finalDescription = description || altVideo?.description || ''
+    const finalThumbnail = thumbnail || altVideo?.thumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
+    const finalChannelId = channelId || ''
+    const finalChannelName = channelName || altVideo?.author || 'Unknown Channel'
+    const finalDuration = altVideo?.duration || 0
 
     const now = new Date().toISOString()
     const videoResult = await db.from('Video').insert({
@@ -456,6 +344,7 @@ export async function POST(request: NextRequest) {
       duration: finalDuration,
       playlistId: null,
       userId,
+      channelId: null,
       position: 0,
       updatedAt: now,
       createdAt: now,

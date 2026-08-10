@@ -78,6 +78,41 @@ export async function DELETE(
 
     const { id } = await params
 
+    // Verify ownership before deleting
+    const playlistResult = await db.from('Playlist').select('id, youtubeId').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (!playlistResult.data) {
+      return NextResponse.json({ error: 'Playlist not found' }, { status: 404 })
+    }
+
+    // Cascade delete: clean up related data BEFORE deleting the playlist
+    // (ON DELETE CASCADE on the FK handles Video→Playlist, but we also need
+    // to clean up PlaylistMark, LibraryItem, and Note that reference this playlist)
+
+    // Get all video IDs for this playlist to clean up notes
+    const videosResult = await db.from('Video').select('id, youtubeId').eq('playlistId', id)
+    const videoIds = (videosResult.data || []).map((v: any) => v.id)
+    const videoYoutubeIds = (videosResult.data || []).map((v: any) => v.youtubeId)
+
+    // Delete notes for videos in this playlist
+    if (videoYoutubeIds.length > 0) {
+      await db.from('Note').delete().in('youtubeId', videoYoutubeIds).eq('userId', user.id)
+    }
+
+    // Delete playlist marks
+    await db.from('PlaylistMark').delete().eq('youtubeId', playlistResult.data.youtubeId).eq('userId', user.id)
+
+    // Delete library items
+    await db.from('LibraryItem').delete().eq('externalId', id).eq('userId', user.id)
+
+    // Delete video progress for videos in this playlist
+    if (videoYoutubeIds.length > 0) {
+      await db.from('VideoProgress').delete().in('youtubeId', videoYoutubeIds).eq('userId', user.id)
+    }
+
+    // Delete videos (ON DELETE CASCADE should handle this, but explicit is safer)
+    await db.from('Video').delete().eq('playlistId', id).eq('userId', user.id)
+
+    // Finally delete the playlist
     await db.from('Playlist').delete().eq('id', id).eq('userId', user.id)
 
     return NextResponse.json({ success: true })

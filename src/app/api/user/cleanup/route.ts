@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { timingSafeEqual } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +12,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
     }
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    // Use timing-safe comparison to prevent timing attacks
+    const expected = `Bearer ${cronSecret}`
+    const isAuthed = authHeader && expected.length === authHeader.length &&
+      timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected))
+    if (!isAuthed) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -41,6 +46,8 @@ export async function POST(request: NextRequest) {
       await db.from('LibraryItem').delete().eq('userId', user.id)
       await db.from('Notification').delete().eq('userId', user.id)
       await db.from('Todo').delete().eq('userId', user.id)
+      await db.from('Channel').delete().eq('userId', user.id)
+      await db.from('ChannelCache').delete().eq('userId', user.id).catch(() => {}) // ChannelCache may not exist
       await db.from('User').delete().eq('id', user.id)
     }
 

@@ -1,14 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+import { db } from '@/lib/db'
 
 export async function createChannel(data: {
   userId: string
@@ -22,7 +12,7 @@ export async function createChannel(data: {
   const channelId = crypto.randomUUID()
   const now = new Date().toISOString()
 
-  const { data: channel, error } = await supabase
+  const { data: channel, error } = await db
     .from('Channel')
     .insert({
       id: channelId,
@@ -46,7 +36,7 @@ export async function createChannel(data: {
 }
 
 export async function getChannelsByUser(userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('Channel')
     .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
     .eq('userId', userId)
@@ -56,7 +46,7 @@ export async function getChannelsByUser(userId: string) {
 }
 
 export async function getChannelById(channelId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('Channel')
     .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
     .eq('id', channelId)
@@ -66,7 +56,7 @@ export async function getChannelById(channelId: string) {
 }
 
 export async function deleteChannel(channelId: string) {
-  const { error } = await supabase
+  const { error } = await db
     .from('Channel')
     .delete()
     .eq('id', channelId)
@@ -80,7 +70,7 @@ export async function updateChannelLiveStatus(
   liveVideoId?: string | null,
   liveTitle?: string | null
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('Channel')
     .update({
       isLive,
@@ -105,7 +95,7 @@ export async function createLibraryItem(data: {
   const itemId = crypto.randomUUID()
   const now = new Date().toISOString()
 
-  const { data: item, error } = await supabase
+  const { data: item, error } = await db
     .from('LibraryItem')
     .insert({
       id: itemId,
@@ -124,7 +114,7 @@ export async function createLibraryItem(data: {
 }
 
 export async function checkChannelExists(youtubeId: string, userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('Channel')
     .select('id')
     .eq('youtubeId', youtubeId)

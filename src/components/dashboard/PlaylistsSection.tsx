@@ -27,6 +27,11 @@ interface PlaylistsSectionProps {
   onPlaylistRemoved?: () => void
 }
 
+// Dynamic height: natural expand up to 5 items, then scrollable
+const ITEM_HEIGHT_ESTIMATE = 88
+const MAX_VISIBLE_ITEMS = 5
+const MAX_SCROLL_HEIGHT = MAX_VISIBLE_ITEMS * ITEM_HEIGHT_ESTIMATE
+
 export function PlaylistsSection({ playlists: propPlaylists, folders: propFolders, completedPlaylists: propCompleted, onPlaylistRemoved }: PlaylistsSectionProps) {
   const router = useRouter()
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
@@ -49,6 +54,7 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
       })
       setPlaylists(prev => prev.filter(p => p.id !== playlistId))
       onPlaylistRemoved?.()
+      window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
       console.error('Failed to delete playlist:', error)
     }
@@ -75,7 +81,6 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
         setPlaylists(data)
       }
       onPlaylistRemoved?.()
-      // Dispatch custom event for dynamic updates
       window.dispatchEvent(new CustomEvent('refresh-playlists'))
     } catch (error) {
       console.error('Failed to move playlist to folder:', error)
@@ -133,24 +138,21 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
     }
   }
 
-  // Function to refresh playlists externally
-  const refreshPlaylists = async () => {
-    try {
-      const response = await fetch('/api/playlists')
-      if (response.ok) {
-        const data = await response.json()
-        setPlaylists(data)
-      }
-    } catch (error) {
-      console.error('Failed to refresh playlists:', error)
-    }
-  }
-
   // Expose refresh function via custom event
   useEffect(() => {
-    const handleRefresh = () => refreshPlaylists()
-    window.addEventListener('refresh-playlists', handleRefresh)
-    return () => window.removeEventListener('refresh-playlists', handleRefresh)
+    const refreshPlaylists = async () => {
+      try {
+        const response = await fetch('/api/playlists')
+        if (response.ok) {
+          const data = await response.json()
+          setPlaylists(data)
+        }
+      } catch (error) {
+        console.error('Failed to refresh playlists:', error)
+      }
+    }
+    window.addEventListener('refresh-playlists', refreshPlaylists)
+    return () => window.removeEventListener('refresh-playlists', refreshPlaylists)
   }, [])
 
   if (isLoading) {
@@ -160,7 +162,7 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
           <CardTitle className="text-lg">Playlists</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-6">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
         </CardContent>
@@ -168,24 +170,29 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
     )
   }
 
+  // Empty state: compact, not oversized
   if (playlists.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Playlists</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <ListVideo className="h-12 w-12 text-muted-foreground/50 mb-2" />
-            <p className="text-muted-foreground">No playlists yet</p>
-            <p className="text-sm text-muted-foreground">
-              Add playlists to start learning
+        <CardContent className="py-6">
+          <div className="flex flex-col items-center justify-center text-center">
+            <ListVideo className="h-10 w-10 text-muted-foreground/40 mb-2" />
+            <p className="text-sm text-muted-foreground">No playlists yet</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              Add playlists to organize your learning
             </p>
           </div>
         </CardContent>
       </Card>
     )
   }
+
+  // Dynamic sizing: natural expand for 0-5 items, scrollable after 5
+  const needsScroll = playlists.length > MAX_VISIBLE_ITEMS
+  const contentHeight = needsScroll ? MAX_SCROLL_HEIGHT : undefined
 
   return (
     <Card className="overflow-hidden">
@@ -195,117 +202,133 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
           View All
         </Button>
       </CardHeader>
-      <CardContent className="overflow-hidden flex flex-col">
-        <ScrollArea className="h-[500px] pr-4">
+      <CardContent className={needsScroll ? 'overflow-hidden' : ''}>
+        {needsScroll ? (
+          <ScrollArea className="pr-4" style={{ height: contentHeight }}>
+            <div className="space-y-3">
+              {playlists.map((playlist) => renderPlaylistItem(playlist))}
+            </div>
+          </ScrollArea>
+        ) : (
           <div className="space-y-3">
-            {playlists.map((playlist) => {
-              const isCompleted = completedPlaylists.has(playlist.id)
-              return (
-              <div
-                key={playlist.id}
-                className={`group flex gap-3 cursor-pointer p-2 rounded-lg ${isCompleted ? 'bg-green-50 dark:bg-green-950/30' : ''}`}
-                onClick={() => router.push(`/playlist/${playlist.id}`)}
-              >
-                <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-muted sm:h-20 sm:w-32">
-                  {playlist.thumbnail ? (
-                    <Image
-                      src={playlist.thumbnail}
-                      alt={playlist.title}
-                      fill
-                      sizes="(max-width: 640px) 96px, 128px"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ListVideo className="h-6 w-6 text-muted-foreground/50 sm:h-8 sm:w-8" />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Play className="h-6 w-6 text-white sm:h-8 sm:w-8" />
-                  </div>
-                  {isCompleted && (
-                    <div className="absolute top-1 right-1">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h4 className={`font-medium line-clamp-2 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
-                    {playlist.title}
-                  </h4>
-                  {playlist.channelName && (
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
-                      {playlist.channelName}
-                    </p>
-                  )}
-                  {playlist.totalDuration && playlist.totalDuration > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDuration(playlist.totalDuration)}
-                    </p>
-                  )}
-                </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => handleTogglePlaylistComplete(playlist.id, e)}>
-                      {isCompleted ? (
-                        <>
-                          <Circle className="h-4 w-4 mr-2" />
-                          Mark as incomplete
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Mark as complete
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {playlist.folderId && (
-                      <DropdownMenuItem 
-                        onClick={(e) => handleRemoveFromFolder(playlist.id, e)}
-                      >
-                        <FolderInput className="h-4 w-4 mr-2" />
-                        Remove from Folder
-                      </DropdownMenuItem>
-                    )}
-                    {folders.length > 0 && (
-                      <>
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
-                        {folders.map(folder => (
-                          <DropdownMenuItem key={folder.id} onClick={(e) => handleMoveToFolder(playlist.id, folder.id, e)}>
-                            <FolderInput className="h-4 w-4 mr-2" />
-                            {folder.title}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
-                    <DropdownMenuItem
-                      className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
-                      onClick={(e) => handleDelete(playlist.id, e)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )})}
+            {playlists.slice(0, MAX_VISIBLE_ITEMS).map((playlist) => renderPlaylistItem(playlist))}
           </div>
-        </ScrollArea>
+        )}
       </CardContent>
     </Card>
   )
+
+  function renderPlaylistItem(playlist: PlaylistWithFolder) {
+    const isCompleted = completedPlaylists.has(playlist.id)
+    return (
+      <div
+        key={playlist.id}
+        className={`group flex gap-3 cursor-pointer p-2 rounded-lg ${isCompleted ? 'bg-green-50 dark:bg-green-950/30' : ''}`}
+        onClick={() => router.push(`/playlist/${playlist.id}`)}
+      >
+        <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-muted sm:h-20 sm:w-32">
+          {playlist.thumbnail ? (
+            <Image
+              src={playlist.thumbnail}
+              alt={playlist.title}
+              fill
+              sizes="(max-width: 640px) 96px, 128px"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ListVideo className="h-6 w-6 text-muted-foreground/50 sm:h-8 sm:w-8" />
+            </div>
+          )}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Play className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+          </div>
+          {isCompleted && (
+            <div className="absolute top-1 right-1">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h4 className={`font-medium line-clamp-2 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
+            {playlist.title}
+          </h4>
+          {playlist.channelName && (
+            <p className="text-sm text-muted-foreground truncate mt-0.5">
+              {playlist.channelName}
+            </p>
+          )}
+          <div className="flex items-center gap-2 mt-1">
+            {playlist.totalVideos > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {playlist.totalVideos} videos
+              </Badge>
+            )}
+            {playlist.totalDuration && playlist.totalDuration > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {formatDuration(playlist.totalDuration)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="opacity-0 group-hover:opacity-100 shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => handleTogglePlaylistComplete(playlist.id, e)}>
+              {isCompleted ? (
+                <>
+                  <Circle className="h-4 w-4 mr-2" />
+                  Mark as incomplete
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Mark as complete
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {playlist.folderId && (
+              <DropdownMenuItem 
+                onClick={(e) => handleRemoveFromFolder(playlist.id, e)}
+              >
+                <FolderInput className="h-4 w-4 mr-2" />
+                Remove from Folder
+              </DropdownMenuItem>
+            )}
+            {folders.length > 0 && (
+              <>
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">Move to Folder</div>
+                {folders.map(folder => (
+                  <DropdownMenuItem key={folder.id} onClick={(e) => handleMoveToFolder(playlist.id, folder.id, e)}>
+                    <FolderInput className="h-4 w-4 mr-2" />
+                    {folder.title}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem
+              className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
+              onClick={(e) => handleDelete(playlist.id, e)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
+  }
 }

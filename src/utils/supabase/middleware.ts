@@ -19,27 +19,25 @@ export const createClient = (request: NextRequest) => {
     return supabaseResponse
   }
 
-  try {
-    createServerClient(supabaseUrl, supabaseKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
       },
-    })
-  } catch (error) {
-    console.error('[Supabase Middleware] Client creation failed:', error)
-    return supabaseResponse
-  }
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        supabaseResponse = NextResponse.next({
+          request,
+        })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
+
+  // IMPORTANT: This triggers the cookie refresh so the setAll callback runs
+  supabase.auth.getUser()
 
   return supabaseResponse
 }

@@ -20,23 +20,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const existingResult = await db.from('PlaylistMark').select('id').eq('userId', userId).eq('youtubeId', playlistId).maybeSingle()
+    // Use upsert instead of select-then-insert/update to avoid race conditions
+    const now = new Date().toISOString()
+    const { data: playlistMark, error } = await db.from('PlaylistMark').upsert({
+      userId,
+      youtubeId: playlistId,
+      finished: completed ?? true,
+      finishedAt: completed ? now : null,
+      createdAt: now,
+      updatedAt: now,
+    }, { onConflict: 'userId,youtubeId' }).select().single()
 
-    let playlistMark
-    if (existingResult.data) {
-      const updateResult = await db.from('PlaylistMark').update({
-        finished: completed ?? true,
-        finishedAt: completed ? new Date().toISOString() : null,
-      }).eq('id', existingResult.data.id).select().single()
-      playlistMark = updateResult.data
-    } else {
-      const insertResult = await db.from('PlaylistMark').insert({
-        userId,
-        youtubeId: playlistId,
-        finished: completed ?? true,
-        finishedAt: completed ? new Date().toISOString() : null,
-      }).select().single()
-      playlistMark = insertResult.data
+    if (error) {
+      console.error('Error upserting playlist completion:', error)
+      return NextResponse.json({ error: 'Failed to update playlist completion' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, playlistMark })

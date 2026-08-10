@@ -21,6 +21,11 @@ export const useSettingsStore = create<SettingsState>()(
 )
 
 // Auth Store
+// IMPORTANT: This store must be populated from the NextAuth session on mount.
+// The component that calls the NextAuth session API (e.g., via useSession or
+// a /api/auth/session fetch) is responsible for calling setUser() with the
+// session user data. Without this, the store will remain in its default
+// unauthenticated state even if the user has a valid NextAuth session.
 interface AuthState {
   isAuthenticated: boolean
   user: {
@@ -245,14 +250,17 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set, get) => (
   isEnabled: true,
   isCalibrated: false,
   isTracking: false,
-  isLookingAtScreen: true,
+  // Default is false — before tracking starts, the system should not assume
+  // the user is looking at the screen. Only set to true once the eye-tracking
+  // engine confirms gaze presence.
+  isLookingAtScreen: false,
   lastPosition: null,
   calibrationProgress: 0,
   distractionCount: 0,
   thresholdSeconds: 3,
   noFaceDetectedTime: 0,
   isFaceDetected: false,
-  isFaceFront: true,
+  isFaceFront: false,
   cameraStream: null,
   sensitivityMode: 'moderate',
   setEnabled: (enabled) => {
@@ -264,7 +272,7 @@ export const useEyeTrackingStore = create<EyeTrackingStateStore>((set, get) => (
       set({
         isEnabled: false,
         isTracking: false,
-        isLookingAtScreen: true,
+        isLookingAtScreen: false,
         isFaceDetected: false,
         cameraStream: null,
       })

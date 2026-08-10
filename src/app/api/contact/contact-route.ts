@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 
-// Rate limiting — simple in-memory store (resets on cold start, good enough for a personal Linktree)
+// Rate limiting — simple in-memory store (resets on cold start, good enough for a personal app)
 const rateLimit = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_MAX      = 3    // max submissions
 const RATE_LIMIT_WINDOW   = 60 * 60 * 1000  // per hour (ms)
@@ -17,6 +17,19 @@ function checkRateLimit(ip: string): boolean {
   if (entry.count >= RATE_LIMIT_MAX) return false
   entry.count++
   return true
+}
+
+/**
+ * Sanitize user input for safe insertion into HTML email templates.
+ * Prevents XSS by escaping HTML special characters.
+ */
+function sanitizeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
 }
 
 export async function POST(request: NextRequest) {
@@ -82,20 +95,26 @@ export async function POST(request: NextRequest) {
       timeStyle: 'short',
     })
 
+    // ── Sanitize all user input for XSS prevention ────────────────────────
+    const safeName    = sanitizeHtml(name.trim())
+    const safeEmail   = sanitizeHtml(email.trim())
+    const safeSubject = sanitizeHtml((subject ?? '—').trim())
+    const safeMessage = sanitizeHtml(message.trim())
+
     // ── Plain text fallback ───────────────────────────────────────────────
     const textBody = `
 New contact form submission from your Linktree
 
-Name:      ${name}
-Email:     ${email}
-Subject:   ${subject ?? '—'}
+Name:      ${name.trim()}
+Email:     ${email.trim()}
+Subject:   ${subject?.trim() || '—'}
 Time:      ${submittedAt} IST
 
 Message:
-${message}
+${message.trim()}
     `.trim()
 
-    // ── HTML email ────────────────────────────────────────────────────────
+    // ── HTML email (with sanitized user input) ────────────────────────────
     const htmlBody = `
 <!DOCTYPE html>
 <html>
@@ -124,7 +143,7 @@ ${message}
                   <span style="font-size:11px;font-family:'Courier New',monospace;letter-spacing:0.08em;color:#8892B0;text-transform:uppercase;">Name</span>
                 </td>
                 <td style="padding:10px 0 10px 16px;border-bottom:1px solid rgba(255,255,255,0.05);vertical-align:top;">
-                  <span style="font-size:14px;color:#E6F1FF;">${name}</span>
+                  <span style="font-size:14px;color:#E6F1FF;">${safeName}</span>
                 </td>
               </tr>
 
@@ -133,7 +152,7 @@ ${message}
                   <span style="font-size:11px;font-family:'Courier New',monospace;letter-spacing:0.08em;color:#8892B0;text-transform:uppercase;">Email</span>
                 </td>
                 <td style="padding:10px 0 10px 16px;border-bottom:1px solid rgba(255,255,255,0.05);vertical-align:top;">
-                  <a href="mailto:${email}" style="font-size:14px;color:#4FACFE;text-decoration:none;">${email}</a>
+                  <a href="mailto:${encodeURIComponent(email.trim())}" style="font-size:14px;color:#4FACFE;text-decoration:none;">${safeEmail}</a>
                 </td>
               </tr>
 
@@ -142,7 +161,7 @@ ${message}
                   <span style="font-size:11px;font-family:'Courier New',monospace;letter-spacing:0.08em;color:#8892B0;text-transform:uppercase;">Subject</span>
                 </td>
                 <td style="padding:10px 0 10px 16px;vertical-align:top;">
-                  <span style="font-size:14px;color:#E6F1FF;">${subject ?? '—'}</span>
+                  <span style="font-size:14px;color:#E6F1FF;">${safeSubject}</span>
                 </td>
               </tr>
 
@@ -155,7 +174,7 @@ ${message}
           <td style="padding:20px 32px 0;">
             <p style="margin:0 0 10px;font-size:11px;font-family:'Courier New',monospace;letter-spacing:0.08em;color:#8892B0;text-transform:uppercase;">Message</p>
             <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px 20px;">
-              <p style="margin:0;font-size:14px;color:#CCD6F6;line-height:1.75;white-space:pre-wrap;">${message}</p>
+              <p style="margin:0;font-size:14px;color:#CCD6F6;line-height:1.75;white-space:pre-wrap;">${safeMessage}</p>
             </div>
           </td>
         </tr>
@@ -163,9 +182,9 @@ ${message}
         <!-- CTA -->
         <tr>
           <td style="padding:28px 32px 32px;text-align:center;">
-            <a href="mailto:${email}?subject=Re: ${encodeURIComponent(subject ?? 'Your message')}"
+            <a href="mailto:${encodeURIComponent(email.trim())}?subject=Re: ${encodeURIComponent(subject?.trim() || 'Your message')}"
                style="display:inline-block;background:#4FACFE;color:#060A14;text-decoration:none;padding:13px 32px;border-radius:9999px;font-size:14px;font-weight:700;letter-spacing:0.02em;">
-              Reply to ${name} →
+              Reply to ${safeName} →
             </a>
           </td>
         </tr>
@@ -190,8 +209,8 @@ ${message}
     await transporter.sendMail({
       from:     `"Linktree Contact" <${SENDER_EMAIL}>`,
       to:       RECIPIENT_EMAIL,
-      replyTo:  email,
-      subject:  `[Linktree] ${subject ?? 'New message'} — from ${name}`,
+      replyTo:  email.trim(),
+      subject:  `[Linktree] ${subject?.trim() || 'New message'} — from ${name.trim()}`,
       text:     textBody,
       html:     htmlBody,
     })

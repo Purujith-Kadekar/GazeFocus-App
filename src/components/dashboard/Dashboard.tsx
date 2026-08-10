@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from '@/components/ui/StableImage'
 import {
@@ -21,6 +21,8 @@ import {
   Users,
   Radio,
   RefreshCw,
+  Search,
+  X,
 } from 'lucide-react'
 import { StatsCard } from './StatsCard'
 import { ContinueWatching } from './ContinueWatching'
@@ -36,6 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,9 +71,43 @@ export function Dashboard() {
   const [weeklyGoal, setWeeklyGoal] = useState(10)
   const [channels, setChannels] = useState<Channel[]>([])
   const [isRefreshingLive, setIsRefreshingLive] = useState(false)
+  const [localSearchQuery, setLocalSearchQuery] = useState('')
   const hasPrefetchedRoutes = useRef(false)
   const scheduledTasks = todos.filter((todo) => Boolean(todo.reminderAt) && !todo.completed).length
   const pendingTasks = todos.filter((todo) => !todo.completed).length
+
+  // ─── Local Library Search ───────────────────────────────────────
+  // Dashboard search filters the user's own videos, playlists, and channels.
+  // The /search page is for searching YouTube.
+  const filteredVideos = useMemo(() => {
+    if (!localSearchQuery.trim()) return videos
+    const q = localSearchQuery.toLowerCase()
+    return videos.filter((v) =>
+      (v.title?.toLowerCase().includes(q)) ||
+      (v.youtubeId?.toLowerCase().includes(q))
+    )
+  }, [videos, localSearchQuery])
+
+  const filteredPlaylists = useMemo(() => {
+    if (!localSearchQuery.trim()) return playlists
+    const q = localSearchQuery.toLowerCase()
+    return playlists.filter((p) =>
+      (p.title?.toLowerCase().includes(q)) ||
+      (p.channelName?.toLowerCase().includes(q)) ||
+      (p.youtubeId?.toLowerCase().includes(q))
+    )
+  }, [playlists, localSearchQuery])
+
+  const filteredChannels = useMemo(() => {
+    if (!localSearchQuery.trim()) return channels
+    const q = localSearchQuery.toLowerCase()
+    return channels.filter((c) =>
+      (c.title?.toLowerCase().includes(q)) ||
+      (c.youtubeId?.toLowerCase().includes(q))
+    )
+  }, [channels, localSearchQuery])
+
+  const isSearching = localSearchQuery.trim().length > 0
 
   const applyBootstrapData = useCallback((data: DashboardBootstrapResponse) => {
     setFolders(data.folders || [])
@@ -365,11 +402,11 @@ export function Dashboard() {
       <DashboardMobile
         stats={stats}
         weeklyGoal={weeklyGoal}
-        videos={videos}
+        videos={filteredVideos}
         notes={notes}
         folders={folders}
-        playlists={playlists}
-        channels={channels}
+        playlists={filteredPlaylists}
+        channels={filteredChannels}
         scheduledTasks={scheduledTasks}
         pendingTasks={pendingTasks}
         isRefreshingLive={isRefreshingLive}
@@ -377,6 +414,8 @@ export function Dashboard() {
         onNoteClick={handleNoteClick}
         onAddContent={() => setAddModalOpen(true)}
         onRefreshLiveStatus={handleRefreshLiveStatus}
+        localSearchQuery={localSearchQuery}
+        onLocalSearchChange={setLocalSearchQuery}
       />
     )
   }
@@ -386,11 +425,11 @@ export function Dashboard() {
       <DashboardTablet
         stats={stats}
         weeklyGoal={weeklyGoal}
-        videos={videos}
+        videos={filteredVideos}
         notes={notes}
         folders={folders}
-        playlists={playlists}
-        channels={channels}
+        playlists={filteredPlaylists}
+        channels={filteredChannels}
         scheduledTasks={scheduledTasks}
         pendingTasks={pendingTasks}
         isRefreshingLive={isRefreshingLive}
@@ -398,6 +437,8 @@ export function Dashboard() {
         onNoteClick={handleNoteClick}
         onAddContent={() => setAddModalOpen(true)}
         onRefreshLiveStatus={handleRefreshLiveStatus}
+        localSearchQuery={localSearchQuery}
+        onLocalSearchChange={setLocalSearchQuery}
       />
     )
   }
@@ -421,6 +462,39 @@ export function Dashboard() {
           <Flame className="h-5 w-5 text-orange-500" />
           <span className="font-medium">{stats?.streak || 0} day streak</span>
         </div>
+      </div>
+
+      {/* ─── Local Library Search Bar ─────────────────────────────── */}
+      {/* This searches the user's OWN videos, playlists, and channels. */}
+      {/* The header search bar (SearchModal) searches YouTube. */}
+      <div className="reveal-stagger-item">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search your library..."
+            className="pl-10 pr-10"
+            value={localSearchQuery}
+            onChange={(e) => setLocalSearchQuery(e.target.value)}
+          />
+          {isSearching && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setLocalSearchQuery('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {isSearching && (
+          <div className="flex gap-2 mt-2 text-sm text-muted-foreground">
+            <span>{filteredVideos.length} videos</span>
+            <span>{filteredPlaylists.length} playlists</span>
+            <span>{filteredChannels.length} channels</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start reveal-stagger-item">
@@ -495,7 +569,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6 reveal-stagger-item">
         <div className="lg:col-span-2">
           <ContinueWatching 
-            videos={videos} 
+            videos={filteredVideos} 
             folders={folders}
             completedVideos={completedVideos}
             onVideoClick={handleVideoClick}
@@ -505,7 +579,7 @@ export function Dashboard() {
         </div>
 
         <div className="lg:col-span-1">
-          <Card className="h-[500px] flex flex-col overflow-hidden shadow-sm">
+          <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between py-1 px-4 shrink-0 bg-muted/5">
               <CardTitle className="text-lg font-semibold flex items-center gap-2 leading-tight">
                 <FileText className="h-4 w-4 text-primary" />
@@ -513,8 +587,9 @@ export function Dashboard() {
               </CardTitle>
               <Button variant="ghost" size="sm" className="h-7 px-3 text-sm" onClick={() => router.push('/notes')}>View All</Button>
             </CardHeader>
-            <CardContent className="p-0 flex-1 min-h-0">
-              <ScrollArea className="h-full">
+            <CardContent className="p-0">
+              {notes.length > 5 ? (
+                <ScrollArea style={{ height: 5 * 76 }}>
                 <div className="p-2 space-y-1.5">
 
                   {notes.map((note) => (
@@ -596,6 +671,88 @@ export function Dashboard() {
                   )}
                 </div>
               </ScrollArea>
+              ) : (
+                <div className="p-2 space-y-1.5">
+
+                  {notes.map((note) => (
+                    <div
+                      key={note.id}
+                      className={`group p-2 rounded-lg border cursor-pointer ${note.isImportant ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/50'}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p 
+                          className="text-sm font-medium line-clamp-2 flex-1 text-foreground"
+                          onClick={() => handleNoteClick(note)}
+                        >
+                          {note.content}
+                        </p>
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleNoteImportant(note)
+                              }}
+                            >
+                              <Star className={`mr-2 h-4 w-4 ${note.isImportant ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+                              {note.isImportant ? 'Remove from important' : 'Mark as important'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push('/notes')
+                              }}
+                            >
+                              <Edit3 className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteNote(note.id)
+                              }}
+                              className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {note.isImportant && (
+                          <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {note.youtubeId ? (
+                            <>
+                              {Math.floor((note.timestampSeconds || 0) / 60)}:{((note.timestampSeconds || 0) % 60).toString().padStart(2, '0')}
+                            </>
+                          ) : (
+                            new Date(note.createdAt).toLocaleDateString()
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {notes.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-6 text-center opacity-50">
+                      <FileText className="h-8 w-8 mb-2" />
+                      <p className="text-sm">No notes yet</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -603,7 +760,7 @@ export function Dashboard() {
 
       <div className="reveal-stagger-item">
         <PlaylistsSection 
-          playlists={playlists}
+          playlists={filteredPlaylists}
           folders={folders}
           completedPlaylists={completedPlaylists}
           onPlaylistRemoved={() => {
@@ -617,7 +774,7 @@ export function Dashboard() {
         <RecentFolders folders={folders} />
       </div>
 
-      {channels.length > 0 && (
+      {(isSearching ? filteredChannels : channels).length > 0 && (
         <Card className="reveal-stagger-item">
           <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -642,7 +799,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {channels.slice(0, 6).map((channel) => (
+              {(isSearching ? filteredChannels : channels).slice(0, 6).map((channel) => (
                 <div
                   key={channel.id}
                   className="flex flex-col items-center gap-2 cursor-pointer group"

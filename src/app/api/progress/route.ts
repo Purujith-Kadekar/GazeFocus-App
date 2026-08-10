@@ -19,12 +19,6 @@ function isNewWeek(lastResetDate: string | null): boolean {
   return lastReset < currentMonday
 }
 
-const generateId = () => {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 6);
-  return `cmm${timestamp}${random}`; // Matches the cuid format found in the DB (e.g. cmm3ghj9x...)
-}
-
 function getMondayDate(): string {
   const now = new Date()
   const dayOfWeek = now.getDay()
@@ -53,6 +47,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const now = new Date().toISOString()
+
     // Build a conditional update payload so that a regular progress save
     // (which only sends currentTime + duration) never accidentally overwrites
     // a manually-set completed status.
@@ -62,73 +58,69 @@ export async function POST(request: NextRequest) {
     if (duration !== undefined) updatePayload.durationSeconds = duration
 
     let isCompleted: boolean | undefined
+    let isNewCompletion = false
+
     if (completed !== undefined) {
       // Explicit completion toggle
       isCompleted = completed
       updatePayload.completed = completed
-      updatePayload.completedAt = completed ? new Date().toISOString() : null
+      updatePayload.completedAt = completed ? now : null
     } else if (duration && currentTime !== undefined && currentTime >= duration - 10) {
       // Auto-complete when the video is within 10 seconds of the end
       isCompleted = true
       updatePayload.completed = true
-      updatePayload.completedAt = new Date().toISOString()
-    }
-    // else: don't touch the completed / completedAt fields
-
-    const userDataResult = await db.from('User').select('weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
-    const userData = userDataResult.data
-
-    let weeklyVideosWatched = userData?.weeklyVideosWatched || 0
-    let lastWeeklyReset = userData?.lastWeeklyReset
-
-    if (isNewWeek(lastWeeklyReset)) {
-      weeklyVideosWatched = 0
-      lastWeeklyReset = getMondayDate()
+      updatePayload.completedAt = now
     }
 
-    if (isCompleted) {
-      const existingResult = await db.from('VideoProgress').select('completed').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
-      if (!existingResult.data?.completed) {
-        weeklyVideosWatched += 1
+    // Upsert VideoProgress with onConflict to handle race conditions
+    const { data: progress, error: upsertError } = await db.from('VideoProgress').upsert({
+      userId,
+      youtubeId,
+      secondsWatched: currentTime || 0,
+      durationSeconds: duration || 0,
+      completed: isCompleted || false,
+      completedAt: isCompleted ? now : null,
+      updatedAt: now,
+      createdAt: now,
+    }, { onConflict: 'userId,youtubeId' }).select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt').single()
+
+    if (upsertError) {
+      console.error('[ERROR] Failed to upsert progress:', upsertError)
+      throw new Error(`DB Upsert Error: ${upsertError.message}`)
+    }
+
+    // Check if this was a NEW completion (completedAt was just set to now)
+    if (isCompleted && progress.completedAt === now) {
+      isNewCompletion = true
+    }
+
+    // Update weeklyVideosWatched only if this is a new completion
+    // Use the atomic increment RPC function for race safety
+    if (isNewCompletion) {
+      try {
+        await db.rpc('increment_weekly_videos_watched', { p_user_id: userId })
+      } catch (rpcError) {
+        // Fallback: manual increment if RPC doesn't exist yet
+        console.warn('[Progress] RPC increment_weekly_videos_watched not available, using manual increment:', rpcError)
+        const userDataResult = await db.from('User').select('weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
+        const userData = userDataResult.data
+
+        let weeklyVideosWatched = userData?.weeklyVideosWatched || 0
+        let lastWeeklyReset = userData?.lastWeeklyReset
+
+        if (isNewWeek(lastWeeklyReset)) {
+          weeklyVideosWatched = 1
+          lastWeeklyReset = getMondayDate()
+        } else {
+          weeklyVideosWatched += 1
+        }
+
+        await db.from('User').update({
+          weeklyVideosWatched,
+          lastWeeklyReset: lastWeeklyReset || getMondayDate(),
+        }).eq('id', userId)
       }
     }
-
-    const existingProgressResult = await db.from('VideoProgress').select('id').eq('userId', userId).eq('youtubeId', youtubeId).maybeSingle()
-
-    let progress
-    const now = new Date().toISOString()
-    if (existingProgressResult.data) {
-      const updateResult = await db.from('VideoProgress').update({
-        ...updatePayload,
-        updatedAt: now
-      })
-        .eq('id', existingProgressResult.data.id).select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt').single()
-      progress = updateResult.data
-    } else {
-      const generatedId = generateId()
-      const insertResult = await db.from('VideoProgress').insert({
-        id: generatedId,
-        userId,
-        youtubeId,
-        secondsWatched: currentTime || 0,
-        durationSeconds: duration || 0,
-        completed: isCompleted || false,
-        completedAt: isCompleted ? now : null,
-        updatedAt: now,
-        createdAt: now
-      }).select('id,userId,youtubeId,secondsWatched,durationSeconds,completed,completedAt,createdAt,updatedAt').single()
-      
-      if (insertResult.error) {
-        console.error(`[ERROR] Failed to insert progress:`, insertResult.error)
-        throw new Error(`DB Insert Error: ${insertResult.error.message}`)
-      }
-      progress = insertResult.data
-    }
-
-    await db.from('User').update({
-      weeklyVideosWatched,
-      lastWeeklyReset: lastWeeklyReset || getMondayDate(),
-    }).eq('id', userId)
 
     return NextResponse.json({ success: true, progress })
   } catch (error) {
@@ -161,6 +153,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ progress: progressResult.data })
     }
 
+    // Check if weekly reset is needed
     const userDataResult = await db.from('User').select('currentStreak, longestStreak, weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
     const userData = userDataResult.data
 

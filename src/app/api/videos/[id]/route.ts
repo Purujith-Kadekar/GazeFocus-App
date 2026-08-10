@@ -91,6 +91,28 @@ export async function DELETE(
 
     const { id } = await params
 
+    // Verify ownership before deleting
+    const videoResult = await db.from('Video').select('id, youtubeId').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (!videoResult.data) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 })
+    }
+
+    const youtubeId = videoResult.data.youtubeId
+
+    // Cascade delete: clean up all related data before deleting the video
+    // Delete notes for this video
+    await db.from('Note').delete().eq('youtubeId', youtubeId).eq('userId', user.id)
+
+    // Delete video progress for this video
+    await db.from('VideoProgress').delete().eq('youtubeId', youtubeId).eq('userId', user.id)
+
+    // Delete library items referencing this video
+    await db.from('LibraryItem').delete().eq('externalId', youtubeId).eq('userId', user.id).eq('type', 'VIDEO')
+
+    // Also delete library items referencing this video by its internal ID (some routes use the DB id)
+    await db.from('LibraryItem').delete().eq('externalId', id).eq('userId', user.id)
+
+    // Finally delete the video
     await db.from('Video').delete().eq('id', id).eq('userId', user.id)
 
     return NextResponse.json({ success: true })

@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
   try {
     let settingsResult = await db
       .from('SiteSettings')
-      .select('id,signupEnabled,userDailyTokenLimit,updatedAt,adminPasswordHash')
+      // SECURITY: Do NOT select adminPasswordHash — it should never be exposed via API
+      .select('id,signupEnabled,userDailyTokenLimit,updatedAt')
       .eq('id', 'global')
       .maybeSingle()
     if (settingsResult.error) {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
           userDailyTokenLimit: DEFAULT_USER_DAILY_TOKEN_LIMIT,
           updatedAt: new Date().toISOString(),
         })
-        .select()
+        .select('id,signupEnabled,userDailyTokenLimit,updatedAt')
         .single()
       if (newSettingsResult.error) {
         throw newSettingsResult.error
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
         .from('SiteSettings')
         .update({ userDailyTokenLimit: DEFAULT_USER_DAILY_TOKEN_LIMIT, updatedAt: new Date().toISOString() })
         .eq('id', 'global')
-        .select()
+        .select('id,signupEnabled,userDailyTokenLimit,updatedAt')
         .single()
       if (patchedResult.error) {
         throw patchedResult.error
@@ -89,7 +90,8 @@ export async function PATCH(request: NextRequest) {
 
     let settings
     if (existingResult.data) {
-      const updateResult = await db.from('SiteSettings').update(updates).eq('id', 'global').select().single()
+      // SECURITY: Only select safe columns (no adminPasswordHash)
+      const updateResult = await db.from('SiteSettings').update(updates).eq('id', 'global').select('id,signupEnabled,userDailyTokenLimit,updatedAt').single()
       if (updateResult.error) {
         throw updateResult.error
       }
@@ -106,7 +108,7 @@ export async function PATCH(request: NextRequest) {
               : DEFAULT_USER_DAILY_TOKEN_LIMIT,
           updatedAt: new Date().toISOString(),
         })
-        .select()
+        .select('id,signupEnabled,userDailyTokenLimit,updatedAt')
         .single()
       if (insertResult.error) {
         throw insertResult.error

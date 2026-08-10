@@ -33,10 +33,21 @@ export async function PATCH(request: NextRequest) {
 
     const { notificationIds } = await request.json()
 
-    if (notificationIds && Array.isArray(notificationIds)) {
-      for (const id of notificationIds) {
-        await db.from('Notification').update({ read: true }).eq('id', id).or(`userId.eq.${user.id},global.eq.true`)
-      }
+    if (!notificationIds || !Array.isArray(notificationIds) || notificationIds.length === 0) {
+      return NextResponse.json({ error: 'notificationIds array is required' }, { status: 400 })
+    }
+
+    // Batch update instead of sequential loop
+    // Only mark notifications that belong to the current user or are global
+    const { error: updateError } = await db
+      .from('Notification')
+      .update({ read: true })
+      .in('id', notificationIds)
+      .or(`userId.eq.${user.id},global.eq.true`)
+
+    if (updateError) {
+      console.error('Error batch updating notifications:', updateError)
+      return NextResponse.json({ error: 'Failed to update notifications' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

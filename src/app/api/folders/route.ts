@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { title, description } = body
 
-    if (!title) {
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Title is required' },
+        { error: 'Title is required and must not be empty' },
         { status: 400 }
       )
     }
@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
     const maxPosition = maxPositionResult.data?.[0]?.position ?? -1
 
     const folderResult = await db.from('Folder').insert({
-      title,
-      description,
+      title: title.trim(),
+      description: description?.trim() || null,
       userId,
       position: maxPosition + 1,
     }).select('id,title,description,position,userId,createdAt,updatedAt').single()
@@ -76,16 +76,30 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { folderIds } = body
 
-    if (!folderIds || !Array.isArray(folderIds)) {
+    if (!folderIds || !Array.isArray(folderIds) || folderIds.length === 0) {
       return NextResponse.json(
-        { error: 'folderIds array is required' },
+        { error: 'folderIds array is required and must not be empty' },
         { status: 400 }
       )
     }
 
-    for (let i = 0; i < folderIds.length; i++) {
-      await db.from('Folder').update({ position: i }).eq('id', folderIds[i]).eq('userId', userId)
+    // Validate that all folderIds belong to the current user
+    const ownedFoldersResult = await db.from('Folder').select('id').eq('userId', userId).in('id', folderIds)
+    const ownedFolderIds = new Set((ownedFoldersResult.data || []).map((f: any) => f.id))
+    
+    const unauthorizedIds = folderIds.filter(id => !ownedFolderIds.has(id))
+    if (unauthorizedIds.length > 0) {
+      return NextResponse.json(
+        { error: 'Some folders do not belong to the current user' },
+        { status: 403 }
+      )
     }
+
+    // Parallel batch update instead of sequential loop
+    const updates = folderIds.map((id: string, index: number) =>
+      db.from('Folder').update({ position: index }).eq('id', id).eq('userId', userId)
+    )
+    await Promise.all(updates)
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
-import { createClient } from '@supabase/supabase-js'
-import { deleteChannel, createLibraryItem } from '@/lib/channel-db'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+import { db } from '@/lib/db'
+import { deleteChannel } from '@/lib/channel-db'
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +15,7 @@ export async function GET(
 
     const { id } = await params
 
-    const { data: channel, error } = await supabase
+    const { data: channel, error } = await db
       .from('Channel')
       .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .eq('id', id)
@@ -59,9 +49,10 @@ export async function DELETE(
 
     const { id } = await params
 
-    const { data: channel } = await supabase
+    // Verify ownership and get channel's youtubeId for cascade deletes
+    const { data: channel } = await db
       .from('Channel')
-      .select('id')
+      .select('id, youtubeId')
       .eq('id', id)
       .eq('userId', user.id)
       .maybeSingle()
@@ -70,18 +61,43 @@ export async function DELETE(
       return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
+    // Cascade delete: get all videos for this channel
+    const videosResult = await db
+      .from('Video')
+      .select('id, youtubeId')
+      .eq('channelId', id)
+      .eq('userId', user.id)
+
+    const videoYoutubeIds = (videosResult.data || []).map((v: any) => v.youtubeId)
+
+    // Delete notes for those videos using youtubeIds
+    if (videoYoutubeIds.length > 0) {
+      await db.from('Note').delete().in('youtubeId', videoYoutubeIds).eq('userId', user.id)
+    }
+
+    // Delete VideoProgress for those youtubeIds
+    if (videoYoutubeIds.length > 0) {
+      await db.from('VideoProgress').delete().in('youtubeId', videoYoutubeIds).eq('userId', user.id)
+    }
+
+    // Delete LibraryItems for those video externalIds AND for the channel externalId
+    if (videoYoutubeIds.length > 0) {
+      await db.from('LibraryItem').delete().in('externalId', videoYoutubeIds).eq('userId', user.id).eq('type', 'VIDEO')
+    }
+    await db.from('LibraryItem').delete().eq('externalId', id).eq('userId', user.id).eq('type', 'CHANNEL')
+
+    // Delete the videos themselves
+    await db.from('Video').delete().eq('channelId', id).eq('userId', user.id)
+
+    // Delete ChannelCache (no userId column on this table)
+    await db.from('ChannelCache').delete().eq('youtubeId', channel.youtubeId)
+
+    // Delete the channel
     const { error } = await deleteChannel(id)
 
     if (error) {
       return NextResponse.json({ error: 'Failed to delete channel', details: error.message }, { status: 500 })
     }
-
-    await supabase
-      .from('LibraryItem')
-      .delete()
-      .eq('externalId', id)
-      .eq('userId', user.id)
-      .eq('type', 'CHANNEL')
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

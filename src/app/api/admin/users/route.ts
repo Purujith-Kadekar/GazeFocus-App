@@ -34,7 +34,6 @@ async function fetchUsersBase(): Promise<AdminUserRow[]> {
     throw withPremiumResult.error
   }
 
-  // Backward compatibility for databases that have not added isPremium yet.
   const fallbackResult = await db
     .from('User')
     .select('id, name, email, image, isBlocked, createdAt, lastLoginDate, lastActiveDate, deletionScheduledAt')
@@ -131,7 +130,6 @@ export async function PATCH(request: NextRequest) {
     if (typeof isBlocked === 'boolean') updates.isBlocked = isBlocked
     if (typeof isPremium === 'boolean') updates.isPremium = isPremium
 
-    // Backward compatibility for old clients still sending role updates.
     if (typeof role === 'string') {
       updates.isPremium = role === 'PREMIUM'
     }
@@ -214,6 +212,43 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (action === 'immediate') {
+      // Cascade delete: clean up ALL related data before deleting the user
+      // This matches the cleanup logic in the cron cleanup endpoint
+      
+      // Get all playlist IDs for this user
+      const playlistsResult = await db.from('Playlist').select('id').eq('userId', userId)
+      const playlistIds = (playlistsResult.data || []).map((p: any) => p.id)
+      
+      // Get all video IDs for this user
+      const videosResult = await db.from('Video').select('id, youtubeId').eq('userId', userId)
+      const videoIds = (videosResult.data || []).map((v: any) => v.id)
+      const youtubeIds = (videosResult.data || []).map((v: any) => v.youtubeId)
+
+      // Delete in order of dependencies (most dependent first)
+      if (videoIds.length > 0) {
+        await db.from('Note').delete().eq('userId', userId)
+        await db.from('Todo').delete().eq('userId', userId)
+      }
+
+      if (youtubeIds.length > 0) {
+        await db.from('VideoProgress').delete().eq('userId', userId)
+      }
+
+      if (playlistIds.length > 0) {
+        await db.from('PlaylistMark').delete().eq('userId', userId)
+      }
+
+      await db.from('LibraryItem').delete().eq('userId', userId)
+      await db.from('Video').delete().eq('userId', userId)
+      await db.from('Playlist').delete().eq('userId', userId)
+      await db.from('Folder').delete().eq('userId', userId)
+      await db.from('UserSettings').delete().eq('userId', userId)
+      await db.from('Notification').delete().eq('userId', userId)
+      await db.from('Channel').delete().eq('userId', userId)
+      await db.from('Account').delete().eq('userId', userId)
+      await db.from('Session').delete().eq('userId', userId)
+
+      // Finally delete the user
       const result = await db
         .from('User')
         .delete()

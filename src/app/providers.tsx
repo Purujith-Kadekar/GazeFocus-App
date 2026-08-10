@@ -6,6 +6,7 @@ import { createContext, useContext, useState, useLayoutEffect } from 'react'
 import { useSettingsStore } from '@/store/useStore'
 import { WarmRoutePrefetcher } from '@/components/layout/WarmRoutePrefetcher'
 import { RouteTopLoader } from '@/components/layout/RouteTopLoader'
+import { AuthSyncProvider } from '@/components/AuthSyncProvider'
 
 type ViewportMode = 'mobile' | 'tablet' | 'desktop'
 
@@ -54,14 +55,16 @@ export function Providers({
 
   return (
     <SessionProvider>
-      <InitialViewportModeContext.Provider value={initialViewportMode}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeManager />
-          <RouteTopLoader />
-          <WarmRoutePrefetcher />
-          {children}
-        </QueryClientProvider>
-      </InitialViewportModeContext.Provider>
+      <AuthSyncProvider>
+        <InitialViewportModeContext.Provider value={initialViewportMode}>
+          <QueryClientProvider client={queryClient}>
+            <ThemeManager />
+            <RouteTopLoader />
+            <WarmRoutePrefetcher />
+            {children}
+          </QueryClientProvider>
+        </InitialViewportModeContext.Provider>
+      </AuthSyncProvider>
     </SessionProvider>
   )
 }

@@ -11,6 +11,7 @@ export function useFocusEngine(isActive: boolean = true) {
     setTracking,
     setLookingAtScreen,
     setIsFaceDetected,
+    setIsFaceFront,
     thresholdSeconds,
     setCameraStream,
     incrementDistractionCount,
@@ -20,6 +21,8 @@ export function useFocusEngine(isActive: boolean = true) {
   const { isPlaying } = usePlayerStore()
   
   const [error, setError] = useState<string | null>(null)
+  // Use useState for stream so consumers get reactive updates when the camera starts
+  const [stream, setStreamState] = useState<MediaStream | null>(null)
   
   const engineRef = useRef<GazeEngine | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -39,16 +42,19 @@ export function useFocusEngine(isActive: boolean = true) {
   
   // Buffering for "Distracted" state
   const unfocusStartRef = useRef<number | null>(null)
-  const lastLookingStateRef = useRef(true)
+  const lastLookingStateRef = useRef(false)
 
   const stopTracking = useCallback(() => {
     // Signal any in-progress startTracking to abort
     isCancelledRef.current = true
     isTrackingRef.current = false
     setTracking(false)
-    setLookingAtScreen(true)
+    // Reset to false — before tracking starts, the system should not assume
+    // the user is looking at the screen
+    setLookingAtScreen(false)
     setIsFaceDetected(false)
     setCameraStream(null)
+    setStreamState(null)
     
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
@@ -74,7 +80,7 @@ export function useFocusEngine(isActive: boolean = true) {
         if (videoRef.current.parentNode) {
           videoRef.current.parentNode.removeChild(videoRef.current)
         }
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors
       }
       videoRef.current = null
@@ -86,8 +92,8 @@ export function useFocusEngine(isActive: boolean = true) {
     }
     lastTimestampRef.current = -1
     unfocusStartRef.current = null
-    lastLookingStateRef.current = true
-  }, [setTracking, setLookingAtScreen, setIsFaceDetected, setCameraStream])
+    lastLookingStateRef.current = false
+  }, [setTracking, setLookingAtScreen, setIsFaceDetected, setCameraStream, setStreamState])
 
   const startTracking = useCallback(async () => {
     if (isTrackingRef.current) {
@@ -107,6 +113,7 @@ export function useFocusEngine(isActive: boolean = true) {
       video.width = 640
       video.height = 480
       video.style.display = 'none'
+      video.setAttribute('data-gazefocus-video', 'true')
       document.body.appendChild(video)
       videoRef.current = video
 
@@ -130,6 +137,7 @@ export function useFocusEngine(isActive: boolean = true) {
       
       streamRef.current = mediaStream
       setCameraStream(mediaStream)
+      setStreamState(mediaStream) // Update reactive state so consumers get the new stream
       video.srcObject = mediaStream
       
       // Wait for video to be ready with timeout
@@ -203,6 +211,7 @@ export function useFocusEngine(isActive: boolean = true) {
           const result = engineRef.current.detect(videoRef.current, timestamp)
           
           setIsFaceDetected(result.isFaceDetected)
+          setIsFaceFront(result.isFaceDetected && result.isLookingAtScreen)
           
           const isLooking = result.isLookingAtScreen && result.isFaceDetected
 
@@ -255,7 +264,7 @@ export function useFocusEngine(isActive: boolean = true) {
         stopTracking()
       }
     }
-  }, [sensitivityMode, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, incrementDistractionCount, stopTracking])
+  }, [sensitivityMode, setTracking, setIsFaceDetected, setLookingAtScreen, setCameraStream, setStreamState, incrementDistractionCount, stopTracking])
 
   // Start tracking when both isActive (video player is open) and isEnabled
   // (user has not disabled Smart Pause) are true.
@@ -274,5 +283,6 @@ export function useFocusEngine(isActive: boolean = true) {
     }
   }, [isActive, isEnabled, startTracking, stopTracking])
 
-  return { stream: streamRef.current, error }
+  // stream is now reactive state (useState) so it updates after the camera starts
+  return { stream, error }
 }

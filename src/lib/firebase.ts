@@ -3,13 +3,13 @@ import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAk5TiYbB5akcCQpy3eMyE-x5rIjkbER-M",
-  authDomain: "gazefocus-38363.firebaseapp.com",
-  projectId: "gazefocus-38363",
-  storageBucket: "gazefocus-38363.firebasestorage.app",
-  messagingSenderId: "965347090221",
-  appId: "1:965347090221:web:08964a4968af0c423f7da4",
-  measurementId: "G-YC6ZZDK711"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || '',
 };
 
 const firebaseApp = getApps().length === 0 

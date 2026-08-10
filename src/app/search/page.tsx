@@ -220,9 +220,6 @@ export default function SearchPage() {
     // Default: relevance (keep original order from API)
     return 0
   })
-    if (activeTab === 'all') return true
-    return result.type === activeTab
-  })
 
   const videoCount = results.filter(r => r.type === 'video').length
   const playlistCount = results.filter(r => r.type === 'playlist').length

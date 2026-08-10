@@ -45,7 +45,7 @@ export function NotesPanel({ videoId, onSeekToTimestamp }: NotesPanelProps) {
   const [isAddingNote, setIsAddingNote] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [showImportantOnly, setShowImportantOnly] = useState(false)
-  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set<string>())
 
   // Fetch notes for this video from the API on mount
   useEffect(() => {

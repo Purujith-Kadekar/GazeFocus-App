@@ -98,7 +98,7 @@ export async function GET(
         .in('youtubeId', videoIds)
       
       if (progressData && progressData.length > 0) {
-        const progressMap = new Map(progressData.map(p => [p.youtubeId, p]))
+        const progressMap = new Map<string, any>(progressData.map((p: any) => [p.youtubeId, p]))
         
         liveVideos.forEach(video => {
           const progress = progressMap.get(video.youtubeId)

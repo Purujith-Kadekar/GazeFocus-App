@@ -40,7 +40,7 @@ export default function PlaylistDetailPage({ params }: PlaylistDetailProps) {
   const [folders, setFolders] = useState<Folder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [playlistId, setPlaylistId] = useState<string>('')
-  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
+  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set<string>())
   const [isPlaylistCompleted, setIsPlaylistCompleted] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
 

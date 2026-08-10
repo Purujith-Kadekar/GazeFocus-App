@@ -7,11 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import DashboardSkeleton from './DashboardSkeleton'
 import { formatWatchTime, cn } from '@/lib/utils'
-import type { DashboardStats } from './dashboard-types'
+import type { DashboardStats, PlaylistWithFolder } from './dashboard-types'
 import type { Folder, Note, Playlist, Video, Channel } from '@/types'
 import { CheckCircle, Clock, Flame, CalendarDays, Play, Star, FolderOpen, ListVideo, TrendingUp, Users, Tv, ChevronRight } from 'lucide-react'
-
-type PlaylistWithFolder = Playlist & { folderId: string | null }
 
 interface DashboardTabletProps {
   stats: DashboardStats | null
@@ -28,6 +26,8 @@ interface DashboardTabletProps {
   onNoteClick: (note: Note) => void
   onAddContent: () => void
   onRefreshLiveStatus: () => Promise<void> | void
+  localSearchQuery?: string
+  onLocalSearchChange?: (query: string) => void
 }
 
 export function DashboardTablet({
@@ -45,6 +45,8 @@ export function DashboardTablet({
   onNoteClick,
   onAddContent,
   onRefreshLiveStatus,
+  localSearchQuery: _localSearchQuery,
+  onLocalSearchChange: _onLocalSearchChange,
 }: DashboardTabletProps) {
   const router = useRouter()
   const latestVideos = videos.slice(0, 6)

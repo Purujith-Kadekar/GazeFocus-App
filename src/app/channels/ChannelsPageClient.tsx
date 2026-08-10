@@ -57,7 +57,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
   const [folders, setFolders] = useState<Folder[]>(initialCachedFolders || [])
   const [videos, setVideos] = useState<Video[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
-  const [syncingChannels, setSyncingChannels] = useState<Set<string>>(new Set())
+  const [syncingChannels, setSyncingChannels] = useState<Set<string>>(new Set<string>())
   const channelsRef = useRef<ChannelWithFolder[]>(initialCachedChannels || [])
   const foldersRef = useRef<Folder[]>(initialCachedFolders || [])
 

@@ -174,7 +174,7 @@ export async function GET() {
         .eq('type', 'PLAYLIST')
         .in('externalId', playlists.map((p: { id: string }) => p.id))
 
-      const folderMap = new Map(
+      const folderMap = new Map<string, string | null>(
         (libraryItemsResult.data || []).map((item: { externalId: string; folderId: string | null }) => [item.externalId, item.folderId])
       )
 

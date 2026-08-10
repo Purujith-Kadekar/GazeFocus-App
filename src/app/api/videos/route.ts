@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
           .from('Playlist')
           .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
           .in('id', playlistIds)
-        const playlistMap = new Map(playlists?.map(p => [p.id, p]) || [])
+        const playlistMap = new Map<string, any>((playlists || []).map((p: any) => [p.id, p]))
         const enrichedVideos = videos.map(v => ({
           ...v,
           playlist: v.playlistId ? playlistMap.get(v.playlistId) : null

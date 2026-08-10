@@ -22,7 +22,7 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [addedItems, setAddedItems] = useState<Set<string>>(new Set())
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set<string>())
   const [addingItem, setAddingItem] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
   const [sortBy, setSortBy] = useState<'relevance' | 'date'>('relevance')

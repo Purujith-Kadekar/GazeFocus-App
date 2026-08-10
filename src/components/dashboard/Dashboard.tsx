@@ -66,8 +66,8 @@ export function Dashboard() {
   const { dueTodos, dialogOpen, setDialogOpen, dismissReminder, dismissAll } = useReminderChecker()
 
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
-  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
-  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set())
+  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set<string>())
+  const [completedVideos, setCompletedVideos] = useState<Set<string>>(new Set<string>())
   const [weeklyGoal, setWeeklyGoal] = useState(10)
   const [channels, setChannels] = useState<Channel[]>([])
   const [isRefreshingLive, setIsRefreshingLive] = useState(false)

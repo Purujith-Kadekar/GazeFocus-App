@@ -37,7 +37,7 @@ export function PlaylistsSection({ playlists: propPlaylists, folders: propFolder
   const [playlists, setPlaylists] = useState<PlaylistWithFolder[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
+  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set<string>())
 
   useEffect(() => {
     setPlaylists(propPlaylists)

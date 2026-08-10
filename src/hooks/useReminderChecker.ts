@@ -8,7 +8,7 @@ import type { Todo } from '@/types'
 const CHECK_INTERVAL = 30_000
 
 export function useReminderChecker() {
-  const shownRef = useRef<Set<string>>(new Set())
+  const shownRef = useRef<Set<string>>(new Set<string>())
   const [dueTodos, setDueTodos] = useState<Todo[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
 

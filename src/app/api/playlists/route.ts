@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const libraryItemsResult = await db.from('LibraryItem').select('externalId, folderId').eq('userId', userId).eq('type', 'PLAYLIST').in('externalId', playlists.map(p => p.id))
     const libraryItems = libraryItemsResult.data || []
 
-    const folderMap = new Map(libraryItems.map((item: any) => [item.externalId, item.folderId]))
+    const folderMap = new Map<string, string | null>(libraryItems.map((item: any) => [item.externalId, item.folderId]))
 
     const playlistsWithFolder = playlists.map(p => ({
       ...p,

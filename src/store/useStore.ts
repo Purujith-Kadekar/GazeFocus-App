@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Folder, Playlist, Video, Note, Todo, Channel } from '@/types'
+import type { DashboardStats } from '@/components/dashboard/dashboard-types'
 
 // Settings Store - Persisted for the theme script to work instantly
 interface SettingsState {
@@ -380,20 +381,8 @@ export const useUIStore = create<UIState>()(
 )
 
 // Dashboard Store
-interface DashboardStatsData {
-  totalPlaylists: number
-  completedPlaylists: number
-  totalVideos: number
-  watchedVideos: number
-  weeklyVideosWatched: number
-  totalNotes: number
-  importantNotes: number
-  totalWatchTime: number
-  streak: number
-  longestStreak: number
-  totalChannels: number
-  liveChannels: number
-}
+// Use the shared DashboardStats type from dashboard-types.ts
+type DashboardStatsData = DashboardStats
 
 interface DashboardState {
   stats: DashboardStatsData | null

@@ -186,7 +186,7 @@ export function Sidebar({ className }: SidebarProps) {
   const { isEnabled, isTracking, isFaceDetected, isLookingAtScreen, cameraStream } = useEyeTrackingStore()
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set<string>())
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([])
   const [isFoldersSectionOpen, setIsFoldersSectionOpen] = useState(true)
   const [isSidebarFoldersLoading, setIsSidebarFoldersLoading] = useState(true)

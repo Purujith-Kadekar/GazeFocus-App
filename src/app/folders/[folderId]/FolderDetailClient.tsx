@@ -50,7 +50,7 @@ export default function FolderDetailClient({
   const [folders, setFolders] = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null)
   const [folderItems, setFolderItems] = useState<LibraryItemWithDetails[]>([])
-  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set())
+  const [completedPlaylists, setCompletedPlaylists] = useState<Set<string>>(new Set<string>())
 
   // Initial cache load to prevent flicker, but safely inside useEffect to avoid hydration error
   useEffect(() => {

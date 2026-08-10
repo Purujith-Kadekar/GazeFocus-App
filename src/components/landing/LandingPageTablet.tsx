@@ -25,7 +25,7 @@ const COLORS = {
 }
 
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = useRef(null)
+  const ref = useRef<HTMLElement>(null)
   const isInView = useInView(ref, { once: true, margin: '-40px' })
   return (
     <motion.div
@@ -133,10 +133,10 @@ function StepItem({ n, title, desc }: { n: string; title: string; desc: string }
 }
 
 export default function LandingPageMobile() {
-  const heroRef = useRef(null)
-  const featuresRef = useRef(null)
-  const howItWorksRef = useRef(null)
-  const creatorRef = useRef(null)
+  const heroRef = useRef<HTMLElement>(null)
+  const featuresRef = useRef<HTMLElement>(null)
+  const howItWorksRef = useRef<HTMLElement>(null)
+  const creatorRef = useRef<HTMLElement>(null)
 
   const { scrollYProgress } = useScroll()
   const heroY = useTransform(scrollYProgress, [0, 0.2], [0, -20])

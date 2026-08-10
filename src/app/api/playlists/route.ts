@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
           .eq('userId', userId)
           .in('youtubeId', fetchedYoutubeIds)
 
-        const existingMap = new Map((existingVideos || []).map(v => [v.youtubeId, v]))
+        const existingMap = new Map<string, any>((existingVideos || []).map((v: any) => [v.youtubeId, v]))
         
         // Separate into videos to update vs insert
         const videosToUpdate: Array<{ youtubeId: string; playlistId: string; title?: string; thumbnail?: string; duration?: number; position?: number }> = []

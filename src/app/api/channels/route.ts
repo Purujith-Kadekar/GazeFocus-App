@@ -245,7 +245,7 @@ async function syncChannel(channel: { id: string; youtubeId: string; userId: str
       .eq('userId', channel.userId)
       .in('youtubeId', fetchedIds)
 
-    const existingMap = new Map((existingVideos || []).map(v => [v.youtubeId, v]))
+    const existingMap = new Map<string, any>((existingVideos || []).map((v: any) => [v.youtubeId, v]))
     
     // Separate into: videos to adopt (standalone → channel), videos to insert (new), videos to skip
     const videosToAdopt: string[] = [] // youtubeIds of standalone videos to claim for this channel

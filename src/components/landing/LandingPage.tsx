@@ -28,7 +28,7 @@ function Reveal({
   className?: string
   from?: 'bottom' | 'left' | 'right'
 }) {
-  const ref = useRef<HTMLElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const isInView = useInView(ref, { once: true, margin: '-60px' })
   const initial =
     from === 'left' ? { opacity: 0, x: -32 }

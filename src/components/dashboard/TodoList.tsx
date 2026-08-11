@@ -251,7 +251,7 @@ export function TodoList() {
               <UnifiedTodoItem
                 key={`${item.type}-${item.id}`}
                 item={item}
-                onToggle={() => item.type !== 'VIDEO' && item.type !== 'PLAYLIST' && handleToggleComplete(item.originalItem as Todo)}
+                onToggle={() => { if (item.type !== 'VIDEO' && item.type !== 'PLAYLIST') handleToggleComplete(item.originalItem as Todo) }}
                 onEdit={async (updates) => {
                   if (item.type !== 'VIDEO' && item.type !== 'PLAYLIST') {
                     return await handleEditTodo(item.originalItem as Todo, updates)

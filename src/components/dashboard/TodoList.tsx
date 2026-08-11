@@ -326,9 +326,9 @@ function UnifiedTodoItem({
   onDelete,
 }: {
   item: UnifiedItem
-  onToggle: () => void
+  onToggle: () => void | Promise<void>
   onEdit: (updates: { text: string; reminderAt: string | null }) => Promise<boolean>
-  onDelete: () => void
+  onDelete: () => void | Promise<void>
 }) {
   const router = useRouter()
   const isOverdue = item.reminderAt && !item.completed && isPast(item.reminderAt)

@@ -420,10 +420,10 @@ interface ChannelCardProps {
   libraryVideoCount: number
   libraryPlaylistCount: number
   onClick: () => void
-  onDelete: (e: React.MouseEvent) => void
-  onSync: () => void
-  onCopyToFolder: (folderId: string, e: React.MouseEvent) => void
-  onMoveToFolder: (folderId: string, e: React.MouseEvent) => void
+  onDelete: (e: React.MouseEvent) => void | Promise<void>
+  onSync: () => void | Promise<void>
+  onCopyToFolder: (folderId: string, e: React.MouseEvent) => void | Promise<void>
+  onMoveToFolder: (folderId: string, e: React.MouseEvent) => void | Promise<void>
   folders: Folder[]
   showLiveBadge?: boolean
 }

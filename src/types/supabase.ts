@@ -292,6 +292,7 @@ export type Database = {
           thumbnail: string | null
           title: string
           totalDuration: number
+          totalVideos: number
           updatedAt: string
           userId: string
           youtubeId: string
@@ -307,6 +308,7 @@ export type Database = {
           title: string
           totalDuration?: number
           updatedAt: string
+          totalVideos?: number
           userId: string
           youtubeId: string
         }
@@ -322,6 +324,7 @@ export type Database = {
           totalDuration?: number
           updatedAt?: string
           userId?: string
+          totalVideos?: number
           youtubeId?: string
         }
         Relationships: [

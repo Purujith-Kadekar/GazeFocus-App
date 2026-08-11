@@ -452,7 +452,7 @@ export function Dashboard() {
           <p className="text-muted-foreground">
             Continue your learning journey. You&apos;re on a {stats?.streak || 0} day streak!
           </p>
-          {stats && stats.longestStreak > 0 && (
+          {stats && (stats.longestStreak ?? 0) > 0 && (
             <p className="text-sm text-muted-foreground mt-1">
               Your longest streak: {stats.longestStreak} days
             </p>

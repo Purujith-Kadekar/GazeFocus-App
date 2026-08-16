@@ -47,9 +47,20 @@ export async function PUT(
 
     await db.from('Todo').update(updateData).eq('id', id)
 
+    // Completing a task cancels its pending agent reminders.
+    if (completed === true) {
+      await db
+        .from('Reminder')
+        .update({ status: 'SKIPPED' })
+        .eq('todoId', id)
+        .eq('userId', user.id)
+        .eq('status', 'PENDING')
+        .then(() => {}, () => {})
+    }
+
     const todoResult = await db
       .from('Todo')
-      .select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId')
+      .select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,createdAt,updatedAt,userId')
       .eq('id', id)
       .single()
 

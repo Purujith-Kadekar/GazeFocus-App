@@ -105,7 +105,7 @@ export function TabletHeader() {
             onClick={() => setIsSearchOpen(true)}
           >
             <Search className="mr-2 h-4 w-4" />
-            <span>Search playlists and videos...</span>
+            <span>Search your library...</span>
           </Button>
         </div>
 

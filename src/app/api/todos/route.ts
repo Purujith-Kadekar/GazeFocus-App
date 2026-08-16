@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     const { data: todos } = await db
       .from('Todo')
-      .select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId')
+      .select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,createdAt,updatedAt,userId')
       .eq('userId', user.id)
       .order('createdAt', { ascending: false })
 
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       type: todoType,
       completed: false,
       reminderAt: reminderIso,
-    }).select('id,text,type,completed,reminderAt,createdAt,updatedAt,userId').single()
+    }).select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,createdAt,updatedAt,userId').single()
 
     if (error) throw error
 

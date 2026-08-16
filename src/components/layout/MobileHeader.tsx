@@ -106,7 +106,7 @@ export function MobileHeader() {
               onClick={() => setIsSearchOpen(true)}
             >
               <Search className="mr-2 h-4 w-4 shrink-0" />
-              <span className="truncate">Search...</span>
+              <span className="truncate">Search your library...</span>
             </Button>
           </div>
 

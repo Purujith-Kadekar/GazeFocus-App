@@ -131,11 +131,15 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    // Authenticated users are bounced off login/signup pages — EXCEPT the
+    // extension OAuth bridge: launchWebAuthFlow shares the browser profile,
+    // so users already signed into the webapp still need to pass through
+    // here to hand the extension a token.
     if (!isAuthenticated && !isAuthPage && !isPublicPage) {
       return NextResponse.redirect(new URL("/auth/login", request.url))
     }
 
-    if (isAuthenticated && isAuthPage) {
+    if (isAuthenticated && isAuthPage && pathname !== "/auth/extension-oauth" && pathname !== "/auth/extension-login") {
       return NextResponse.redirect(new URL("/", request.url))
     }
 
@@ -168,8 +172,9 @@ export async function middleware(request: NextRequest) {
     // - If token is invalid (we couldn't verify auth at all), redirect to login.
     if (isAuthenticatedOnFallback) {
       // Authenticated user whose DB check failed — allow page access as a grace period
-      // but prevent accessing auth pages (they're already logged in)
-      if (isAuthPage) {
+      // but prevent accessing auth pages (they're already logged in), except the
+      // extension OAuth bridge (see the non-fallback branch above).
+      if (isAuthPage && pathname !== '/auth/extension-oauth' && pathname !== '/auth/extension-login') {
         return NextResponse.redirect(new URL('/', request.url))
       }
       return NextResponse.next()

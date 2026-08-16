@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Folder, Playlist, Video, Note, Todo, Channel } from '@/types'
+import type { Folder, Playlist, Video, Note, Todo, Channel, DueReminder } from '@/types'
 import type { DashboardStats } from '@/components/dashboard/dashboard-types'
 
 // Settings Store - Persisted for the theme script to work instantly
@@ -450,8 +450,51 @@ export const useChannelStore = create<ChannelState>((set) => ({
   })),
   selectChannel: (channel) => set({ selectedChannel: channel }),
   setChannelLiveStatus: (id, isLive, liveVideoId = null, liveTitle = null) => set((state) => ({
-    channels: state.channels.map((c) => 
+    channels: state.channels.map((c) =>
       c.id === id ? { ...c, isLive, liveVideoId, liveTitle } : c
     ),
   })),
+}))
+
+// Agent Store — tracks the daemon loop state and due reminders
+interface AgentState {
+  daemonActive: boolean
+  dueReminders: DueReminder[]
+  upcomingReminders: { id: string; todoId: string; kind: string; fireAt: string; title: string; deadlineAt: string | null }[]
+  focusTodoId: string | null
+  lastPollAt: number | null
+  sessionStartedAtMs: number
+
+  setDaemonActive: (active: boolean) => void
+  setDueReminders: (reminders: DueReminder[]) => void
+  addDueReminder: (reminder: DueReminder) => void
+  removeDueReminder: (id: string) => void
+  clearDueReminders: () => void
+  setUpcomingReminders: (reminders: AgentState['upcomingReminders']) => void
+  setFocusTodoId: (todoId: string | null) => void
+  setLastPollAt: (ts: number) => void
+  initSessionStart: () => void
+}
+
+export const useAgentStore = create<AgentState>((set) => ({
+  daemonActive: false,
+  dueReminders: [],
+  upcomingReminders: [],
+  focusTodoId: null,
+  lastPollAt: null,
+  sessionStartedAtMs: Date.now(),
+
+  setDaemonActive: (active) => set({ daemonActive: active }),
+  setDueReminders: (reminders) => set({ dueReminders: reminders }),
+  addDueReminder: (reminder) => set((state) => ({
+    dueReminders: [...state.dueReminders, reminder],
+  })),
+  removeDueReminder: (id) => set((state) => ({
+    dueReminders: state.dueReminders.filter((r) => r.id !== id),
+  })),
+  clearDueReminders: () => set({ dueReminders: [] }),
+  setUpcomingReminders: (reminders) => set({ upcomingReminders: reminders }),
+  setFocusTodoId: (todoId) => set({ focusTodoId: todoId }),
+  setLastPollAt: (ts) => set({ lastPollAt: ts }),
+  initSessionStart: () => set({ sessionStartedAtMs: Date.now() }),
 }))

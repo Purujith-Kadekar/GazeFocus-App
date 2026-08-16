@@ -12,6 +12,34 @@ export type Notification = Database['public']['Tables']['Notification']['Row']
 export type VideoProgress = Database['public']['Tables']['VideoProgress']['Row']
 export type PlaylistMark = Database['public']['Tables']['PlaylistMark']['Row']
 export type User = Database['public']['Tables']['User']['Row']
+export type Reminder = Database['public']['Tables']['Reminder']['Row']
+export type CalendarFeed = Database['public']['Tables']['CalendarFeed']['Row']
+export type CalendarAccount = Database['public']['Tables']['CalendarAccount']['Row']
+
+// Agent-facing view of a due reminder joined with its task
+export interface DueReminder {
+  id: string
+  todoId: string
+  kind: 'DEADLINE' | 'AUDIT'
+  fireAt: string
+  retryCount: number
+  title: string
+  deadlineAt: string | null
+  todoType: string
+  missed: boolean
+}
+
+// Event pulled from an external read-only ICS feed
+export interface ExternalCalendarEvent {
+  uid: string
+  title: string
+  start: string
+  end: string | null
+  allDay: boolean
+  location?: string | null
+  feedId: string
+  feedName: string
+}
 
 export interface Channel {
   id: string

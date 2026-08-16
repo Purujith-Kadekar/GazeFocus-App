@@ -84,3 +84,9 @@ Template-Theme
 .windsurf
 unused_files_report.txt
 Gazefocus_txts
+# Electron desktop companion
+desktop/dist
+desktop/node_modules
+
+# Chrome extension (built separately, keep out of the repo)
+/extension/

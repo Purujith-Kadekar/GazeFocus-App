@@ -423,8 +423,12 @@ export type Database = {
         Row: {
           completed: boolean
           createdAt: string
+          deadlineAt: string | null
+          gEventId: string | null
           id: string
+          isInFocus: boolean
           reminderAt: string | null
+          source: string
           text: string
           type: Database["public"]["Enums"]["TodoType"]
           updatedAt: string
@@ -433,8 +437,12 @@ export type Database = {
         Insert: {
           completed?: boolean
           createdAt?: string
+          deadlineAt?: string | null
+          gEventId?: string | null
           id: string
+          isInFocus?: boolean
           reminderAt?: string | null
+          source?: string
           text: string
           type?: Database["public"]["Enums"]["TodoType"]
           updatedAt: string
@@ -443,8 +451,12 @@ export type Database = {
         Update: {
           completed?: boolean
           createdAt?: string
+          deadlineAt?: string | null
+          gEventId?: string | null
           id?: string
+          isInFocus?: boolean
           reminderAt?: string | null
+          source?: string
           text?: string
           type?: Database["public"]["Enums"]["TodoType"]
           updatedAt?: string
@@ -455,6 +467,145 @@ export type Database = {
             foreignKeyName: "Todo_userId_fkey"
             columns: ["userId"]
             isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Reminder: {
+        Row: {
+          id: string
+          userId: string
+          todoId: string
+          kind: "DEADLINE" | "AUDIT"
+          status: "PENDING" | "FIRED" | "SKIPPED"
+          fireAt: string
+          firedAt: string | null
+          retryCount: number
+          createdAt: string
+        }
+        Insert: {
+          id: string
+          userId: string
+          todoId: string
+          kind?: "DEADLINE" | "AUDIT"
+          status?: "PENDING" | "FIRED" | "SKIPPED"
+          fireAt: string
+          firedAt?: string | null
+          retryCount?: number
+          createdAt?: string
+        }
+        Update: {
+          id?: string
+          userId?: string
+          todoId?: string
+          kind?: "DEADLINE" | "AUDIT"
+          status?: "PENDING" | "FIRED" | "SKIPPED"
+          fireAt?: string
+          firedAt?: string | null
+          retryCount?: number
+          createdAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Reminder_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Reminder_todoId_fkey"
+            columns: ["todoId"]
+            isOneToOne: false
+            referencedRelation: "Todo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      CalendarFeed: {
+        Row: {
+          id: string
+          userId: string
+          feedName: string | null
+          feedUrl: string
+          feedType: "ICS_FEED" | "GOOGLE_READ_ONLY"
+          color: string | null
+          isEnabled: boolean
+          createdAt: string
+        }
+        Insert: {
+          id: string
+          userId: string
+          feedName?: string | null
+          feedUrl: string
+          feedType?: "ICS_FEED" | "GOOGLE_READ_ONLY"
+          color?: string | null
+          isEnabled?: boolean
+          createdAt?: string
+        }
+        Update: {
+          id?: string
+          userId?: string
+          feedName?: string | null
+          feedUrl?: string
+          feedType?: "ICS_FEED" | "GOOGLE_READ_ONLY"
+          color?: string | null
+          isEnabled?: boolean
+          createdAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "CalendarFeed_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      CalendarAccount: {
+        Row: {
+          id: string
+          userId: string
+          provider: string
+          email: string | null
+          accessToken: string | null
+          refreshToken: string | null
+          tokenExpiresAt: string | null
+          scope: string | null
+          createdAt: string
+          updatedAt: string
+        }
+        Insert: {
+          id: string
+          userId: string
+          provider?: string
+          email?: string | null
+          accessToken?: string | null
+          refreshToken?: string | null
+          tokenExpiresAt?: string | null
+          scope?: string | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Update: {
+          id?: string
+          userId?: string
+          provider?: string
+          email?: string | null
+          accessToken?: string | null
+          refreshToken?: string | null
+          tokenExpiresAt?: string | null
+          scope?: string | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "CalendarAccount_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
             referencedRelation: "User"
             referencedColumns: ["id"]
           },

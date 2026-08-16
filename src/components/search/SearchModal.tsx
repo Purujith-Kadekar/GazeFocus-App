@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from '@/components/ui/StableImage'
-import { Search, X, Loader2, List, Video, Users } from 'lucide-react'
+import { Search, X, Loader2, List, Video, Users, Library } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,80 +13,120 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import type { YouTubeSearchResult } from '@/types'
+import type { Video as VideoRow, Playlist as PlaylistRow, Channel as ChannelRow } from '@/types'
 
 interface SearchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
+type LibraryItem = {
+  type: 'video' | 'playlist' | 'channel'
+  id: string
+  title: string
+  subtitle: string | null
+  thumbnail: string | null
+  duration?: number | null
+  href: string
+}
+
+/**
+ * Library search — searches the user's OWN videos, playlists,
+ * and channels (fetched in one call from the dashboard bootstrap
+ * endpoint) and navigates to the item on click. Searching YouTube
+ * to add new content lives on the /search page and the + button.
+ */
 export function SearchModal({ open, onOpenChange }: SearchModalProps) {
+  const router = useRouter()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<YouTubeSearchResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
+  const [library, setLibrary] = useState<LibraryItem[] | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (open && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [open])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query.trim()) {
-        handleSearch()
-      } else {
-        setResults([])
-      }
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [query])
-
-  const handleSearch = async () => {
-    if (!query.trim()) return
-    
-    setIsSearching(true)
+  const loadLibrary = useCallback(async () => {
+    setIsLoading(true)
     try {
-      // When a specific type tab is active, search only that type for better results
-      const searchTypeParam = activeTab !== 'all' ? `&searchType=${activeTab}` : ''
-      const response = await fetch(`/api/youtube?q=${encodeURIComponent(query)}${searchTypeParam}`)
-      const data = await response.json()
-      
-      if (data.error) {
-        console.error('Search error:', data.error)
-        setResults([])
-      } else {
-        setResults(data)
-      }
+      const res = await fetch('/api/dashboard/bootstrap', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Failed to load library')
+      const data = await res.json()
+
+      const items: LibraryItem[] = [
+        ...((data.videos || []) as VideoRow[]).map((v) => ({
+          type: 'video' as const,
+          id: v.id,
+          title: v.title,
+          subtitle: null,
+          thumbnail: v.thumbnail,
+          duration: v.duration,
+          href: `/video/${v.youtubeId}`,
+        })),
+        ...((data.playlists || []) as PlaylistRow[]).map((p) => ({
+          type: 'playlist' as const,
+          id: p.id,
+          title: p.title,
+          subtitle: p.channelName || null,
+          thumbnail: p.thumbnail,
+          href: `/playlist/${p.id}`,
+        })),
+        ...((data.channels || []) as ChannelRow[]).map((c) => ({
+          type: 'channel' as const,
+          id: c.id,
+          title: c.title,
+          subtitle: null,
+          thumbnail: c.thumbnail,
+          href: `/channel/${c.id}`,
+        })),
+      ]
+      setLibrary(items)
     } catch (error) {
-      console.error('Search failed:', error)
+      console.error('Library search failed to load:', error)
+      setLibrary([])
     } finally {
-      setIsSearching(false)
+      setIsLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus()
+      if (!library) void loadLibrary()
+    }
+  }, [open, library, loadLibrary])
+
+  const q = query.trim().toLowerCase()
+  const results = q
+    ? (library || []).filter(
+        (item) =>
+          item.title?.toLowerCase().includes(q) ||
+          (item.subtitle?.toLowerCase().includes(q) ?? false) ||
+          item.id.toLowerCase().includes(q)
+      )
+    : []
+
+  const counts = {
+    all: results.length,
+    video: results.filter((r) => r.type === 'video').length,
+    playlist: results.filter((r) => r.type === 'playlist').length,
+    channel: results.filter((r) => r.type === 'channel').length,
   }
 
-  const filteredResults = results.filter((result) => {
-    if (activeTab === 'all') return true
-    return result.type === activeTab
-  })
+  const visible = activeTab === 'all' ? results : results.filter((r) => r.type === activeTab)
 
-  const getUniqueKey = (result: YouTubeSearchResult) => {
-    return `${result.type}-${result.id}`
+  const goTo = (href: string) => {
+    onOpenChange(false)
+    router.push(href)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] grid-rows-[auto_auto_1fr]">
         <DialogHeader>
-          <DialogTitle>Search</DialogTitle>
+          <DialogTitle>Search your library</DialogTitle>
           <DialogDescription>
-            Search for YouTube videos and playlists to add to your library.
+            Find videos, playlists, and channels you&apos;ve saved. Use the + button to add new content.
           </DialogDescription>
         </DialogHeader>
 
@@ -93,7 +134,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={inputRef}
-            placeholder="Search videos and playlists..."
+            placeholder="Search your library..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10 pr-10"
@@ -110,47 +151,42 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           )}
         </div>
 
-        {isSearching && (
+        {(isLoading || !library) && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
 
-        {!isSearching && results.length > 0 && (
+        {library && q && results.length > 0 && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="overflow-hidden flex flex-col min-h-0">
             <TabsList className="shrink-0">
-              <TabsTrigger value="all">All ({results.length})</TabsTrigger>
-              <TabsTrigger value="video">
-                Videos ({results.filter((r) => r.type === 'video').length})
-              </TabsTrigger>
-              <TabsTrigger value="playlist">
-                Playlists ({results.filter((r) => r.type === 'playlist').length})
-              </TabsTrigger>
-              <TabsTrigger value="channel">
-                Channels ({results.filter((r) => r.type === 'channel').length})
-              </TabsTrigger>
+              <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
+              <TabsTrigger value="video">Videos ({counts.video})</TabsTrigger>
+              <TabsTrigger value="playlist">Playlists ({counts.playlist})</TabsTrigger>
+              <TabsTrigger value="channel">Channels ({counts.channel})</TabsTrigger>
             </TabsList>
 
             <TabsContent value={activeTab} className="mt-4 overflow-y-auto min-h-0 flex-1">
               <div className="space-y-3 pr-2">
-                  {filteredResults.map((result) => (
-                    <SearchResultCard key={getUniqueKey(result)} result={result} />
-                  ))}
-                </div>
+                {visible.map((item) => (
+                  <LibraryResultCard key={`${item.type}-${item.id}`} item={item} onClick={() => goTo(item.href)} />
+                ))}
+              </div>
             </TabsContent>
           </Tabs>
         )}
 
-        {!isSearching && query && results.length === 0 && (
+        {library && q && results.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Search className="h-12 w-12 text-muted-foreground/50 mb-2" />
-            <p className="text-muted-foreground">No results found for &quot;{query}&quot;</p>
+            <p className="text-muted-foreground">No matches for &quot;{query.trim()}&quot; in your library</p>
           </div>
         )}
 
-        {!query && (
+        {library && !q && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-muted-foreground">Start typing to search YouTube</p>
+            <Library className="h-12 w-12 text-muted-foreground/50 mb-2" />
+            <p className="text-muted-foreground">Start typing to search your saved videos, playlists, and channels</p>
           </div>
         )}
       </DialogContent>
@@ -158,111 +194,66 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   )
 }
 
-function SearchResultCard({ result }: { result: YouTubeSearchResult }) {
-  const [isAdding, setIsAdding] = useState(false)
-  const [added, setAdded] = useState(false)
+function formatDuration(seconds?: number | null): string | null {
+  if (!seconds || seconds <= 0) return null
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = Math.floor(seconds % 60)
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${m}:${String(s).padStart(2, '0')}`
+}
 
-  const handleAdd = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsAdding(true)
-    try {
-      const isChannel = result.type === 'channel'
-      const apiUrl = isChannel ? '/api/channels' : '/api/playlists'
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          youtubeId: result.id,
-          type: result.type,
-          title: result.title,
-          description: result.description,
-          thumbnail: result.thumbnail,
-          channelId: result.channelId,
-          channelName: result.channelTitle,
-        }),
-      })
-      
-      if (response.ok) {
-        setAdded(true)
-        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
-        window.dispatchEvent(new CustomEvent('refresh-playlists'))
-        window.dispatchEvent(new CustomEvent('refresh-videos'))
-        window.dispatchEvent(new CustomEvent('refresh-channels'))
-      }
-    } catch (error) {
-      console.error('Failed to add:', error)
-    } finally {
-      setIsAdding(false)
-    }
-  }
-
+function LibraryResultCard({ item, onClick }: { item: LibraryItem; onClick: () => void }) {
   return (
-      <div className="flex gap-3 rounded-lg border p-3 transition-colors cursor-pointer hover:bg-accent">
+    <div
+      className="flex gap-3 rounded-lg border p-3 transition-colors cursor-pointer hover:bg-accent"
+      onClick={onClick}
+    >
       <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded bg-muted sm:h-20 sm:w-32">
-        {result.type === 'channel' ? (
-          result.thumbnail ? (
-            <Image
-              src={result.thumbnail}
-              alt={result.title}
-              fill
-              sizes="(max-width: 640px) 96px, 128px"
-              className="w-full h-full object-cover rounded-full"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder.png'
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20">
-              <Users className="h-8 w-8 text-blue-500" />
-            </div>
-          )
-        ) : (
+        {item.thumbnail ? (
           <Image
-            src={result.thumbnail}
-            alt={result.title}
+            src={item.thumbnail}
+            alt={item.title}
             fill
             sizes="(max-width: 640px) 96px, 128px"
-            className="w-full h-full object-cover"
+            className={item.type === 'channel' ? 'w-full h-full object-cover rounded-full' : 'w-full h-full object-cover'}
             onError={(e) => {
               e.currentTarget.src = '/placeholder.png'
             }}
           />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            {item.type === 'video' ? (
+              <Video className="h-8 w-8 text-muted-foreground" />
+            ) : item.type === 'playlist' ? (
+              <List className="h-8 w-8 text-muted-foreground" />
+            ) : (
+              <Users className="h-8 w-8 text-muted-foreground" />
+            )}
+          </div>
         )}
-        {result.type === 'video' && result.duration && (
-          <Badge className="absolute bottom-1 right-1 text-[10px] px-1" variant="secondary">
-            {result.duration}
-          </Badge>
-        )}
-        {result.type === 'playlist' && (
+        {item.type === 'playlist' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="flex items-center gap-1 text-white">
               <List className="h-4 w-4" />
-              <span className="text-xs">{result.videoCount} videos</span>
             </div>
           </div>
         )}
-        {result.type === 'channel' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <Users className="h-6 w-6 text-white" />
-          </div>
-        )}
+        {item.type === 'video' && item.duration ? (
+          <Badge className="absolute bottom-1 right-1 text-[10px] px-1" variant="secondary">
+            {formatDuration(item.duration)}
+          </Badge>
+        ) : null}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <h4 className="font-medium line-clamp-2">{result.title}</h4>
-        <p className="text-sm text-muted-foreground mt-1">{result.channelTitle}</p>
-        <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{result.description}</p>
+      <div className="flex-1 min-w-0 self-center">
+        <h4 className="font-medium line-clamp-2">{item.title}</h4>
+        <div className="flex items-center gap-2 mt-1">
+          <Badge variant="outline" className="text-[10px] capitalize">{item.type}</Badge>
+          {item.subtitle && <p className="text-sm text-muted-foreground truncate">{item.subtitle}</p>}
+        </div>
       </div>
-
-      <Button 
-        size="sm" 
-        variant="outline" 
-        onClick={handleAdd}
-        disabled={isAdding || added}
-      >
-        {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : added ? 'Added' : 'Add'}
-      </Button>
     </div>
   )
 }

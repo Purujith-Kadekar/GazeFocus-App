@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from '@/components/ui/StableImage'
 import {
@@ -21,8 +21,6 @@ import {
   Users,
   Radio,
   RefreshCw,
-  Search,
-  X,
 } from 'lucide-react'
 import { StatsCard } from './StatsCard'
 import { ContinueWatching } from './ContinueWatching'
@@ -30,6 +28,8 @@ import { RecentFolders } from './RecentFolders'
 import { PlaylistsSection } from './PlaylistsSection'
 import { TodoList } from './TodoList'
 import { ReminderDialog } from './ReminderDialog'
+import { QuickAddBar } from '@/components/agent/QuickAddBar'
+import { AgentBriefingCard } from '@/components/agent/AgentBriefingCard'
 import { DashboardMobile } from '@/components/dashboard/DashboardMobile'
 import { DashboardTablet } from '@/components/dashboard/DashboardTablet'
 import DashboardSkeleton from './DashboardSkeleton'
@@ -38,7 +38,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,43 +70,9 @@ export function Dashboard() {
   const [weeklyGoal, setWeeklyGoal] = useState(10)
   const [channels, setChannels] = useState<Channel[]>([])
   const [isRefreshingLive, setIsRefreshingLive] = useState(false)
-  const [localSearchQuery, setLocalSearchQuery] = useState('')
   const hasPrefetchedRoutes = useRef(false)
   const scheduledTasks = todos.filter((todo) => Boolean(todo.reminderAt) && !todo.completed).length
   const pendingTasks = todos.filter((todo) => !todo.completed).length
-
-  // ─── Local Library Search ───────────────────────────────────────
-  // Dashboard search filters the user's own videos, playlists, and channels.
-  // The /search page is for searching YouTube.
-  const filteredVideos = useMemo(() => {
-    if (!localSearchQuery.trim()) return videos
-    const q = localSearchQuery.toLowerCase()
-    return videos.filter((v) =>
-      (v.title?.toLowerCase().includes(q)) ||
-      (v.youtubeId?.toLowerCase().includes(q))
-    )
-  }, [videos, localSearchQuery])
-
-  const filteredPlaylists = useMemo(() => {
-    if (!localSearchQuery.trim()) return playlists
-    const q = localSearchQuery.toLowerCase()
-    return playlists.filter((p) =>
-      (p.title?.toLowerCase().includes(q)) ||
-      (p.channelName?.toLowerCase().includes(q)) ||
-      (p.youtubeId?.toLowerCase().includes(q))
-    )
-  }, [playlists, localSearchQuery])
-
-  const filteredChannels = useMemo(() => {
-    if (!localSearchQuery.trim()) return channels
-    const q = localSearchQuery.toLowerCase()
-    return channels.filter((c) =>
-      (c.title?.toLowerCase().includes(q)) ||
-      (c.youtubeId?.toLowerCase().includes(q))
-    )
-  }, [channels, localSearchQuery])
-
-  const isSearching = localSearchQuery.trim().length > 0
 
   const applyBootstrapData = useCallback((data: DashboardBootstrapResponse) => {
     setFolders(data.folders || [])
@@ -402,11 +367,11 @@ export function Dashboard() {
       <DashboardMobile
         stats={stats}
         weeklyGoal={weeklyGoal}
-        videos={filteredVideos}
+        videos={videos}
         notes={notes}
         folders={folders}
-        playlists={filteredPlaylists}
-        channels={filteredChannels}
+        playlists={playlists}
+        channels={channels}
         scheduledTasks={scheduledTasks}
         pendingTasks={pendingTasks}
         isRefreshingLive={isRefreshingLive}
@@ -414,8 +379,6 @@ export function Dashboard() {
         onNoteClick={handleNoteClick}
         onAddContent={() => setAddModalOpen(true)}
         onRefreshLiveStatus={handleRefreshLiveStatus}
-        localSearchQuery={localSearchQuery}
-        onLocalSearchChange={setLocalSearchQuery}
       />
     )
   }
@@ -425,11 +388,11 @@ export function Dashboard() {
       <DashboardTablet
         stats={stats}
         weeklyGoal={weeklyGoal}
-        videos={filteredVideos}
+        videos={videos}
         notes={notes}
         folders={folders}
-        playlists={filteredPlaylists}
-        channels={filteredChannels}
+        playlists={playlists}
+        channels={channels}
         scheduledTasks={scheduledTasks}
         pendingTasks={pendingTasks}
         isRefreshingLive={isRefreshingLive}
@@ -437,8 +400,6 @@ export function Dashboard() {
         onNoteClick={handleNoteClick}
         onAddContent={() => setAddModalOpen(true)}
         onRefreshLiveStatus={handleRefreshLiveStatus}
-        localSearchQuery={localSearchQuery}
-        onLocalSearchChange={setLocalSearchQuery}
       />
     )
   }
@@ -464,38 +425,8 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* ─── Local Library Search Bar ─────────────────────────────── */}
-      {/* This searches the user's OWN videos, playlists, and channels. */}
-      {/* The header search bar (SearchModal) searches YouTube. */}
-      <div className="reveal-stagger-item">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search your library..."
-            className="pl-10 pr-10"
-            value={localSearchQuery}
-            onChange={(e) => setLocalSearchQuery(e.target.value)}
-          />
-          {isSearching && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-              onClick={() => setLocalSearchQuery('')}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        {isSearching && (
-          <div className="flex gap-2 mt-2 text-sm text-muted-foreground">
-            <span>{filteredVideos.length} videos</span>
-            <span>{filteredPlaylists.length} playlists</span>
-            <span>{filteredChannels.length} channels</span>
-          </div>
-        )}
-      </div>
+      {/* Agent daily briefing: greeting, priorities, recommended next task */}
+      <AgentBriefingCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start reveal-stagger-item">
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -562,6 +493,7 @@ export function Dashboard() {
         </div>
 
         <div className="lg:col-span-1">
+          <QuickAddBar />
           <TodoList />
         </div>
       </div>
@@ -569,7 +501,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mt-6 reveal-stagger-item">
         <div className="lg:col-span-2">
           <ContinueWatching 
-            videos={filteredVideos} 
+            videos={videos} 
             folders={folders}
             completedVideos={completedVideos}
             onVideoClick={handleVideoClick}
@@ -760,7 +692,7 @@ export function Dashboard() {
 
       <div className="reveal-stagger-item">
         <PlaylistsSection 
-          playlists={filteredPlaylists}
+          playlists={playlists}
           folders={folders}
           completedPlaylists={completedPlaylists}
           onPlaylistRemoved={() => {
@@ -774,7 +706,7 @@ export function Dashboard() {
         <RecentFolders folders={folders} />
       </div>
 
-      {(isSearching ? filteredChannels : channels).length > 0 && (
+      {channels.length > 0 && (
         <Card className="reveal-stagger-item">
           <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -799,7 +731,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {(isSearching ? filteredChannels : channels).slice(0, 6).map((channel) => (
+              {channels.slice(0, 6).map((channel) => (
                 <div
                   key={channel.id}
                   className="flex flex-col items-center gap-2 cursor-pointer group"

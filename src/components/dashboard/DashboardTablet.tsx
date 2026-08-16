@@ -26,8 +26,6 @@ interface DashboardTabletProps {
   onNoteClick: (note: Note) => void
   onAddContent: () => void
   onRefreshLiveStatus: () => Promise<void> | void
-  localSearchQuery?: string
-  onLocalSearchChange?: (query: string) => void
 }
 
 export function DashboardTablet({
@@ -45,8 +43,6 @@ export function DashboardTablet({
   onNoteClick,
   onAddContent,
   onRefreshLiveStatus,
-  localSearchQuery: _localSearchQuery,
-  onLocalSearchChange: _onLocalSearchChange,
 }: DashboardTabletProps) {
   const router = useRouter()
   const latestVideos = videos.slice(0, 6)

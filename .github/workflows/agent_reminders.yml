@@ -1,0 +1,34 @@
+name: Agent Reminder Emails
+
+on:
+  schedule:
+    # Every 15 minutes, best-effort (GitHub may delay busy-hour runs).
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  agent-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger agent reminder emails
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+        run: |
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
+            "$VERCEL_APP_URL/api/cron/agent-email" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{}")
+
+          body=$(echo "$response" | sed '$d')
+          code=$(echo "$response" | tail -n1)
+
+          echo "$body"
+
+          if [ "$code" -eq 200 ]; then
+            echo "Agent reminder emails dispatched successfully"
+          else
+            echo "Agent reminder email run failed with status $code"
+            exit 1
+          fi

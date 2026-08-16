@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { OnboardingGuide } from '@/components/onboarding/OnboardingGuide'
 import { useInitialViewportMode } from '@/app/providers'
+import { useAgentDaemon } from '@/hooks/useAgentDaemon'
+import { AgentInbox } from '@/components/agent/AgentInbox'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -73,6 +75,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const hasWarmedFolderRoutes = useRef(false)
   const [viewportMode, setViewportMode] = useState<'mobile' | 'tablet' | 'desktop'>(initialViewportMode)
   const { toast } = useToast()
+
+  // Agent daemon: starts polling for due reminders on mount
+  useAgentDaemon()
 
   useEffect(() => {
     setMounted(true)
@@ -353,6 +358,9 @@ export function MainLayout({ children }: MainLayoutProps) {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Agent Inbox: proactive scheduling reminders */}
+      {mounted && <AgentInbox />}
     </div>
   )
 }

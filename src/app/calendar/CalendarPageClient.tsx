@@ -20,6 +20,8 @@ import {
   Pencil,
   Check,
   Play,
+  Globe,
+  Rss,
 } from 'lucide-react'
 import {
   format,
@@ -57,7 +59,9 @@ import { Label } from '@/components/ui/label'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
 import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
-import type { Todo, Video, Playlist } from '@/types'
+import { QuickAddBar } from '@/components/agent/QuickAddBar'
+import { CalendarFeedsPanel } from '@/components/agent/CalendarFeedsPanel'
+import type { Todo, Video, Playlist, ExternalCalendarEvent } from '@/types'
 
 type CalendarCache = {
   todos: Todo[]
@@ -71,9 +75,10 @@ type CalendarEvent = {
   id: string
   title: string
   date: Date
-  type: 'todo' | 'video' | 'playlist' | 'plan' | 'event' | 'task'
+  type: 'todo' | 'video' | 'playlist' | 'plan' | 'event' | 'task' | 'external'
   completed?: boolean
-  originalItem: Todo | Video | Playlist
+  originalItem: Todo | Video | Playlist | ExternalCalendarEvent
+  feedName?: string
 }
 
 function parseEventDate(value: string | null): Date | null {
@@ -91,6 +96,8 @@ export default function CalendarPageClient() {
   const { playlists, setPlaylists } = usePlaylistStore()
   const [isLoading, setIsLoading] = useState(true)
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false)
+  const [externalEvents, setExternalEvents] = useState<ExternalCalendarEvent[]>([])
+  const [isFeedsDialogOpen, setIsFeedsDialogOpen] = useState(false)
   
   // Edit state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -164,6 +171,29 @@ export default function CalendarPageClient() {
     }
   }, [fetchData])
 
+  // Fetch external ICS feed events for the visible month window.
+  useEffect(() => {
+    let cancelled = false
+    const fetchExternal = async () => {
+      try {
+        const from = startOfWeek(startOfMonth(currentMonth)).toISOString()
+        const to = endOfWeek(endOfMonth(currentMonth)).toISOString()
+        const res = await fetch(`/api/calendar/aggregated?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data.events)) {
+          setExternalEvents(data.events)
+        }
+      } catch {
+        // External feeds are best-effort; failures shouldn't break the page.
+      }
+    }
+    void fetchExternal()
+    return () => {
+      cancelled = true
+    }
+  }, [currentMonth])
+
   const todoEvents: CalendarEvent[] = []
   for (const t of todos) {
     const eventDate = parseEventDate(t.reminderAt)
@@ -207,7 +237,22 @@ export default function CalendarPageClient() {
     })
   }
 
-  const events: CalendarEvent[] = [...todoEvents, ...videoEvents, ...playlistEvents]
+  const externalCalendarEvents: CalendarEvent[] = []
+  for (const ev of externalEvents) {
+    const eventDate = parseEventDate(ev.start)
+    if (!eventDate) continue
+
+    externalCalendarEvents.push({
+      id: `ext-${ev.feedId}-${ev.uid}`,
+      title: ev.title,
+      date: eventDate,
+      type: 'external',
+      originalItem: ev,
+      feedName: ev.feedName,
+    })
+  }
+
+  const events: CalendarEvent[] = [...todoEvents, ...videoEvents, ...playlistEvents, ...externalCalendarEvents]
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
@@ -248,6 +293,20 @@ export default function CalendarPageClient() {
               <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
               Refresh
             </Button>
+            <Dialog open={isFeedsDialogOpen} onOpenChange={setIsFeedsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Rss className="h-4 w-4 mr-2" />
+                  Feeds
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[520px]">
+                <DialogHeader>
+                  <DialogTitle>Calendar Feeds &amp; Sync</DialogTitle>
+                </DialogHeader>
+                <CalendarFeedsPanel />
+              </DialogContent>
+            </Dialog>
             <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -300,24 +359,35 @@ export default function CalendarPageClient() {
               </Button>
             </div>
           </div>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-purple-500" />
-              <span className="text-xs text-muted-foreground">Tasks</span>
+            <div className="flex flex-wrap gap-4 justify-end">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-purple-500" />
+                <span className="text-xs text-muted-foreground">Tasks</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                <span className="text-xs text-muted-foreground">Videos</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <span className="text-xs text-muted-foreground">Playlists</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-orange-500" />
+                <span className="text-xs text-muted-foreground">Plans</span>
+              </div>
+              {externalEvents.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-teal-500" />
+                  <span className="text-xs text-muted-foreground">External</span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-xs text-muted-foreground">Videos</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-xs text-muted-foreground">Playlists</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-orange-500" />
-              <span className="text-xs text-muted-foreground">Plans</span>
-            </div>
-          </div>
+        </div>
+
+        {/* Agent NLP quick-add */}
+        <div className="px-4 py-3 bg-card border rounded-xl shadow-sm">
+          <QuickAddBar />
         </div>
       </div>
     )
@@ -435,11 +505,13 @@ export default function CalendarPageClient() {
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-md truncate flex items-center gap-1 border shadow-sm",
                     (event.type === 'todo' || event.type === 'task')
-                      ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300" 
+                      ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300"
                       : event.type === 'video'
                       ? "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
                       : event.type === 'playlist'
                       ? "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
+                      : event.type === 'external'
+                      ? "bg-teal-100 dark:bg-teal-900/30 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300"
                       : "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300",
                     event.completed ? "opacity-50 grayscale" : ""
                   )}
@@ -448,6 +520,7 @@ export default function CalendarPageClient() {
                   {event.type === 'video' && <VideoIcon className="h-2.5 w-2.5 shrink-0" />}
                   {event.type === 'playlist' && <ListVideo className="h-2.5 w-2.5 shrink-0" />}
                   {(event.type === 'plan' || event.type === 'event') && <ClipboardList className="h-2.5 w-2.5 shrink-0" />}
+                  {event.type === 'external' && <Globe className="h-2.5 w-2.5 shrink-0" />}
                   <span className="truncate">{event.title}</span>
                 </div>
               ))}
@@ -507,10 +580,11 @@ export default function CalendarPageClient() {
                   dayEvents
                     .sort((a, b) => a.date.getTime() - b.date.getTime())
                     .map(event => (
-                    <Card key={event.id} className="overflow-hidden border-l-4 group shadow-sm transition-shadow hover:shadow-md" style={{ borderLeftColor: 
-                      (event.type === 'todo' || event.type === 'task') ? '#a855f7' : 
-                      event.type === 'video' ? '#3b82f6' : 
-                      event.type === 'playlist' ? '#22c55e' : '#f97316'
+                    <Card key={event.id} className="overflow-hidden border-l-4 group shadow-sm transition-shadow hover:shadow-md" style={{ borderLeftColor:
+                      (event.type === 'todo' || event.type === 'task') ? '#a855f7' :
+                      event.type === 'video' ? '#3b82f6' :
+                      event.type === 'playlist' ? '#22c55e' :
+                      event.type === 'external' ? '#14b8a6' : '#f97316'
                     }}>
                       <CardContent className="p-3">
                         <div className="flex justify-between items-start gap-2">
@@ -533,40 +607,49 @@ export default function CalendarPageClient() {
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:opacity-100">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => {
-                                setEditingEvent(event)
-                                setIsEditDialogOpen(true)
-                              }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={async () => {
-                                  if (event.type === 'video' || event.type === 'playlist') {
-                                    await handleUnschedule(event)
-                                  } else {
-                                    try {
-                                      const res = await fetch(`/api/todos/${event.id}`, { method: 'DELETE' })
-                                      if (res.ok) {
-                                        removeTodo(event.id)
-                                        fetchData()
-                                        window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+                              {event.type === 'external' ? (
+                                <div className="px-2 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
+                                  <Globe className="h-3.5 w-3.5" />
+                                  From {event.feedName || 'external feed'} (read-only)
+                                </div>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem onClick={() => {
+                                    setEditingEvent(event)
+                                    setIsEditDialogOpen(true)
+                                  }}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      if (event.type === 'video' || event.type === 'playlist') {
+                                        await handleUnschedule(event)
+                                      } else {
+                                        try {
+                                          const res = await fetch(`/api/todos/${event.id}`, { method: 'DELETE' })
+                                          if (res.ok) {
+                                            removeTodo(event.id)
+                                            fetchData()
+                                            window.dispatchEvent(new CustomEvent('refresh-dashboard'))
+                                          }
+                                        } catch (error) {
+                                          console.error('Failed to delete plan:', error)
+                                        }
                                       }
-                                    } catch (error) {
-                                      console.error('Failed to delete plan:', error)
-                                    }
-                                  }
-                                }}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                { (event.type === 'video' || event.type === 'playlist') ? 'Unschedule' : 'Delete' }
-                              </DropdownMenuItem>
+                                    }}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    { (event.type === 'video' || event.type === 'playlist') ? 'Unschedule' : 'Delete' }
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

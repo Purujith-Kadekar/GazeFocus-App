@@ -20,7 +20,14 @@ export function useReminderChecker() {
       if (!todo.reminderAt || todo.completed || shownRef.current.has(todo.id)) {
         continue
       }
-      
+
+      // Agent-managed tasks (with deadlines) are handled by the
+      // agent daemon's Reminder rows — skip them here to avoid
+      // double dialogs.
+      if (todo.deadlineAt) {
+        continue
+      }
+
       const reminderTime = new Date(todo.reminderAt)
       if (isPast(reminderTime)) {
         newlyDue.push(todo)

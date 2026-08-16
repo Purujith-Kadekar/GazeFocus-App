@@ -26,8 +26,6 @@ interface DashboardMobileProps {
   onNoteClick: (note: Note) => void
   onAddContent: () => void
   onRefreshLiveStatus: () => Promise<void> | void
-  localSearchQuery?: string
-  onLocalSearchChange?: (query: string) => void
 }
 
 export function DashboardMobile({
@@ -45,8 +43,6 @@ export function DashboardMobile({
   onNoteClick,
   onAddContent,
   onRefreshLiveStatus,
-  localSearchQuery: _localSearchQuery,
-  onLocalSearchChange: _onLocalSearchChange,
 }: DashboardMobileProps) {
   const router = useRouter()
   const latestVideos = videos.slice(0, 4)

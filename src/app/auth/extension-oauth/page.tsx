@@ -49,6 +49,28 @@ const CHROMIUMAPP_REDIRECT = /^https:\/\/[a-p]{32}\.chromiumapp\.org\/?$/
 
 const SESSION_CHECK_TIMEOUT_MS = 3000
 
+/**
+ * Map raw Firebase errors to actionable messages. The network error in
+ * particular is almost always a blocker (uBlock/Brave shields frequently
+ * filter Google auth domains) or a captive portal / offline machine — the
+ * raw "Firebase: Error (auth/network-request-failed)" tells the user
+ * nothing.
+ */
+function friendlyAuthError(err: any): string {
+  switch (err?.code) {
+    case 'auth/network-request-failed':
+      return 'A network request to Google\'s sign-in servers was blocked or failed. Check your internet connection, and if you use an ad-blocker, VPN, or browser like Brave with shields, allow the following domains for this page: identitytoolkit.googleapis.com, securetoken.googleapis.com, accounts.google.com — then retry.'
+    case 'auth/popup-blocked':
+      return 'The sign-in popup was blocked. Click "Continue with Google" once more — the click itself allows the popup to open.'
+    case 'auth/operation-not-allowed':
+      return 'This sign-in provider is not enabled for the GazeFocus Firebase project. Enable it in the Firebase console (Authentication → Sign-in method).'
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorized in the Firebase project (Authentication → Settings → Authorized domains).'
+    default:
+      return err?.message || 'Authentication failed'
+  }
+}
+
 interface ExistingSession {
   email: string | null
   name: string | null
@@ -153,7 +175,7 @@ function ExtensionOAuthContent() {
     } catch (err: any) {
       console.error('[Extension OAuth] Grant failed:', err)
       setStatus('error')
-      setErrorMessage(err?.message || 'Failed to grant access')
+      setErrorMessage(friendlyAuthError(err))
     }
   }, [redirectUri, exchangeAndRedirect])
 
@@ -202,7 +224,7 @@ function ExtensionOAuthContent() {
       }
 
       setStatus('error')
-      setErrorMessage(err?.message || 'Authentication failed')
+      setErrorMessage(friendlyAuthError(err))
     }
   }, [provider, redirectUri, redirectWithError, exchangeAndRedirect])
 

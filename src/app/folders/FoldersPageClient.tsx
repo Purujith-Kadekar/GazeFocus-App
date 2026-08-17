@@ -20,6 +20,14 @@ import type { Folder } from '@/types'
 
 const FOLDERS_CACHE_KEY = 'gazefocus:folders-page-cache'
 
+// Defensive: API responses / stale caches should never be able to inject
+// a null/id-less entry into the folders list we render — that's what
+// crashed this page with "Cannot read properties of null (reading 'id')".
+function sanitizeFolders(data: unknown): Folder[] {
+  if (!Array.isArray(data)) return []
+  return data.filter((f): f is Folder => Boolean(f && typeof f === 'object' && typeof (f as Folder).id === 'string'))
+}
+
 interface FoldersPageClientProps {
   initialFolders?: Folder[]
 }
@@ -30,7 +38,9 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
   
   const [isLoading, setIsLoading] = useState(true)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [folders, setFolders] = useState<Folder[]>(initialFolders || [])
+  const [folders, setFolders] = useState<Folder[]>(
+    (initialFolders || []).filter((f): f is Folder => Boolean(f && typeof f.id === 'string'))
+  )
 
   useEffect(() => {
     const cached = readRouteCache<Folder[]>(FOLDERS_CACHE_KEY)
@@ -57,7 +67,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
           if (!response.ok || cancelled) return
 
           const data = await response.json()
-          const nextFolders = Array.isArray(data) ? data : []
+          const nextFolders = sanitizeFolders(data)
           setFolders(nextFolders)
           writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
         } catch {
@@ -74,7 +84,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
         if (!response.ok || cancelled) return
 
         const data = await response.json()
-        const nextFolders = Array.isArray(data) ? data : []
+        const nextFolders = sanitizeFolders(data)
         setFolders(nextFolders)
         writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
       } catch {
@@ -99,7 +109,7 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
       fetch('/api/folders')
         .then(r => r.ok ? r.json() : [])
         .then((data) => {
-          const nextFolders = Array.isArray(data) ? data : []
+          const nextFolders = sanitizeFolders(data)
           setFolders(nextFolders)
           writeRouteCache(FOLDERS_CACHE_KEY, nextFolders)
         })

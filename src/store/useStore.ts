@@ -57,11 +57,26 @@ interface FolderState {
   selectFolder: (folder: Folder | null) => void
 }
 
+// Defensive guard: nothing (API responses, cached payloads, optimistic
+// updates) should ever be able to put a null/undefined/id-less entry
+// into the folders array — that's what was crashing every screen that
+// did `folders.map(f => f.id)` with "Cannot read properties of null".
+function sanitizeFolders(folders: unknown): Folder[] {
+  if (!Array.isArray(folders)) return []
+  return folders.filter(
+    (f): f is Folder => Boolean(f && typeof f === 'object' && typeof (f as Folder).id === 'string')
+  )
+}
+
 export const useFolderStore = create<FolderState>((set) => ({
   folders: [],
   selectedFolder: null,
-  setFolders: (folders) => set({ folders }),
-  addFolder: (folder) => set((state) => ({ folders: [...state.folders, folder] })),
+  setFolders: (folders) => set({ folders: sanitizeFolders(folders) }),
+  addFolder: (folder) => set((state) => (
+    folder && typeof folder.id === 'string'
+      ? { folders: [...state.folders, folder] }
+      : state
+  )),
   updateFolder: (folder) => set((state) => ({
     folders: state.folders.map((f) => (f.id === folder.id ? folder : f)),
   })),
@@ -402,7 +417,7 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   importantNotes: [],
   setStats: (stats) => set({ stats }),
   setRecentVideos: (videos) => set({ recentVideos: videos }),
-  setRecentFolders: (folders) => set({ recentFolders: folders }),
+  setRecentFolders: (folders) => set({ recentFolders: sanitizeFolders(folders) }),
   setImportantNotes: (notes) => set({ importantNotes: notes }),
 }))
 

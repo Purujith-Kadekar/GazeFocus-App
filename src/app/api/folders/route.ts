@@ -12,10 +12,14 @@ export async function GET() {
     const userId = user.id
 
     const foldersResult = await db.from('Folder').select('id,title,description,position,userId,createdAt,updatedAt,items:LibraryItem(id)').eq('userId', userId).order('position', { ascending: true })
-    const folders = (foldersResult.data || []).map(f => ({
-      ...f,
-      _count: { items: f.items?.length || 0 },
-    }))
+    const folders = (foldersResult.data || [])
+      // Defensive: never let a row without a usable id reach the client —
+      // that's what was crashing every folders.map(f => f.id) on the frontend.
+      .filter((f: { id?: string } | null) => Boolean(f && typeof f.id === 'string'))
+      .map(f => ({
+        ...f,
+        _count: { items: f.items?.length || 0 },
+      }))
 
     return NextResponse.json(folders)
   } catch (error) {

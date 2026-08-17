@@ -159,10 +159,14 @@ export async function GET() {
       0
     )
 
-    const folders = (foldersResult.data || []).map((f: { items?: { id: string }[] } & Record<string, unknown>) => ({
-      ...f,
-      _count: { items: f.items?.length || 0 },
-    }))
+    const folders = (foldersResult.data || [])
+      // Defensive: drop any row without a usable id before it reaches the
+      // client — a null/id-less entry here crashes every folders.map(f => f.id).
+      .filter((f: { id?: string } | null) => Boolean(f && typeof f.id === 'string'))
+      .map((f: { items?: { id: string }[] } & Record<string, unknown>) => ({
+        ...f,
+        _count: { items: f.items?.length || 0 },
+      }))
 
     const playlists = playlistsResult.data || []
     let playlistsWithFolder = playlists

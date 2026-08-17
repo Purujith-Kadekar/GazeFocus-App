@@ -59,6 +59,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Reject non-fetchable "playlists": RD* = auto-generated mixes,
+    // WL/LL = private Watch Later / Liked lists. No API can read
+    // these, and adding them previously produced garbage entries.
+    if (type === 'playlist' && !/^(PL|UU|OL|FL)[A-Za-z0-9_-]{10,}$/.test(String(youtubeId))) {
+      return NextResponse.json(
+        { error: 'This is a YouTube Mix or private list (Watch Later / Liked) and cannot be added. Open the real playlist page and add it from there.' },
+        { status: 400 }
+      )
+    }
+
+    // Video IDs are exactly 11 chars — mix IDs pasted as videos are
+    // the "weird hex garbage" entries.
+    if (type !== 'playlist' && !/^[a-zA-Z0-9_-]{11}$/.test(String(youtubeId))) {
+      return NextResponse.json(
+        { error: 'Invalid YouTube video ID' },
+        { status: 400 }
+      )
+    }
+
     if (type === 'playlist') {
       const existingResult = await db.from('Playlist').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
       if (existingResult.data) {

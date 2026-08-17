@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useFolderStore } from '@/store/useStore'
+import { useToast } from '@/hooks/use-toast'
 
 interface CreateFolderModalProps {
   open: boolean
@@ -30,6 +31,7 @@ interface FolderForm {
 
 export function CreateFolderModal({ open, onOpenChange, folder }: CreateFolderModalProps) {
   const { addFolder, updateFolder } = useFolderStore()
+  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const {
@@ -59,18 +61,40 @@ export function CreateFolderModal({ open, onOpenChange, folder }: CreateFolderMo
         body: JSON.stringify(data),
       })
 
-      if (response.ok) {
-        const savedFolder = await response.json()
-        if (folder) {
-          updateFolder(savedFolder)
-        } else {
-          addFolder(savedFolder)
-        }
-        onOpenChange(false)
-        reset()
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        toast({
+          title: folder ? 'Failed to update folder' : 'Failed to create folder',
+          description: (body as { error?: string } | null)?.error || 'Something went wrong. Please try again.',
+          variant: 'destructive',
+        })
+        return
       }
+
+      const savedFolder = await response.json()
+      if (!savedFolder || typeof savedFolder.id !== 'string') {
+        toast({
+          title: 'Failed to save folder',
+          description: 'The server returned an invalid response.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (folder) {
+        updateFolder(savedFolder)
+      } else {
+        addFolder(savedFolder)
+      }
+      onOpenChange(false)
+      reset()
     } catch (error) {
       console.error('Failed to save folder:', error)
+      toast({
+        title: 'Failed to save folder',
+        description: 'Check your connection and try again.',
+        variant: 'destructive',
+      })
     } finally {
       setIsSubmitting(false)
     }

@@ -90,3 +90,4 @@ desktop/node_modules
 
 # Chrome extension (built separately, keep out of the repo)
 /extension/
+*.zip

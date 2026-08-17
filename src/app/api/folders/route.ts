@@ -49,11 +49,19 @@ export async function POST(request: NextRequest) {
     const maxPosition = maxPositionResult.data?.[0]?.position ?? -1
 
     const folderResult = await db.from('Folder').insert({
+      // The Folder table has no DB-level id default (Prisma generated
+      // ids client-side before the Supabase migration) — supply one.
+      id: crypto.randomUUID(),
       title: title.trim(),
       description: description?.trim() || null,
       userId,
       position: maxPosition + 1,
     }).select('id,title,description,position,userId,createdAt,updatedAt').single()
+
+    if (folderResult.error) {
+      console.error('Folder insert failed:', folderResult.error)
+      return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 })
+    }
 
     return NextResponse.json(folderResult.data, { status: 201 })
   } catch (error) {

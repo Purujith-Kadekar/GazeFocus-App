@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       description: description?.trim() || null,
       userId,
       position: maxPosition + 1,
+      updatedAt: new Date().toISOString(),
     }).select('id,title,description,position,userId,createdAt,updatedAt').single()
 
     if (folderResult.error) {

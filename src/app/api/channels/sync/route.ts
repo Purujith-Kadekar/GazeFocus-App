@@ -28,7 +28,7 @@ async function syncChannel(
 
   // Only update channel metadata on first sync (no pageToken)
   if (!pageToken) {
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       title: channelMetadata.title,
       description: channelMetadata.description,
       thumbnail: channelMetadata.thumbnail,
@@ -69,7 +69,7 @@ async function syncChannel(
       .eq('userId', channel.userId)
       .in('youtubeId', fetchedIds)
 
-    const existingIds = new Set<string>((existingVideos || []).map((v: any) => v.youtubeId))
+    const existingIds = new Set<string>((existingVideos || []).map((v: { youtubeId: string }) => v.youtubeId))
     const newVideos = enrichedVideos.filter(v => !existingIds.has(v.youtubeId))
 
     if (newVideos.length > 0) {
@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
     const result = await syncChannel(channel, pageToken)
 
     return NextResponse.json({ success: true, ...result })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error syncing channel:', error)
-    return NextResponse.json({ error: 'Failed to sync channel', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to sync channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

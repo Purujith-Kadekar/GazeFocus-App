@@ -182,37 +182,37 @@ export function SettingsPage() {
 
   // Update local UI + Zustand stores only (no DB save)
   // Used by sliders during drag for live UI feedback
-  const updateLocal = (key: string, value: any) => {
+  const updateLocal = (key: string, value: boolean | number | string) => {
     if (!isLoadedRef.current) return
     setLocalSettings(prev => ({ ...prev, [key]: value }))
 
     if (key === 'theme') {
-      setStoredTheme(value)
-      syncThemeToDom(value)
+      setStoredTheme(value as 'light' | 'dark' | 'system')
+      syncThemeToDom(value as 'light' | 'dark' | 'system')
     } else if (key === 'inactivityTimeout') {
-      setTimeoutSeconds(value)
+      setTimeoutSeconds(value as number)
     } else if (key === 'soundAlerts') {
-      setAlertsEnabled(value)
+      setAlertsEnabled(value as boolean)
     } else if (key === 'eyeTrackingEnabled') {
-      setTrackingEnabled(value)
+      setTrackingEnabled(value as boolean)
     } else if (key === 'eyeTrackingThreshold') {
-      setThresholdSeconds(value)
+      setThresholdSeconds(value as number)
     } else if (key === 'sensitivityMode') {
-      setSensitivityMode(value)
+      setSensitivityMode(value as 'strict' | 'moderate' | 'light')
     } else if (key === 'defaultPlaybackSpeed') {
-      setPlaybackSpeed(value)
+      setPlaybackSpeed(value as number)
     } else if (key === 'watchBreakEnabled') {
-      setWatchBreakEnabled(value)
+      setWatchBreakEnabled(value as boolean)
     } else if (key === 'watchBreakMinutes') {
-      setWatchBreakMinutes(value)
+      setWatchBreakMinutes(value as number)
     } else if (key === 'watchBreakDurationMinutes') {
-      setWatchBreakDurationMinutes(value)
+      setWatchBreakDurationMinutes(value as number)
     }
   }
 
   // Update local + save to DB immediately
   // Used by toggles, selects, and slider onValueCommit
-  const handleChange = (key: string, value: any) => {
+  const handleChange = (key: string, value: boolean | number | string) => {
     updateLocal(key, value)
     if (!isLoadedRef.current) return
     saveToDb({ [key]: value })

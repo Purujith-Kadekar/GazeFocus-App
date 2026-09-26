@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const libraryItemsResult = await db.from('LibraryItem').select('externalId, folderId').eq('userId', userId).eq('type', 'PLAYLIST').in('externalId', playlists.map(p => p.id))
     const libraryItems = libraryItemsResult.data || []
 
-    const folderMap = new Map<string, string | null>(libraryItems.map((item: any) => [item.externalId, item.folderId]))
+    const folderMap = new Map<string, string | null>(libraryItems.map((item: { externalId: string; folderId: string | null }) => [item.externalId, item.folderId]))
 
     const playlistsWithFolder = playlists.map(p => ({
       ...p,
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
           totalVideos: totalVideoCount,
           updatedAt: now,
           createdAt: now,
-        }).select().single()
+        }).select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,totalVideos,scheduledAt,createdAt,updatedAt,userId').single()
 
         if (playlistResult.error || !playlistResult.data) {
           return NextResponse.json({ error: 'Failed to create playlist' }, { status: 500 })
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
         totalVideos: storedTotalVideos,
         updatedAt: now,
         createdAt: now,
-      }).select().single()
+      }).select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,totalVideos,scheduledAt,createdAt,updatedAt,userId').single()
 
       if (playlistResult.error || !playlistResult.data) {
         console.error('Error creating playlist:', playlistResult.error)
@@ -253,7 +253,9 @@ export async function POST(request: NextRequest) {
           .eq('userId', userId)
           .in('youtubeId', fetchedYoutubeIds)
 
-        const existingMap = new Map<string, any>((existingVideos || []).map((v: any) => [v.youtubeId, v]))
+        const existingMap = new Map<string, { id: string; playlistId: string | null; channelId: string | null }>(
+          (existingVideos || []).map((v: { id: string; youtubeId: string; playlistId: string | null; channelId: string | null }) => [v.youtubeId, v])
+        )
         
         // Separate into videos to update vs insert
         const videosToUpdate: Array<{ youtubeId: string; playlistId: string; title?: string; thumbnail?: string; duration?: number; position?: number }> = []
@@ -367,7 +369,7 @@ export async function POST(request: NextRequest) {
       position: 0,
       updatedAt: now,
       createdAt: now,
-    }).select().single()
+    }).select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId').single()
 
     if (videoResult.error || !videoResult.data) {
       console.error('Error creating video:', videoResult.error)

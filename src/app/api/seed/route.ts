@@ -43,7 +43,7 @@ export async function POST() {
       updatedAt: now,
     }, {
       onConflict: 'id',
-    }).select().single()
+    }).select('id').single()
 
     const { data: folder2 } = await db.from('Folder').upsert({
       id: folder2Id,
@@ -54,7 +54,7 @@ export async function POST() {
       updatedAt: now,
     }, {
       onConflict: 'id',
-    }).select().single()
+    }).select('id').single()
 
     const { data: folder3 } = await db.from('Folder').upsert({
       id: folder3Id,
@@ -65,7 +65,7 @@ export async function POST() {
       updatedAt: now,
     }, {
       onConflict: 'id',
-    }).select().single()
+    }).select('id').single()
 
     const playlist1Id = `playlist-react-${prefix}`
     const playlist2Id = `playlist-nn-${prefix}`
@@ -84,7 +84,7 @@ export async function POST() {
       updatedAt: now,
     }, {
       onConflict: 'id',
-    }).select().single()
+    }).select('id,youtubeId').single()
 
     const { data: playlist2 } = await db.from('Playlist').upsert({
       id: playlist2Id,
@@ -100,7 +100,7 @@ export async function POST() {
       updatedAt: now,
     }, {
       onConflict: 'id',
-    }).select().single()
+    }).select('id,youtubeId').single()
 
     await db.from('LibraryItem').upsert({
       id: `item-react-${prefix}`,

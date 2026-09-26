@@ -40,10 +40,47 @@ interface VideoPlayerProps {
   publishedAt?: string | null
 }
 
+/** Minimal YouTube IFrame Player API surface used by this component. */
+interface YTPlayer {
+  playVideo(): void
+  pauseVideo(): void
+  destroy(): void
+  mute(): void
+  unMute(): void
+  seekTo(seconds: number, allowSeekAhead?: boolean): void
+  setVolume(volume: number): void
+  setPlaybackRate(rate: number): void
+  setPlaybackQuality(quality: string): void
+  getDuration(): number
+  getCurrentTime(): number
+  getAvailableQualityLevels?(): string[]
+  getPlaybackQuality?(): string
+  loadModule?(module: string): void
+  unloadModule?(module: string): void
+}
+
+interface YTPlayerEvent {
+  target: YTPlayer
+  data?: number | string
+}
+
 declare global {
   interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
+    YT: {
+      Player: new (
+        element: HTMLElement | string,
+        options: {
+          videoId?: string
+          playerVars?: Record<string, string | number>
+          events?: {
+            onReady?: (event: YTPlayerEvent) => void
+            onStateChange?: (event: YTPlayerEvent) => void
+            onPlaybackQualityChange?: (event: YTPlayerEvent & { data?: string }) => void
+          }
+        }
+      ) => YTPlayer
+    }
+    onYouTubeIframeAPIReady: () => void
   }
 }
 
@@ -84,7 +121,7 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   // ─── Core player refs ────────────────────────────────────────────────────────
   const videoAreaRef = useRef<HTMLDivElement>(null)
-  const playerRef = useRef<any>(null)
+  const playerRef = useRef<YTPlayer | null>(null)
   const playerElementId = useRef(`yt-player-${Math.random().toString(36).substring(2, 9)}`)
   const cameraPreviewRef = useRef<HTMLVideoElement>(null)
 
@@ -277,7 +314,7 @@ export function VideoPlayer({
         start: Math.floor(initialTimeRef.current),
       },
       events: {
-        onReady: (event: any) => {
+        onReady: (event: YTPlayerEvent) => {
           setIsPlayerReady(true)
           isPlayerReadyRef.current = true
           const dur = event.target.getDuration()
@@ -296,7 +333,7 @@ export function VideoPlayer({
           if (qualities.length > 0) setAvailableQualitiesLocal(qualities)
           setCurrentQualityLocal(event.target.getPlaybackQuality?.() ?? 'auto')
         },
-        onStateChange: (event: any) => {
+        onStateChange: (event: YTPlayerEvent) => {
           if (event.data === 1) {
             // Playing
             hasPlayedRef.current = true
@@ -338,7 +375,7 @@ export function VideoPlayer({
             onCompleteRef.current?.()
           }
         },
-        onPlaybackQualityChange: (event: any) => {
+        onPlaybackQualityChange: (event: YTPlayerEvent & { data?: string }) => {
           setCurrentQualityLocal(event.data ?? 'auto')
         },
       }

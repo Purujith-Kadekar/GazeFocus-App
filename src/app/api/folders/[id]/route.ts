@@ -1,4 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { LibraryItemTypeNew } from '@/types'
+
+/** LibraryItem columns selected by this route (see the select below). */
+type FolderItemProjection = {
+  id: string
+  userId: string
+  type: LibraryItemTypeNew
+  externalId: string
+  title: string | null
+  folderId: string | null
+  metadata: unknown
+  position: number
+  createdAt: string
+  updatedAt: string
+}
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
 
@@ -32,8 +47,8 @@ export async function GET(
       .eq('userId', user.id)
     const folderItems = itemsResult.data || []
 
-    const playlistIds = folderItems.filter((i: any) => i.type === 'PLAYLIST').map((i: any) => i.externalId)
-    const videoExternalIds = folderItems.filter((i: any) => i.type === 'VIDEO').map((i: any) => i.externalId)
+    const playlistIds = folderItems.filter((i: FolderItemProjection) => i.type === 'PLAYLIST').map((i: FolderItemProjection) => i.externalId)
+    const videoExternalIds = folderItems.filter((i: FolderItemProjection) => i.type === 'VIDEO').map((i: FolderItemProjection) => i.externalId)
     
     // Fetch thumbnails in parallel for efficiency
     const [playlistThumbnailsResult, videoThumbnailsResult] = await Promise.all([
@@ -51,7 +66,7 @@ export async function GET(
     const playlistThumbnails = playlistThumbnailsResult.data || []
     const videoThumbnails = videoThumbnailsResult.data || []
     
-    const playlistMap = new Map<string, string | null>(playlistThumbnails.map((p: any) => [p.id, p.thumbnail as string | null]))
+    const playlistMap = new Map<string, string | null>(playlistThumbnails.map((p: { id: string; thumbnail: string | null }) => [p.id, p.thumbnail]))
     const videoMap = new Map<string, string | null>()
     for (const video of videoThumbnails) {
       videoMap.set(video.id, video.thumbnail as string | null)
@@ -59,12 +74,12 @@ export async function GET(
     }
     
     const itemsWithThumbnails = (folderItems || [])
-      .filter((item: any) => {
+      .filter((item: FolderItemProjection) => {
         if (item.type === 'PLAYLIST') return playlistMap.has(item.externalId)
         if (item.type === 'VIDEO') return videoMap.has(item.externalId)
         return false
       })
-      .map((item: any) => {
+      .map((item: FolderItemProjection) => {
         let thumbnail: string | null = null
         if (item.type === 'PLAYLIST') {
           thumbnail = playlistMap.get(item.externalId) ?? null
@@ -101,7 +116,7 @@ export async function PUT(
     const folderResult = await db.from('Folder').update({
       title,
       description,
-    }).eq('id', id).eq('userId', user.id).select().single()
+    }).eq('id', id).eq('userId', user.id).select('id,title,description,position,userId,createdAt,updatedAt').single()
 
     return NextResponse.json(folderResult.data)
   } catch (error) {

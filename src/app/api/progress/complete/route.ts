@@ -62,7 +62,7 @@ export async function GET() {
     const completedVideos = completedResult.data || []
 
     return NextResponse.json({ 
-      completedVideos: completedVideos.map((v: any) => v.youtubeId) 
+      completedVideos: completedVideos.map((v: { youtubeId: string }) => v.youtubeId)
     })
   } catch (error) {
     console.error('Error fetching completed videos:', error)

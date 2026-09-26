@@ -267,11 +267,11 @@ function LiveVideoCard({ video, onClick }: { video: LiveVideo; onClick: () => vo
       <CardContent className="p-0">
         <div className="relative aspect-video">
           {video.thumbnail ? (
-            <img
+            <Image
               src={video.thumbnail}
               alt={video.title}
-              loading="lazy"
-              decoding="async"
+              fill
+              sizes="(max-width: 640px) 100vw, 50vw"
               className="w-full h-full object-cover"
             />
           ) : (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { createClient } from '@supabase/supabase-js'
 import { QuotaEngine, isQuotaExhausted } from '@/lib/youtube/quota-engine'
+import type { VideoMetadata } from '@/lib/youtube/quota-engine'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     let result: {
-      videos: any[]
+      videos: VideoMetadata[]
       nextPageToken: string | null
       source: 'api' | 'cache' | 'rss'
       hasMore: boolean
@@ -70,8 +71,8 @@ export async function GET(request: NextRequest) {
       ...result,
       quotaExhausted: isQuotaExhausted()
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in smart-fetch-videos:', error)
-    return NextResponse.json({ error: 'Failed to fetch videos', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch videos', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

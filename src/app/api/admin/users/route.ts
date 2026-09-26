@@ -107,9 +107,9 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json(response)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching admin users:', error)
-    return NextResponse.json({ error: 'Failed to fetch users', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch users', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }
 
@@ -120,7 +120,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { userId, role, isBlocked, isPremium } = body
+    // NOTE: access control for the admin portal is the admin_session
+    // cookie only — there is deliberately no `role` parameter here.
+    // `isPremium` is a billing/quota flag on a normal user, not an
+    // admin permission (the User.role column was dead and is being
+    // dropped by migration 018).
+    const { userId, isBlocked, isPremium } = body
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
@@ -129,10 +134,6 @@ export async function PATCH(request: NextRequest) {
     const updates: Record<string, unknown> = {}
     if (typeof isBlocked === 'boolean') updates.isBlocked = isBlocked
     if (typeof isPremium === 'boolean') updates.isPremium = isPremium
-
-    if (typeof role === 'string') {
-      updates.isPremium = role === 'PREMIUM'
-    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
@@ -168,9 +169,9 @@ export async function PATCH(request: NextRequest) {
     if (updateResult.error) throw updateResult.error
 
     return NextResponse.json(updateResult.data)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating user:', error)
-    return NextResponse.json({ error: 'Failed to update user', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update user', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }
 
@@ -212,32 +213,22 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (action === 'immediate') {
-      // Cascade delete: clean up ALL related data before deleting the user
-      // This matches the cleanup logic in the cron cleanup endpoint
-      
-      // Get all playlist IDs for this user
-      const playlistsResult = await db.from('Playlist').select('id').eq('userId', userId)
-      const playlistIds = (playlistsResult.data || []).map((p: any) => p.id)
-      
-      // Get all video IDs for this user
-      const videosResult = await db.from('Video').select('id, youtubeId').eq('userId', userId)
-      const videoIds = (videosResult.data || []).map((v: any) => v.id)
-      const youtubeIds = (videosResult.data || []).map((v: any) => v.youtubeId)
+      // Cascade delete: clean up ALL related data before deleting the user.
+      // This matches the cleanup logic in the cron cleanup endpoint.
+      // (Reminder/CalendarFeed/CalendarAccount rows cascade-delete via their
+      // ON DELETE CASCADE foreign keys — migration 016.)
 
-      // Delete in order of dependencies (most dependent first)
-      if (videoIds.length > 0) {
-        await db.from('Note').delete().eq('userId', userId)
-        await db.from('Todo').delete().eq('userId', userId)
-      }
+      // Snapshot the user's email for VerificationToken cleanup.
+      const userResult = await db.from('User').select('id,email').eq('id', userId).maybeSingle()
+      const userEmail = userResult.data?.email || null
 
-      if (youtubeIds.length > 0) {
-        await db.from('VideoProgress').delete().eq('userId', userId)
-      }
-
-      if (playlistIds.length > 0) {
-        await db.from('PlaylistMark').delete().eq('userId', userId)
-      }
-
+      // Delete every child table that is keyed by userId — the deletes
+      // are by userId, so they must run unconditionally (a user can have
+      // notes/todos/progress without having any videos).
+      await db.from('Note').delete().eq('userId', userId)
+      await db.from('Todo').delete().eq('userId', userId)
+      await db.from('VideoProgress').delete().eq('userId', userId)
+      await db.from('PlaylistMark').delete().eq('userId', userId)
       await db.from('LibraryItem').delete().eq('userId', userId)
       await db.from('Video').delete().eq('userId', userId)
       await db.from('Playlist').delete().eq('userId', userId)
@@ -247,6 +238,9 @@ export async function DELETE(request: NextRequest) {
       await db.from('Channel').delete().eq('userId', userId)
       await db.from('Account').delete().eq('userId', userId)
       await db.from('Session').delete().eq('userId', userId)
+      if (userEmail) {
+        await db.from('VerificationToken').delete().eq('identifier', userEmail)
+      }
 
       // Finally delete the user
       const result = await db
@@ -261,8 +255,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error processing user deletion request:', error)
-    return NextResponse.json({ error: 'Failed to process deletion request', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to process deletion request', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

@@ -75,7 +75,7 @@ export async function getUpcomingReminders(userId: string, limit = 5) {
     .gt('fireAt', nowIso)
     .order('fireAt', { ascending: true })
     .limit(limit)
-  return (data || []).map((r: any) => ({
+  return (data || []).map((r: { id: string; todoId: string; kind: 'DEADLINE' | 'AUDIT'; fireAt: string; Todo?: { text: string; deadlineAt: string | null } }) => ({
     id: r.id,
     todoId: r.todoId,
     kind: r.kind,
@@ -83,34 +83,6 @@ export async function getUpcomingReminders(userId: string, limit = 5) {
     title: r.Todo?.text ?? 'Task',
     deadlineAt: r.Todo?.deadlineAt ?? null,
   }))
-}
-
-/**
- * Read-only view of due reminders WITHOUT claiming them.
- * Used by the Electron companion (?peek=1): it toasts and
- * calls the action endpoints itself, while the web daemon can
- * still claim+dialog anything the user leaves unactioned.
- */
-export async function peekDueReminders(userId: string, sessionStartedAtMs: number) {
-  const nowIso = new Date().toISOString()
-  const { data, error } = await db
-    .from('Reminder')
-    .select('*, Todo!inner(*)')
-    .eq('userId', userId)
-    .eq('status', 'PENDING')
-    .lte('fireAt', nowIso)
-    .order('fireAt', { ascending: true })
-    .limit(50)
-
-  if (error) throw error
-
-  const due: DueReminder[] = []
-  for (const row of (data || []) as unknown as Array<Reminder & { Todo: Todo | null }>) {
-    if (!row.Todo || row.Todo.completed) continue
-    const item = toDueReminder(row, row.Todo, Date.parse(row.fireAt) < sessionStartedAtMs - 60_000)
-    if (item) due.push(item)
-  }
-  return due
 }
 
 /**

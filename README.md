@@ -77,8 +77,11 @@ npm install
 # set up environment
 # edit .env.local and fill in the values (see below)
 
-# push the schema and run
-npx prisma db push
+# apply the database schema (Supabase migrations)
+# paste the contents of supabase/migrations/*.sql in order into the
+# Supabase Dashboard SQL Editor, or use the Supabase CLI:
+# supabase link --project-ref <your-ref> && supabase db push
+
 npm run dev
 ```
 
@@ -88,8 +91,10 @@ Open `http://localhost:3000`.
 
 | Variable | Required | What it's for |
 |---|---|---|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service-role key (used server-side by the API routes) |
 | `NEXTAUTH_SECRET` | ✅ | Session signing key — `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | ✅ | Public base URL of the deployment (OAuth callbacks) |
 | `ADMIN_USERNAME` | ✅ | Admin portal username |
 | `ADMIN_PASSWORD` | ✅ | Admin portal password |
 | `ADMIN_SECRET` | ✅ | Admin JWT signing key — falls back to `NEXTAUTH_SECRET` |
@@ -109,6 +114,20 @@ Open `http://localhost:3000`.
 | `YOUTUBE_API_KEY` | optional | Required for playlist import and auto-sync |
 | `NEXT_PUBLIC_URL` | optional | Public base URL (default: `http://localhost:3000`) |
 | `CRON_SECRET` | optional | Authenticates internal cron endpoints |
+| `GOOGLE_CALENDAR_CLIENT_ID` | optional | Google OAuth client ID for Calendar event sync — falls back to `GOOGLE_CLIENT_ID`, then to `AUTH_GOOGLE_ID` |
+| `GOOGLE_CALENDAR_CLIENT_SECRET` | optional | Google OAuth client secret for Calendar event sync — same fallback chain as above |
+| `GOOGLE_CALENDAR_REDIRECT_URI` | optional | Override for the OAuth redirect URI (default: `<NEXTAUTH_URL>/api/calendar/google/callback`) |
+
+> **Google Calendar sync setup (least-effort path):** reuse the same Google
+> Cloud OAuth client you already use for login (`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`)
+> — in the Google Cloud Console add the `calendar.events` + `userinfo.email`
+> scopes and the authorized redirect URI
+> `https://<your-domain>/api/calendar/google/callback` (locally:
+> `http://localhost:3000/api/calendar/google/callback`), and enable the Google
+> Calendar API for the project. No new env vars needed. Prefer a separate
+> client instead? Set `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET`.
+> One-way task → event sync: tasks with a due date/time are created, updated,
+> and removed in the connected user's primary calendar. See `AGENT_SETUP.md`.
 
 ---
 
@@ -119,13 +138,13 @@ Open `http://localhost:3000`.
 | Framework | Next.js 16 (App Router) + TypeScript |
 | Styling | Tailwind CSS + shadcn/ui |
 | Eye tracking | MediaPipe Tasks Vision (Face Landmarker) via WebAssembly |
-| Database | PostgreSQL + Prisma ORM |
-| Auth | NextAuth.js (Google OAuth + credentials) |
+| Database | Supabase Postgres |
+| Auth | NextAuth.js (Google OAuth + credentials) + Firebase bridge for the browser extension |
 | State | Zustand |
 | Data fetching | TanStack Query |
 | Drag and drop | dnd-kit |
 | Video | YouTube IFrame API |
-| Background jobs | node-cron |
+| Background jobs | GitHub Actions schedule (daily channel sync) |
 
 ---
 

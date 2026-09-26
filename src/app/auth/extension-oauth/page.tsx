@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import type { AuthProvider } from 'firebase/auth'
 import {
   signInWithPopup,
   signOut,
@@ -56,8 +58,8 @@ const SESSION_CHECK_TIMEOUT_MS = 3000
  * raw "Firebase: Error (auth/network-request-failed)" tells the user
  * nothing.
  */
-function friendlyAuthError(err: any): string {
-  switch (err?.code) {
+function friendlyAuthError(err: unknown): string {
+  switch ((err as { code?: string; message?: string })?.code) {
     case 'auth/network-request-failed':
       return 'A network request to Google\'s sign-in servers was blocked or failed. Check your internet connection, and if you use an ad-blocker, VPN, or browser like Brave with shields, allow the following domains for this page: identitytoolkit.googleapis.com, securetoken.googleapis.com, accounts.google.com — then retry.'
     case 'auth/popup-blocked':
@@ -67,7 +69,7 @@ function friendlyAuthError(err: any): string {
     case 'auth/unauthorized-domain':
       return 'This domain is not authorized in the Firebase project (Authentication → Settings → Authorized domains).'
     default:
-      return err?.message || 'Authentication failed'
+      return (err as { code?: string; message?: string })?.message || 'Authentication failed'
   }
 }
 
@@ -172,7 +174,7 @@ function ExtensionOAuthContent() {
       // Force a fresh ID token from the existing session.
       const idToken = await firebaseAuth.currentUser.getIdToken(true)
       await exchangeAndRedirect(idToken, firebaseAuth.currentUser)
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Extension OAuth] Grant failed:', err)
       setStatus('error')
       setErrorMessage(friendlyAuthError(err))
@@ -196,7 +198,7 @@ function ExtensionOAuthContent() {
     setStatus('authenticating')
 
     try {
-      let authProvider: any
+      let authProvider: AuthProvider
       switch (provider) {
         case 'github':
           authProvider = new GithubAuthProvider()
@@ -215,10 +217,11 @@ function ExtensionOAuthContent() {
       const idToken = await user.getIdToken()
 
       await exchangeAndRedirect(idToken, user)
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Extension OAuth] Error:', err)
 
-      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+      const authErr = err as { code?: string; message?: string }
+      if (authErr?.code === 'auth/popup-closed-by-user' || authErr?.code === 'auth/cancelled-popup-request') {
         redirectWithError('Sign-in was cancelled')
         return
       }
@@ -276,7 +279,7 @@ function ExtensionOAuthContent() {
               marginBottom: 20,
             }}>
               {existing.image ? (
-                <img src={existing.image} alt="" width={32} height={32} style={{ borderRadius: '50%' }} />
+                <Image src={existing.image} alt="" width={32} height={32} style={{ borderRadius: '50%' }} />
               ) : (
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%',

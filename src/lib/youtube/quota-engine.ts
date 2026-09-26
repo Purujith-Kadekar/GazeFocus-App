@@ -1,6 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 
+/** Minimal YouTube Data API playlistItems item shape used here. */
+interface YTPlaylistItem {
+  contentDetails: { videoId: string; videoPublishedAt?: string }
+  snippet: {
+    title: string
+    description: string
+    publishedAt?: string
+    thumbnails?: { maxres?: { url: string }; high?: { url: string }; medium?: { url: string } }
+  }
+}
+
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
@@ -224,13 +236,24 @@ export class QuotaEngine {
         .maybeSingle()
 
       const existingPayload = Array.isArray(existingResult.data?.payload) ? existingResult.data?.payload : []
-      const existingVideos: VideoMetadata[] = (existingPayload as any[]).map((entry) => ({
-        youtubeId: entry.youtubeId,
-        title: entry.title,
-        description: entry.description,
-        thumbnail: entry.thumbnail,
+      const existingVideos: VideoMetadata[] = (
+        existingPayload as Array<{
+          youtubeId?: string
+          title?: string
+          description?: string
+          thumbnail?: string
+          duration?: number | string
+          publishedAt?: string
+          channelId?: string
+          liveBroadcastContent?: string
+        }>
+      ).map((entry) => ({
+        youtubeId: entry.youtubeId || '',
+        title: entry.title || '',
+        description: entry.description || '',
+        thumbnail: entry.thumbnail || '',
         duration: Number(entry.duration || 0),
-        publishedAt: entry.publishedAt,
+        publishedAt: entry.publishedAt || '',
         channelId: entry.channelId || channelId,
         liveBroadcastContent: entry.liveBroadcastContent,
       }))
@@ -438,11 +461,11 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
 
       const data = await response.json()
       if (data.items) {
-        const baseVideos = data.items.map((item: any) => ({
+        const baseVideos = data.items.map((item: YTPlaylistItem) => ({
           youtubeId: item.contentDetails.videoId,
           title: item.snippet.title,
           description: item.snippet.description,
-          thumbnail: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || `https://img.youtube.com/vi/${item.contentDetails.videoId}/maxresdefault.jpg`,
+          thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.contentDetails.videoId}/maxresdefault.jpg`,
           duration: 0,
           publishedAt: item.snippet.publishedAt,
           channelId: channelId
@@ -883,11 +906,11 @@ static async getVideo(videoId: string, userId?: string): Promise<VideoMetadata |
 
       const data = await response.json()
       if (data.items) {
-        const videos = data.items.map((item: any) => ({
+        const videos = data.items.map((item: YTPlaylistItem) => ({
           youtubeId: item.contentDetails.videoId,
           title: item.snippet.title,
           description: item.snippet.description,
-          thumbnail: item.snippet.thumbnails.maxres?.url || item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || `https://img.youtube.com/vi/${item.contentDetails.videoId}/maxresdefault.jpg`,
+          thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.contentDetails.videoId}/maxresdefault.jpg`,
           duration: 0,
           publishedAt: item.snippet.publishedAt,
           channelId

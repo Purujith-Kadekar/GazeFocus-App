@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
       await db.from('Notification').delete().eq('userId', user.id)
       await db.from('Todo').delete().eq('userId', user.id)
       await db.from('Channel').delete().eq('userId', user.id)
-      await db.from('ChannelCache').delete().eq('userId', user.id).catch(() => {}) // ChannelCache may not exist
       await db.from('User').delete().eq('id', user.id)
     }
 

@@ -29,14 +29,93 @@ const PIPED_INSTANCES = [
   'https://pipedapi-libre.kavin.rocks',
 ]
 
-export interface AltPlaylistVideo {
+export interface AltVideo {
   youtubeId: string
   title: string
   description: string
   thumbnail: string
   duration: number // seconds
   position: number
+  author?: string
+}
+
+export interface AltPlaylistVideo extends AltVideo {
   author: string
+}
+
+/** Invidious/Piped thumbnail entry — both APIs use the same shape. */
+interface AltThumbnail {
+  quality: string
+  url: string
+}
+
+/** Invidious playlist page (one page of a paginated playlist). */
+interface InvidiousPlaylistPage {
+  title?: string
+  description?: string
+  thumbnail?: string
+  videoCount?: number
+  author?: string
+  videos?: Array<{
+    videoId?: string
+    title?: string
+    description?: string
+    videoThumbnails?: AltThumbnail[]
+    lengthSeconds?: number
+    author?: string
+  }>
+}
+
+/** Piped playlist (all videos in one response). */
+interface PipedPlaylist {
+  name?: string
+  thumbnail?: string
+  videoCount?: number
+  uploader?: string
+  relatedStreams?: Array<{
+    url?: string
+    title?: string
+    thumbnail?: string
+    duration?: number
+    uploaderName?: string
+  }>
+}
+
+/** Invidious single-video details. */
+interface InvidiousVideoDetails {
+  videoId?: string
+  title?: string
+  description?: string
+  videoThumbnails?: AltThumbnail[]
+  lengthSeconds?: number
+  author?: string
+}
+
+/** Piped single-video details. */
+interface PipedVideoDetails {
+  title?: string
+  description?: string
+  thumbnail?: string
+  duration?: number
+  uploader?: string
+}
+
+/** Invidious search result item (type discriminates video/playlist/channel). */
+interface InvidiousSearchItem {
+  type?: string
+  videoId?: string
+  playlistId?: string
+  authorId?: string
+  author?: string
+  title?: string
+  description?: string
+  published?: number
+  lengthSeconds?: number
+  videoCount?: number
+  subCount?: number
+  playlistThumbnail?: string
+  videoThumbnails?: AltThumbnail[]
+  authorThumbnails?: AltThumbnail[]
 }
 
 export interface AltPlaylistInfo {
@@ -77,7 +156,7 @@ export async function fetchPlaylistFromInvidious(
           break
         }
 
-        const data = await res.json()
+        const data = (await res.json()) as InvidiousPlaylistPage
 
         if (page === 1) {
           playlistTitle = data.title || ''
@@ -96,8 +175,8 @@ export async function fetchPlaylistFromInvidious(
             title: v.title || 'Unknown',
             description: v.description || '',
             thumbnail:
-              v.videoThumbnails?.find((t: any) => t.quality === 'maxres')?.url ||
-              v.videoThumbnails?.find((t: any) => t.quality === 'medium')?.url ||
+              v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
+              v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
               `https://img.youtube.com/vi/${v.videoId}/maxresdefault.jpg`,
             duration: v.lengthSeconds || 0,
             position: (page - 1) * 100 + allVideos.length,
@@ -145,13 +224,13 @@ export async function fetchPlaylistFromPiped(
 
       if (!res.ok) continue
 
-      const data = await res.json()
+      const data = (await res.json()) as PipedPlaylist
 
       const relatedStreams = data.relatedStreams || []
       if (relatedStreams.length === 0) continue
 
       const videos: AltPlaylistVideo[] = relatedStreams.map(
-        (v: any, index: number) => ({
+        (v: NonNullable<PipedPlaylist['relatedStreams']>[number], index: number) => ({
           youtubeId: (v.url || '').replace('/watch?v=', ''),
           title: v.title || 'Unknown',
           description: '',
@@ -202,15 +281,15 @@ export async function fetchVideoFromInvidious(
 
       if (!res.ok) continue
 
-      const data = await res.json()
+      const data = (await res.json()) as InvidiousVideoDetails
 
       return {
         youtubeId: data.videoId || videoId,
         title: data.title || 'Unknown',
         description: data.description || '',
         thumbnail:
-          data.videoThumbnails?.find((t: any) => t.quality === 'maxres')?.url ||
-          data.videoThumbnails?.find((t: any) => t.quality === 'medium')?.url ||
+          data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
+          data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
           `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
         duration: data.lengthSeconds || 0,
         position: 0,
@@ -238,7 +317,7 @@ export async function fetchVideoFromPiped(
 
       if (!res.ok) continue
 
-      const data = await res.json()
+      const data = (await res.json()) as PipedVideoDetails
 
       return {
         youtubeId: videoId,
@@ -313,7 +392,7 @@ export async function searchFromInvidious(
 
       if (!res.ok) return []
 
-      const data = await res.json()
+      const data = (await res.json()) as InvidiousSearchItem[]
       if (!Array.isArray(data)) return []
 
       const results: Array<{
@@ -338,8 +417,8 @@ export async function searchFromInvidious(
             title: item.title || '',
             description: item.description || '',
             thumbnail:
-              item.videoThumbnails?.find((t: any) => t.quality === 'maxres')?.url ||
-              item.videoThumbnails?.find((t: any) => t.quality === 'medium')?.url ||
+              item.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
+              item.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
               `https://img.youtube.com/vi/${item.videoId}/maxresdefault.jpg`,
             channelTitle: item.author || '',
             channelId: item.authorId || '',
@@ -367,9 +446,9 @@ export async function searchFromInvidious(
             title: item.author || '',
             description: item.description || '',
             thumbnail:
-              item.authorThumbnails?.find((t: any) => t.quality === 'maxres')?.url ||
-              item.authorThumbnails?.find((t: any) => t.quality === 'high')?.url ||
-              item.authorThumbnails?.find((t: any) => t.quality === 'medium')?.url ||
+              item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
+              item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'high')?.url ||
+              item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
               '',
             channelTitle: item.author || '',
             channelId: item.authorId || '',
@@ -433,8 +512,8 @@ export async function searchFromInvidious(
  */
 export async function fetchPlaylistWithFallback(
   playlistId: string,
-  youtubeApiFetcher?: (id: string) => Promise<any[]>
-): Promise<{ info: AltPlaylistInfo | null; videos: AltPlaylistVideo[]; source: string } | null> {
+  youtubeApiFetcher?: (id: string) => Promise<AltVideo[]>
+): Promise<{ info: AltPlaylistInfo | null; videos: AltVideo[]; source: string } | null> {
   // Try Invidious first
   const invidiousResult = await fetchPlaylistFromInvidious(playlistId)
   if (invidiousResult) {
@@ -478,8 +557,8 @@ export async function fetchPlaylistWithFallback(
  */
 export async function fetchVideoWithFallback(
   videoId: string,
-  youtubeApiFetcher?: (id: string) => Promise<any>
-): Promise<AltPlaylistVideo | null> {
+  youtubeApiFetcher?: (id: string) => Promise<Partial<AltVideo> | null>
+): Promise<Partial<AltVideo> | null> {
   const invidious = await fetchVideoFromInvidious(videoId)
   if (invidious) return invidious
 

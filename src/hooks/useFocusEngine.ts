@@ -255,7 +255,7 @@ export function useFocusEngine(isActive: boolean = true) {
       }
 
       rafRef.current = requestAnimationFrame(loop)
-    } catch (err: any) {
+    } catch (err) {
       // Only report/cleanup if this attempt wasn't already cancelled by stopTracking
       if (!isCancelledRef.current) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to start eye tracking'

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       .from('User')
       .select('id,name,email,image,passwordHash,emailVerified')
       .eq('email', normalizedEmail)
-      .single() as any
+      .single()
 
     if (!user?.passwordHash) {
       return NextResponse.json(

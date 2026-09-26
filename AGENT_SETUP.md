@@ -3,53 +3,51 @@
 This upgrade turns GazeFocus from a passive todo list into a **proactive, agentic
 personal assistant**: it parses natural language into deadline tasks, nags you on
 a dynamically compressing schedule, audits you every 15 minutes while you work,
-recovers alerts that fired while your device was off, reminds you by **email**,
-pushes **priority Windows toasts** through a tray companion app, and syncs
-everything with external calendars.
+recovers alerts that fired while your device was off, and syncs everything with
+external calendars.
 
-## The delivery architecture (hybrid cloud + desktop)
+> **Architecture change (2025):** the Electron desktop companion and the
+> always-on email reminder pipeline (GitHub Actions cron →
+> `/api/cron/agent-email`) have been **removed**. Reminders are now delivered
+> **web-app-only** via the browser Notification API while a GazeFocus tab is
+> open. This is an accepted trade-off: a reminder that comes due with no open tab
+> does nothing in real time — it is surfaced as a "missed alert" the next time
+> the app is opened. Signup verification and welcome emails (unrelated
+> transactional email) still go through Nodemailer SMTP.
+
+## The delivery architecture (web-only)
 
 ```
-                 ┌────────────────────── CLOUD (always on) ──────────────────────┐
-                 │  Supabase: Reminder rows = the single source of truth         │
-                 │                                                            │
- GH Actions      │  every 15 min ──► POST /api/cron/agent-email                 │
- (free scheduler)│                     emails EVERY due reminder (always-on:    │
- schedules, then │                     even if a toast already fired elsewhere)  │
- calls the API)  │                                                            │
-                 └────────────────────────────────────────────────────────────┘
-                          ▲                                    ▲
-             HTTPS + CRON_SECRET                    HTTPS + Bearer JWT
-             (GitHub → Vercel; Vercel                (poll every 30 s, peek mode)
-              never calls GitHub)                                │
-                                                                        │
-   ┌────────────────────────┐          ┌────────────────────────────────┴─────────┐
-   │ Browser (web app)      │          │ desktop/ Electron companion (Windows)    │
-   │ 30 s daemon claims &   │          │ tray + autostart, runs with window       │
-   │ shows AgentInbox       │          │ closed, native toasts WITH action        │
-   │ dialog                 │          │ buttons acting on the same API           │
-   └────────────────────────┘          └──────────────────────────────────────────┘
+                 ┌────────────────────── CLOUD (state only) ───────────────────┐
+                 │  Supabase: Reminder rows = the single source of truth       │
+                 │  No scheduler, no email fan-out, no cron job for reminders  │
+                 └─────────────────────────────────────────────────────────────┘
+                                        ▲
+                            HTTPS + session cookie
+                             (poll every 30 s, claim mode)
+
+   ┌────────────────────────┐
+   │ Browser (web app)      │  30 s daemon claims & shows AgentInbox dialogs +
+   │ notifications via the  │  fires browser Notifications for each newly due
+   │ Notification API       │  reminder. Snooze/complete from the dialog or the
+   └────────────────────────┘  notification updates the same Reminder rows.
 ```
 
-**Why it's layered this way:** email always fires (you may be away from whatever
-machine showed a toast); the Electron toast is the fast, priority surface while
-your PC is on; the web dialog is the interactive fallback that claims whatever
-you didn't act on. Snoozing/completing on any surface updates the same Reminder
-rows, so nothing double-nags.
+**Why it's layered this way:** the `Reminder` table remains the single source of
+truth, so anything that comes due while no tab is open is recovered on the next
+app boot instead of being silently lost. Snoozing/completing updates the same
+`Reminder` rows, so nothing double-nags.
 
 ## What was built (spec → web adaptation)
 
-The original specification targeted Electron + SQLite. This implementation maps
-every feature onto the existing Next.js + Supabase stack:
-
-| Spec feature | Electron design | This implementation |
+| Spec feature | Original Electron design | This implementation |
 | --- | --- | --- |
 | Boot-time missed notification recovery | `app.whenReady()` scan of SQLite | `GET /api/agent/reminders` atomically claims overdue `PENDING` reminders on app load; a red banner reports "You missed N alerts while offline" |
 | Interactive notifications | Electron `Notification` with action buttons | In-app actionable dialogs + Web Notifications API (browser notifications while the app is open) |
 | Dynamic interval compression | `nagEngine.js` | `src/lib/agent/schedule.ts` — >24h left: +4h · 4–24h: +1h · <4h: +30min |
 | 15-minute audit loop | `setInterval` in main process | `AUDIT` reminder rows in the DB (survive reloads/restarts) claimed by the 30s client daemon |
 | NLP input | chrono-node in renderer | `POST /api/agent/parse` (chrono-node, server-side, fully offline rules — no LLM key needed) |
-| Bidirectional calendar sync | `@googleapis/calendar` | ICS feed aggregation (`node-ical`) for reads + plain REST OAuth2 writes to exactly one Google account |
+| Calendar sync | `@googleapis/calendar` | ICS feed aggregation (`node-ical`) for reads + plain REST OAuth2 writes to exactly one Google account |
 
 ### Files
 
@@ -79,11 +77,11 @@ src/store/useStore.ts                          useAgentStore (zustand)
 
 The agent needs three new tables (`Reminder`, `CalendarFeed`, `CalendarAccount`)
 and new columns: four on `Todo` (`deadlineAt`, `isInFocus`, `source`,
-`gEventId`) plus `Reminder.emailSentAt` for the email channel.
+`gEventId`). (`Reminder.emailSentAt` from the removed email channel still
+exists in the schema but is no longer written to.)
 
 **Option A — Supabase Dashboard:** open your project → SQL Editor → paste the
-contents of `supabase/migrations/016_agent_scheduling.sql` **and**
-`supabase/migrations/017_agent_email_reminders.sql` → Run.
+contents of `supabase/migrations/016_agent_scheduling.sql` → Run.
 
 **Option B — Supabase CLI:**
 
@@ -94,7 +92,7 @@ supabase link --project-ref <your-ref>
 supabase db push --linked
 ```
 
-Both migrations are idempotent (`IF NOT EXISTS` guards) and enable RLS with no
+The migration is idempotent (`IF NOT EXISTS` guards) and enables RLS with no
 policies on the new tables — all access flows through the API routes using the
 service-role client, matching the existing security pattern.
 
@@ -108,7 +106,7 @@ OAuth consent screen to belong to an OAuth client you register:
 
 1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
 2. Create an **OAuth 2.0 Client ID** (Web application) — or reuse your existing
-   `GOOGLE_CLIENT_ID` client.
+   `GOOGLE_CLIENT_ID` client (add the `calendar.events` scope to it).
 3. Add an **Authorized redirect URI**:
    `https://<your-domain>/api/calendar/google/callback`
    (locally: `http://localhost:3000/api/calendar/google/callback`)
@@ -124,8 +122,11 @@ GOOGLE_CALENDAR_REDIRECT_URI=
 ```
 
 Users then click **Calendar → Feeds → Connect Google Calendar**. Exactly one
-Google account per user can be connected (single-account write rule); agent
-tasks are mirrored to `primary` and marked ✅ on completion.
+Google account per user can be connected (single-account write rule); tasks
+with a due date/time are mirrored to `primary` — created when the task is
+created, updated when it is rescheduled/edited, removed when it is deleted,
+and marked ✅ on completion. Access tokens are refreshed automatically via the
+stored refresh token before every write.
 
 ### 3. External read-only calendars (no setup needed)
 
@@ -137,39 +138,16 @@ export work the same way. Feeds render as teal read-only events on the unified
 calendar grid with recurrence (RRULE) expansion, and never sync back — reads
 from many feeds, writes to exactly your one connected Google account.
 
-### 4. Email reminders (always-on channel)
+### 4. Browser notifications (the only reminder channel)
 
-Already wired: `.github/workflows/agent_reminders.yml` runs every 15 minutes
-and POSTs to `/api/cron/agent-email` on your Vercel deployment using the
-`CRON_SECRET` + `VERCEL_APP_URL` repo secrets (same pattern as the existing
-`daily_sync.yml`). **Direction of communication: GitHub → Vercel.** Vercel
-never calls GitHub; GitHub Actions is simply the free scheduler that wakes up
-and hits your API. Requires the SMTP_* env vars (already set for welcome
-emails) and migration 017.
-
-Emails send for **every** reminder that comes due — regardless of whether the
-web app or Electron companion already showed a notification — because you may
-be away from that machine. Only tasks you explicitly complete/dismiss stop the
-emails. GitHub may delay sub-hour schedules by a few minutes at busy times;
-the interactive channels cover precision timing.
-
-### 5. Electron desktop companion (priority Windows toasts)
-
-See `desktop/README.md`. In short:
-
-```bash
-cd desktop
-npm install
-GAZEFOCUS_URL=https://your-app.vercel.app npm start   # dev run
-npm run dist                                           # NSIS installer
-```
-
-It signs in with your site email/password (extension-login JWT), sits in the
-tray, autostarts with Windows if you tick it in the tray menu, and polls
-`/api/agent/reminders?peek=1` every 30 s. Priority toasts carry real action
-buttons (*Do it now* / *Snooze*, *Completed* / *Keep working*) that call the
-cloud API directly. `peek=1` means it never steals reminders from the web
-dialog — anything you don't act on still shows up when you open the app.
+No server setup is required. The client daemon
+(`src/hooks/useAgentDaemon.ts`) polls `/api/agent/reminders` every 30 seconds
+while an authenticated tab is open and fires a browser Notification for each
+newly due reminder. Permission is requested the first time the user creates a
+reminder/task with a due time (not on page load). Snoozing, skipping, starting
+focus, or completing — from the AgentInbox dialog — updates the same `Reminder`
+rows, so nothing double-nags and nothing is lost when no tab was open
+(overdue items are claimed and surfaced on the next app open).
 
 ## How the agent loop works
 
@@ -202,8 +180,8 @@ timezone drift (spec §5.3).
 
 - **Notifications only while a tab is open.** The 30s daemon runs in the
   browser; with no open tab nothing fires in real time — but the missed-alert
-  recovery guarantees nothing is lost, it just surfaces on next open.
-  (Future: Web Push via service worker + Vercel Cron for true offline delivery.)
+  recovery guarantees nothing is lost, it just surfaces on next open. This
+  trade-off is explicitly accepted.
 - **Web notifications have no native action buttons** on most platforms, so the
   interactive actions live in the in-app AgentInbox dialog; the OS notification
   is the attention hook.
@@ -216,7 +194,9 @@ timezone drift (spec §5.3).
    the Schedule & Tasks card.
 2. Type `chem lab report due tomorrow at 5pm` — a preview card with the parsed
    title/deadline should appear within ~400ms.
-3. Add it; on the Calendar page the task shows as a purple event.
+3. Add it; on the Calendar page the task shows as a purple event. If Google
+   Calendar is connected, the event appears in your Google Calendar within a
+   few seconds.
 4. To test the nag loop immediately, temporarily set `firstFireAt` a minute out
    via `POST /api/agent/reminders` from the browser console, or wait for the
    first scheduled fire. The dialog should offer the three actions.

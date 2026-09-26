@@ -52,7 +52,7 @@ export const authOptions: NextAuthOptions = {
           .from('User')
           .select('id,name,email,image,passwordHash,emailVerified')
           .eq('email', normalizedEmail)
-          .single() as any
+          .single()
 
         if (!user?.passwordHash) return null
 
@@ -74,7 +74,7 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      const extendedToken = token as any
+      const extendedToken = token as typeof token & { id?: string }
 
 
       if (user && user.email) {
@@ -108,8 +108,8 @@ export const authOptions: NextAuthOptions = {
       return extendedToken
     },
     async session({ session, token }) {
-      const extendedToken = token as any
-      const extSession = session as any
+      const extendedToken = token as typeof token & { id?: string }
+      const extSession = session as typeof session & { user: typeof session.user & { id?: string } }
 
 
       if (extSession.user && extendedToken.id) {

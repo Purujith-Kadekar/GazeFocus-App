@@ -404,18 +404,21 @@ export type Database = {
           signupEnabled: boolean
           updatedAt: string
           adminPasswordHash: string | null
+          userDailyTokenLimit: number
         }
         Insert: {
           id?: string
           signupEnabled?: boolean
           updatedAt: string
           adminPasswordHash?: string | null
+          userDailyTokenLimit?: number
         }
         Update: {
           id?: string
           signupEnabled?: boolean
           updatedAt?: string
           adminPasswordHash?: string | null
+          userDailyTokenLimit?: number
         }
         Relationships: []
       }
@@ -613,6 +616,8 @@ export type Database = {
       }
       User: {
         Row: {
+          apiTokensResetAt: string
+          apiTokensUsed: number
           authProvider: 'google' | 'credentials' | 'firebase' | null
           createdAt: string
           currentStreak: number
@@ -633,9 +638,15 @@ export type Database = {
           name: string | null
           passwordHash: string | null
           updatedAt: string
+          verificationCodeAttempts: number
+          verificationCodeExpiresAt: string | null
+          verificationCodeHash: string | null
+          verificationCodeSentAt: string | null
           weeklyVideosWatched: number
         }
         Insert: {
+          apiTokensResetAt?: string
+          apiTokensUsed?: number
           authProvider?: 'google' | 'credentials' | 'firebase' | null
           createdAt?: string
           currentStreak?: number
@@ -656,9 +667,15 @@ export type Database = {
           name?: string | null
           passwordHash?: string | null
           updatedAt: string
+          verificationCodeAttempts?: number
+          verificationCodeExpiresAt?: string | null
+          verificationCodeHash?: string | null
+          verificationCodeSentAt?: string | null
           weeklyVideosWatched?: number
         }
         Update: {
+          apiTokensResetAt?: string
+          apiTokensUsed?: number
           authProvider?: 'google' | 'credentials' | 'firebase' | null
           createdAt?: string
           currentStreak?: number
@@ -679,6 +696,10 @@ export type Database = {
           name?: string | null
           passwordHash?: string | null
           updatedAt?: string
+          verificationCodeAttempts?: number
+          verificationCodeExpiresAt?: string | null
+          verificationCodeHash?: string | null
+          verificationCodeSentAt?: string | null
           weeklyVideosWatched?: number
         }
         Relationships: []
@@ -769,8 +790,169 @@ export type Database = {
         }
         Relationships: []
       }
+      Channel: {
+        Row: {
+          id: string
+          userId: string
+          youtubeId: string
+          title: string
+          description: string | null
+          thumbnail: string | null
+          subscriberCount: string | null
+          videoCount: string | null
+          isLive: boolean
+          liveVideoId: string | null
+          liveTitle: string | null
+          createdAt: string
+          updatedAt: string
+        }
+        Insert: {
+          id?: string
+          userId: string
+          youtubeId: string
+          title: string
+          description?: string | null
+          thumbnail?: string | null
+          subscriberCount?: string | null
+          videoCount?: string | null
+          isLive?: boolean
+          liveVideoId?: string | null
+          liveTitle?: string | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Update: {
+          id?: string
+          userId?: string
+          youtubeId?: string
+          title?: string
+          description?: string | null
+          thumbnail?: string | null
+          subscriberCount?: string | null
+          videoCount?: string | null
+          isLive?: boolean
+          liveVideoId?: string | null
+          liveTitle?: string | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Channel_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ChannelCache: {
+        Row: {
+          youtubeId: string
+          title: string
+          description: string | null
+          thumbnail: string | null
+          uploadsPlaylistId: string | null
+          lastSyncedAt: string | null
+          nextPageToken: string | null
+          createdAt: string
+          updatedAt: string
+        }
+        Insert: {
+          youtubeId: string
+          title: string
+          description?: string | null
+          thumbnail?: string | null
+          uploadsPlaylistId?: string | null
+          lastSyncedAt?: string | null
+          nextPageToken?: string | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Update: {
+          youtubeId?: string
+          title?: string
+          description?: string | null
+          thumbnail?: string | null
+          uploadsPlaylistId?: string | null
+          lastSyncedAt?: string | null
+          nextPageToken?: string | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Relationships: []
+      }
+      ChannelJsonCache: {
+        Row: {
+          channelId: string
+          payload: unknown
+          latestVideoPublishedAt: string | null
+          updatedAt: string
+        }
+        Insert: {
+          channelId: string
+          payload?: unknown
+          latestVideoPublishedAt?: string | null
+          updatedAt?: string
+        }
+        Update: {
+          channelId?: string
+          payload?: unknown
+          latestVideoPublishedAt?: string | null
+          updatedAt?: string
+        }
+        Relationships: []
+      }
+      VideoCache: {
+        Row: {
+          youtubeId: string
+          title: string
+          description: string | null
+          thumbnail: string | null
+          duration: number
+          publishedAt: string | null
+          channelId: string | null
+          isLive: boolean | null
+          createdAt: string
+          updatedAt: string
+        }
+        Insert: {
+          youtubeId: string
+          title: string
+          description?: string | null
+          thumbnail?: string | null
+          duration?: number
+          publishedAt?: string | null
+          channelId?: string | null
+          isLive?: boolean | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Update: {
+          youtubeId?: string
+          title?: string
+          description?: string | null
+          thumbnail?: string | null
+          duration?: number
+          publishedAt?: string | null
+          channelId?: string | null
+          isLive?: boolean | null
+          createdAt?: string
+          updatedAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "VideoCache_channelId_fkey"
+            columns: ["channelId"]
+            isOneToOne: false
+            referencedRelation: "ChannelCache"
+            referencedColumns: ["youtubeId"]
+          },
+        ]
+      }
       Video: {
         Row: {
+          channelId: string | null
           createdAt: string
           description: string | null
           duration: number
@@ -785,6 +967,7 @@ export type Database = {
           youtubeId: string
         }
         Insert: {
+          channelId?: string | null
           createdAt?: string
           description?: string | null
           duration?: number
@@ -799,6 +982,7 @@ export type Database = {
           youtubeId: string
         }
         Update: {
+          channelId?: string | null
           createdAt?: string
           description?: string | null
           duration?: number

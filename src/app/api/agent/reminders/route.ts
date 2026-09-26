@@ -6,7 +6,6 @@ import {
   createAgentTask,
   deferReminder,
   getUpcomingReminders,
-  peekDueReminders,
   skipReminder,
 } from '@/lib/agent/reminders'
 
@@ -21,10 +20,6 @@ import {
  * Query:
  *  ?sessionStart=<epoch ms> marks which reminders were missed
  *  offline (fired before this browser session started).
- *  ?peek=1 returns due reminders WITHOUT claiming them — used
- *  by the Electron companion, which toasts and acts via the
- *  PATCH/focus endpoints itself, leaving the web dialog as a
- *  fallback for anything unactioned.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -36,11 +31,8 @@ export async function GET(request: NextRequest) {
     const sessionStartParam = request.nextUrl.searchParams.get('sessionStart')
     const sessionStart = Number(sessionStartParam)
     const sessionStartedAtMs = Number.isFinite(sessionStart) && sessionStart > 0 ? sessionStart : Date.now()
-    const isPeek = request.nextUrl.searchParams.get('peek') === '1'
 
-    const due = isPeek
-      ? await peekDueReminders(user.id, sessionStartedAtMs)
-      : await claimDueReminders(user.id, sessionStartedAtMs)
+    const due = await claimDueReminders(user.id, sessionStartedAtMs)
     const upcoming = await getUpcomingReminders(user.id)
 
     return NextResponse.json({ due, upcoming })

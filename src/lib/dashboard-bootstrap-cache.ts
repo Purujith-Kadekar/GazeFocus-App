@@ -1,16 +1,10 @@
-export interface DashboardBootstrapPayload {
-  userId: string
-  folders: any[]
-  videos: any[]
-  notes: any[]
-  stats: any
-  completedVideos: string[]
-  playlists: any[]
-  completedPlaylists: string[]
-  todos: any[]
-  settings: { weeklyGoal?: number } | null
-  channels: any[]
-}
+import type { DashboardBootstrapResponse } from '@/components/dashboard/dashboard-types'
+
+/**
+ * The cached shape is exactly what GET /api/dashboard/bootstrap returns —
+ * see DashboardBootstrapResponse in the dashboard's types module.
+ */
+export type DashboardBootstrapPayload = DashboardBootstrapResponse
 
 interface DashboardBootstrapCacheEntry {
   fetchedAt: number

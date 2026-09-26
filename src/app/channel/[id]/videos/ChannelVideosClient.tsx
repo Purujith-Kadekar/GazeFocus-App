@@ -12,6 +12,17 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { Channel, Video } from '@/types'
 
+/** Video shape returned by /api/channels/videos/fetch. */
+interface ChannelVideosApiVideo {
+  youtubeId: string
+  title: string
+  description: string
+  thumbnail: string
+  duration: number
+  publishedAt: string
+}
+
+
 interface ChannelVideosClientProps {
   channel: Channel
   initialVideos: Video[]
@@ -68,7 +79,7 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
         const data = await response.json()
         
         // Convert to Video format and add to list
-        const newVideos: Video[] = data.videos.map((v: any) => ({
+        const newVideos: Video[] = data.videos.map((v: ChannelVideosApiVideo) => ({
           id: v.youtubeId,
           youtubeId: v.youtubeId,
           title: v.title,
@@ -115,7 +126,7 @@ export default function ChannelVideosClient({ channel: initialChannel, initialVi
       if (smartResponse.ok) {
         const data = await smartResponse.json()
         
-        const fetchedVideos: Video[] = data.videos.map((v: any) => ({
+        const fetchedVideos: Video[] = data.videos.map((v: ChannelVideosApiVideo) => ({
           id: v.youtubeId,
           youtubeId: v.youtubeId,
           title: v.title,
@@ -356,11 +367,11 @@ function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
       <CardContent className="p-0">
         <div className="relative aspect-video">
           {video.thumbnail ? (
-            <img
+            <Image
               src={video.thumbnail}
               alt={video.title}
-              loading="lazy"
-              decoding="async"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -393,11 +404,11 @@ function VideoListItem({ video, onClick }: { video: Video; onClick: () => void }
     >
       <div className="relative w-40 aspect-video shrink-0 rounded overflow-hidden">
         {video.thumbnail ? (
-          <img
+          <Image
             src={video.thumbnail}
             alt={video.title}
-            loading="lazy"
-            decoding="async"
+            fill
+            sizes="160px"
             className="w-full h-full object-cover"
           />
         ) : (

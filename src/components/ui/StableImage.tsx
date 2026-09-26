@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import NextImage from 'next/image'
 
 type StableImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'width' | 'height'> & {
   src: string
@@ -13,6 +14,17 @@ type StableImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 
   unoptimized?: boolean
 }
 
+/**
+ * Next.js <Image> wrapper with retry-on-error fallback.
+ *
+ * Renders the optimized next/image component (automatic lazy loading,
+ * sizing, and CDN transforms) while keeping the retry behavior that
+ * flaky remote thumbnail hosts need: on error the source is re-fetched
+ * up to twice with a cache-buster.
+ *
+ * SVG / data: / blob: sources bypass the image optimizer (it does not
+ * transform vectors), which keeps local assets like /logo.svg working.
+ */
 export default function StableImage({
   src,
   alt,
@@ -21,10 +33,10 @@ export default function StableImage({
   sizes,
   width,
   height,
+  unoptimized,
   className,
   style,
   loading,
-  fetchPriority,
   decoding,
   crossOrigin,
   ...rest
@@ -47,29 +59,34 @@ export default function StableImage({
     }
   }
 
-  const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy')
-  const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : 'auto')
-  const resolvedDecoding = decoding ?? 'async'
+  // The optimizer cannot transform vectors or inline data — pass them
+  // through unoptimized so local SVGs (e.g. /logo.svg) keep rendering.
+  const bypassOptimizer =
+    currentSrc.endsWith('.svg') ||
+    currentSrc.startsWith('data:') ||
+    currentSrc.startsWith('blob:')
 
   const mergedStyle: React.CSSProperties = fill
     ? { position: 'absolute', inset: 0, width: '100%', height: '100%', ...style }
     : { ...style }
 
   return (
-    <img
+    <NextImage
       key={currentSrc}
       src={currentSrc}
       alt={alt}
+      fill={fill}
       width={fill ? undefined : width}
       height={fill ? undefined : height}
       sizes={sizes}
-      loading={resolvedLoading}
-      fetchPriority={resolvedFetchPriority}
-      decoding={resolvedDecoding}
+      priority={priority}
+      loading={loading}
+      decoding={decoding}
       className={className}
       style={mergedStyle}
       onError={handleError}
-      crossOrigin={crossOrigin || "anonymous"}
+      crossOrigin={crossOrigin || 'anonymous'}
+      unoptimized={unoptimized ?? bypassOptimizer}
       {...rest}
     />
   )

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       finishedAt: completed ? now : null,
       createdAt: now,
       updatedAt: now,
-    }, { onConflict: 'userId,youtubeId' }).select().single()
+    }, { onConflict: 'userId,youtubeId' }).select('id,userId,youtubeId,finished,finishedAt,createdAt,updatedAt').single()
 
     if (error) {
       console.error('Error upserting playlist completion:', error)
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const completedPlaylists = completedResult.data || []
 
     return NextResponse.json({ 
-      completedPlaylists: completedPlaylists.map((p: any) => p.youtubeId) 
+      completedPlaylists: completedPlaylists.map((p: { youtubeId: string }) => p.youtubeId)
     })
   } catch (error) {
     console.error('Error fetching completed playlists:', error)

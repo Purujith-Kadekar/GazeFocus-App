@@ -18,7 +18,7 @@ export async function GET() {
 
     const { data: feeds } = await db
       .from('CalendarFeed')
-      .select('*')
+      .select('id,feedName,feedUrl,feedType,color,isEnabled,createdAt')
       .eq('userId', user.id)
       .order('createdAt', { ascending: true })
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         feedType: resolvedType,
         isEnabled: true,
       })
-      .select('*')
+      .select('id,feedName,feedUrl,feedType,color,isEnabled,createdAt')
       .single()
 
     if (error) throw error
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
       .update(updates)
       .eq('id', id)
       .eq('userId', user.id)
-      .select('*')
+      .select('id,feedName,feedUrl,feedType,color,isEnabled,createdAt')
       .single()
 
     if (error) throw error

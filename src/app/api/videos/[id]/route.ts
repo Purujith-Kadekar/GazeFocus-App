@@ -64,7 +64,7 @@ export async function PUT(
       .update(updateData)
       .eq('id', id)
       .eq('userId', user.id)
-      .select()
+      .select('id,youtubeId,title,description,thumbnail,duration,playlistId,position,scheduledAt,createdAt,updatedAt,userId')
       .single()
 
     if (error) {

@@ -121,7 +121,7 @@ export default function SearchPage() {
     try {
       // Route to the correct API based on type
       let apiUrl = '/api/videos'
-      let body: any = {
+      let body: Record<string, unknown> = {
         youtubeId: itemId,
         title: item.title,
         description: item.description,
@@ -192,7 +192,7 @@ export default function SearchPage() {
     try {
       const response = await fetch('/api/videos?standaloneOnly=true')
       const videos = await response.json()
-      const savedVideo = videos.find((v: any) => v.youtubeId === videoId)
+      const savedVideo = videos.find((v: { youtubeId: string }) => v.youtubeId === videoId)
       
       if (savedVideo) {
         setCurrentVideo(savedVideo)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { db } from '@/lib/db'
+import type { ChannelVideo } from '@/types'
 import { QuotaEngine } from '@/lib/youtube/quota-engine'
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
@@ -158,13 +159,13 @@ async function checkLiveStatus(channelIdOrHandle: string): Promise<{
   return { isLive: false, liveVideoId: null, liveTitle: null }
 }
 
-async function fetchChannelVideos(channelYoutubeId: string): Promise<any[]> {
+async function fetchChannelVideos(channelYoutubeId: string): Promise<ChannelVideo[]> {
   if (!YOUTUBE_API_KEY) return []
 
   const uploadsPlaylistId = await getUploadsPlaylistId(channelYoutubeId)
   if (!uploadsPlaylistId) return []
 
-  const videos: any[] = []
+  const videos: ChannelVideo[] = []
   let nextPageToken: string | undefined = undefined
   let position = 0
 
@@ -206,7 +207,7 @@ async function syncChannel(channel: { id: string; youtubeId: string; userId: str
   const resolvedYoutubeId = channelDetails?.youtubeId || channel.youtubeId
   
   const now = new Date().toISOString()
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     updatedAt: now,
   }
 
@@ -245,11 +246,25 @@ async function syncChannel(channel: { id: string; youtubeId: string; userId: str
       .eq('userId', channel.userId)
       .in('youtubeId', fetchedIds)
 
-    const existingMap = new Map<string, any>((existingVideos || []).map((v: any) => [v.youtubeId, v]))
+    const existingMap = new Map<string, { id: string; channelId: string | null; playlistId: string | null }>(
+      (existingVideos || []).map((v: { id: string; youtubeId: string; channelId: string | null; playlistId: string | null }) => [v.youtubeId, v])
+    )
     
     // Separate into: videos to adopt (standalone → channel), videos to insert (new), videos to skip
     const videosToAdopt: string[] = [] // youtubeIds of standalone videos to claim for this channel
-    const videosToInsert: any[] = [] // truly new videos
+    const videosToInsert: Array<{
+      id: string
+      youtubeId: string
+      title: string
+      description: string
+      thumbnail: string
+      duration: number
+      position: number
+      channelId: string
+      userId: string
+      createdAt: string
+      updatedAt: string
+    }> = [] // truly new videos
     
     for (const video of videos) {
       const existing = existingMap.get(video.youtubeId)
@@ -334,13 +349,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching channels:', error)
-      return NextResponse.json({ error: 'Failed to fetch channels', details: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch channels', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
     }
 
     return NextResponse.json(channels || [])
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching channels:', error)
-    return NextResponse.json({ error: 'Failed to fetch channels', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch channels', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }
 
@@ -400,12 +415,12 @@ export async function POST(request: NextRequest) {
         createdAt: now,
         updatedAt: now,
       })
-      .select()
+      .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .single()
 
     if (error) {
       console.error('Error creating channel:', error)
-      return NextResponse.json({ error: 'Failed to create channel', details: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to create channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
     }
 
     const libraryItemId = crypto.randomUUID()
@@ -433,8 +448,8 @@ export async function POST(request: NextRequest) {
       liveVideoId: syncResult.liveVideoId,
       liveTitle: syncResult.liveTitle,
     }, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating channel:', error)
-    return NextResponse.json({ error: 'Failed to create channel', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

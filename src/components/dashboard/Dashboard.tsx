@@ -245,7 +245,7 @@ export function Dashboard() {
         if (response.ok) {
           const data = await response.json()
           setChannels(prev => prev.map(channel => {
-            const liveStatus = data.channels.find((c: any) => c.channelId === channel.id)
+            const liveStatus = data.channels.find((c: { channelId: string; isLive: boolean }) => c.channelId === channel.id)
             if (liveStatus) {
               return {
                 ...channel,
@@ -279,7 +279,7 @@ export function Dashboard() {
       if (response.ok) {
         const data = await response.json()
         setChannels(prev => prev.map(channel => {
-          const liveStatus = data.channels.find((c: any) => c.channelId === channel.id)
+          const liveStatus = data.channels.find((c: { channelId: string; isLive: boolean }) => c.channelId === channel.id)
           if (liveStatus) {
             return {
               ...channel,

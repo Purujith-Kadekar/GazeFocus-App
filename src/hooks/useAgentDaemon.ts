@@ -40,14 +40,6 @@ export function useAgentDaemon() {
 
   const setTodos = useTodoStore((s) => s.setTodos)
 
-  // Request browser notification permission on first interaction.
-  const requestPermission = useCallback(() => {
-    if (typeof window === 'undefined') return
-    if (Notification.permission === 'default') {
-      void Notification.requestPermission()
-    }
-  }, [])
-
   // Fire a native browser notification for a due reminder.
   const fireBrowserNotification = useCallback((reminder: DueReminder) => {
     if (typeof window === 'undefined' || Notification.permission !== 'granted') return
@@ -128,7 +120,6 @@ export function useAgentDaemon() {
     if (!hasBootedRef.current) {
       hasBootedRef.current = true
       initSessionStart()
-      requestPermission()
       void poll()
     }
 
@@ -139,7 +130,7 @@ export function useAgentDaemon() {
         pollTimerRef.current = null
       }
     }
-  }, [daemonActive, poll, initSessionStart, requestPermission])
+  }, [daemonActive, poll, initSessionStart])
 
   // Auto-activate the daemon when the hook is mounted inside
   // an authenticated page (the middleware already guarantees auth).

@@ -17,27 +17,41 @@ import {
   OAuthProvider,
   sendSignInLinkToEmail
 } from 'firebase/auth'
+import type { User } from 'firebase/auth'
 import { auth as firebaseAuth, app as firebaseApp } from '@/lib/firebase'
 import { db } from '@/lib/db'
 import { beginRouteLoading, endRouteLoading } from '@/components/layout/RouteTopLoader'
 
-function logFirebaseError(context: string, err: any) {
+/** Shape shared by FirebaseError and other thrown auth errors. */
+interface AuthErrorLike {
+  code?: string
+  message?: string
+  customData?: unknown
+  email?: string
+}
+
+function asAuthError(err: unknown): AuthErrorLike {
+  if (err && typeof err === 'object') return err as AuthErrorLike
+  return {}
+}
+
+function logFirebaseError(context: string, err: unknown) {
+  const e = asAuthError(err)
   console.error(`[${context}] Firebase error:`, err)
-  console.error(`[${context}] Error code:`, err?.code)
-  console.error(`[${context}] Error message:`, err?.message)
-  if (err?.customData) {
-    console.error(`[${context}] Custom data:`, err?.customData)
+  console.error(`[${context}] Error code:`, e.code)
+  console.error(`[${context}] Error message:`, e.message)
+  if (e.customData) {
+    console.error(`[${context}] Custom data:`, e.customData)
   }
-  if (err?.email) {
-    console.error(`[${context}] Email:`, err?.email)
+  if (e.email) {
+    console.error(`[${context}] Email:`, e.email)
   }
 }
 
-function getFirebaseErrorMessage(err: any): string {
+function getFirebaseErrorMessage(err: unknown): string {
   if (!err) return 'Login failed'
 
-  const code = err?.code
-  const message = err?.message
+  const { code, message } = asAuthError(err)
 
   switch (code) {
     case 'auth/internal-error':
@@ -53,6 +67,12 @@ function getFirebaseErrorMessage(err: any): string {
     default:
       return message || 'Login failed'
   }
+}
+
+/** Firebase's User type does not expose reloadUserInfo (internal field). */
+function reloadUserInfoOf(user: User): { displayName?: string | null; photoURL?: string | null } | undefined {
+  return (user as unknown as { reloadUserInfo?: { displayName?: string | null; photoURL?: string | null } })
+    .reloadUserInfo
 }
 
 function FirebaseConfigStatus() {
@@ -212,7 +232,7 @@ function LoginPageContent() {
       
       await sendSignInLinkToEmail(firebaseAuth, email, actionCodeSettings)
       setLinkSent(true)
-    } catch (err: any) {
+    } catch (err) {
       logFirebaseError('Email Link', err)
       setError(getFirebaseErrorMessage(err))
     } finally {
@@ -237,7 +257,7 @@ function LoginPageContent() {
       // Create user in Supabase if doesn't exist
       if (email) {
         try {
-          let existingUser: any = null
+          let existingUser: { id: string } | null = null
           try {
             const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
             if (userRes.ok) {
@@ -248,7 +268,7 @@ function LoginPageContent() {
           
           if (!existingUser) {
             const now = new Date().toISOString()
-            const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
+            const rawName = user.displayName || reloadUserInfoOf(user)?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try {
               const createRes = await fetch('/api/user/create', {
@@ -257,7 +277,7 @@ function LoginPageContent() {
                 body: JSON.stringify({
                   email,
                   name,
-                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                  image: user.photoURL || reloadUserInfoOf(user)?.photoURL || user.providerData?.[0]?.photoURL || '',
                   emailVerified: now,
                 }),
               })
@@ -265,7 +285,7 @@ function LoginPageContent() {
                 const errData = await createRes.json()
                 console.error('User create API error:', errData)
               }
-            } catch (e: any) {
+            } catch (e) {
               console.error('User create exception:', e)
             }
           }
@@ -278,7 +298,7 @@ function LoginPageContent() {
         setIsRedirecting(true)
         await signIn('firebase', { idToken, redirect: false })
         window.location.href = '/dashboard'
-    } catch (err: any) {
+    } catch (err) {
       logFirebaseError('Google Login', err)
       setError(getFirebaseErrorMessage(err))
     } finally {
@@ -303,7 +323,7 @@ function LoginPageContent() {
 
       if (email) {
         try {
-          let existingUser: any = null
+          let existingUser: { id: string } | null = null
           try {
             const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
             if (userRes.ok) {
@@ -314,7 +334,7 @@ function LoginPageContent() {
 
           if (!existingUser) {
             const now = new Date().toISOString()
-            const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
+            const rawName = user.displayName || reloadUserInfoOf(user)?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try {
               const createRes = await fetch('/api/user/create', {
@@ -323,7 +343,7 @@ function LoginPageContent() {
                 body: JSON.stringify({
                   email,
                   name,
-                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                  image: user.photoURL || reloadUserInfoOf(user)?.photoURL || user.providerData?.[0]?.photoURL || '',
                   emailVerified: now,
                 }),
               })
@@ -340,7 +360,7 @@ function LoginPageContent() {
       setIsRedirecting(true)
       await signIn('firebase', { idToken, redirect: false })
       window.location.href = '/dashboard'
-    } catch (err: any) {
+    } catch (err) {
       logFirebaseError('GitHub Login', err)
       setError(getFirebaseErrorMessage(err))
     } finally {
@@ -365,7 +385,7 @@ function LoginPageContent() {
 
       if (email) {
         try {
-          let existingUser: any = null
+          let existingUser: { id: string } | null = null
           try {
             const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
             if (userRes.ok) {
@@ -376,7 +396,7 @@ function LoginPageContent() {
 
           if (!existingUser) {
             const now = new Date().toISOString()
-            const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
+            const rawName = user.displayName || reloadUserInfoOf(user)?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try {
               const createRes = await fetch('/api/user/create', {
@@ -385,7 +405,7 @@ function LoginPageContent() {
                 body: JSON.stringify({
                   email,
                   name,
-                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '',
+                  image: user.photoURL || reloadUserInfoOf(user)?.photoURL || user.providerData?.[0]?.photoURL || '',
                   emailVerified: now,
                 }),
               })
@@ -402,7 +422,7 @@ function LoginPageContent() {
       setIsRedirecting(true)
       await signIn('firebase', { idToken, redirect: false })
       window.location.href = '/dashboard'
-    } catch (err: any) {
+    } catch (err) {
       logFirebaseError('Twitter Login', err)
       setError(getFirebaseErrorMessage(err))
     } finally {

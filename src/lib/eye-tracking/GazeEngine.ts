@@ -1,5 +1,13 @@
 import type { EyeTrackingConfig, GazeResult } from './types';
 import { DEFAULT_CONFIG, SENSITIVITY_THRESHOLDS } from './types';
+import type { FaceLandmarker, NormalizedLandmark } from '@mediapipe/tasks-vision';
+
+/** tasks-vision 0.10.x declares WasmFileset locally without exporting it — mirror its shape. */
+interface WasmFileset {
+  wasmLoaderPath: string
+  wasmBinaryPath: string
+  assetLoaderPath?: string
+}
 
 // Utility to temporarily suppress console output (Support both Sync and Async)
 const withSuppressedLogs = <T>(fn: () => T): T => {
@@ -8,7 +16,7 @@ const withSuppressedLogs = <T>(fn: () => T): T => {
   const originalWarn = console.warn;
   const filterPattern = /TensorFlow|XNNPACK|delegate|calculator_graph|INFO:/i;
   
-  const mock = (orig: any) => (...args: any[]) => {
+  const mock = (orig: (...args: unknown[]) => void) => (...args: unknown[]) => {
     if (typeof args[0] === 'string' && filterPattern.test(args[0])) return;
     orig(...args);
   };
@@ -33,7 +41,7 @@ const withSuppressedLogsAsync = async <T>(fn: () => Promise<T>): Promise<T> => {
   const originalWarn = console.warn;
   const filterPattern = /TensorFlow|XNNPACK|delegate|calculator_graph|INFO:/i;
   
-  const mock = (orig: any) => (...args: any[]) => {
+  const mock = (orig: (...args: unknown[]) => void) => (...args: unknown[]) => {
     if (typeof args[0] === 'string' && filterPattern.test(args[0])) return;
     orig(...args);
   };
@@ -52,7 +60,7 @@ const withSuppressedLogsAsync = async <T>(fn: () => Promise<T>): Promise<T> => {
 };
 
 export class GazeEngine {
-  private faceLandmarker: any = null;
+  private faceLandmarker: FaceLandmarker | null = null;
   private config: EyeTrackingConfig;
   private initialized = false;
   private static readonly MEDIAPIPE_TASKS_VERSION = '0.10.32';
@@ -74,7 +82,7 @@ export class GazeEngine {
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
       ];
 
-      let filesetResolver: any = null;
+      let filesetResolver: WasmFileset | null = null;
       let resolverError: unknown = null;
 
       for (const wasmBaseUrl of resolverCandidates) {
@@ -124,8 +132,9 @@ export class GazeEngine {
     }
 
     try {
+      const landmarker = this.faceLandmarker;
       const results = withSuppressedLogs(() => {
-        return this.faceLandmarker.detectForVideo(video, timestampMs);
+        return landmarker.detectForVideo(video, timestampMs);
       });
 
       if (!results || !results.faceLandmarks || results.faceLandmarks.length === 0) {
@@ -165,7 +174,7 @@ export class GazeEngine {
     }
   }
 
-  private analyzeHeadPose(landmarks: any[]): { isFront: boolean; confidence: number } {
+  private analyzeHeadPose(landmarks: NormalizedLandmark[]): { isFront: boolean; confidence: number } {
     const t = SENSITIVITY_THRESHOLDS[this.config.sensitivityMode];
 
     const NOSE = 1;
@@ -197,7 +206,7 @@ export class GazeEngine {
     return { isFront, confidence };
   }
 
-  private analyzeIris(landmarks: any[]): { isLookingAtScreen: boolean; confidence: number } {
+  private analyzeIris(landmarks: NormalizedLandmark[]): { isLookingAtScreen: boolean; confidence: number } {
     const LEFT_IRIS = 468;
     const RIGHT_IRIS = 473;
     const LEFT_EYE_INNER = 133;
@@ -241,9 +250,10 @@ export class GazeEngine {
 
   dispose() {
     try {
-      if (this.faceLandmarker) {
+      const landmarker = this.faceLandmarker;
+      if (landmarker) {
         withSuppressedLogs(() => {
-          this.faceLandmarker.close();
+          landmarker.close();
         });
       }
     } catch (err) {}

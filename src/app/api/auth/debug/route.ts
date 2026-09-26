@@ -12,8 +12,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Not available in production' }, { status: 404 })
   }
 
-  const allProviders = authOptions.providers.map((p: any) => ({ id: p.id, name: p.name, hasAuthorize: typeof p.authorize === 'function' }))
-  const firebaseProvider = allProviders.find((p: any) => p.id === 'firebase')
+  const allProviders = authOptions.providers.map((p: { id?: string; name?: string; authorize?: unknown }) => ({ id: p.id, name: p.name, hasAuthorize: typeof p.authorize === 'function' }))
+  const firebaseProvider = allProviders.find((p: { id?: string }) => p.id === 'firebase')
   
   return NextResponse.json({
     allProviders,

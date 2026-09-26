@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth-helper'
+import { getGoogleAccount, syncTodoToGoogle } from '@/lib/calendar/google'
+import type { Todo } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,9 +57,19 @@ export async function POST(request: NextRequest) {
       type: todoType,
       completed: false,
       reminderAt: reminderIso,
-    }).select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,createdAt,updatedAt,userId').single()
+    }).select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,gEventId,createdAt,updatedAt,userId').single()
 
     if (error) throw error
+
+    // Mirror a task created with a due time into the connected
+    // Google Calendar (one-way task → event sync). Fire-and-
+    // forget: never block the response on the network round-trip.
+    if (reminderIso) {
+      const account = await getGoogleAccount(user.id).catch(() => null)
+      if (account) {
+        void syncTodoToGoogle(user.id, todo as unknown as Todo)
+      }
+    }
 
     return NextResponse.json(todo, { status: 201 })
   } catch (error) {

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const notificationsResult = await db.from('Notification').select('*, user:User(email, name)').order('createdAt', { ascending: false }).limit(50)
+    const notificationsResult = await db.from('Notification').select('id,title,message,global,read,userId,createdAt,user:User(email,name)').order('createdAt', { ascending: false }).limit(50)
     const notifications = notificationsResult.data || []
 
     return NextResponse.json(notifications)
@@ -59,10 +59,10 @@ export async function POST(request: NextRequest) {
 
     let notification
     if (userId) {
-      const notificationResult = await db.from('Notification').insert({ title, message, userId, global: false }).select().single()
+      const notificationResult = await db.from('Notification').insert({ title, message, userId, global: false }).select('id,title,message,global,read,userId,createdAt').single()
       notification = notificationResult.data
     } else {
-      const notificationResult = await db.from('Notification').insert({ title, message, global: true }).select().single()
+      const notificationResult = await db.from('Notification').insert({ title, message, global: true }).select('id,title,message,global,read,userId,createdAt').single()
       notification = notificationResult.data
     }
     return NextResponse.json(notification)

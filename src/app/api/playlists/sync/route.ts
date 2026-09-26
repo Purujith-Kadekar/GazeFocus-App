@@ -55,11 +55,17 @@ async function insertOrUpdateVideos(
     .eq('userId', userId)
     .in('youtubeId', youtubeIds)
 
-  const existingYoutubeIds = new Set<string>((existingVideos || []).map((v: any) => v.youtubeId))
+  const existingYoutubeIds = new Set<string>((existingVideos || []).map((v: { youtubeId: string }) => v.youtubeId))
 
   const now = new Date().toISOString()
-  const videosToInsert: any[] = []
-  const videosToUpdate: any[] = []
+  const videosToInsert: Array<typeof videos[number] & {
+    id: string
+    playlistId: string
+    userId: string
+    updatedAt: string
+    createdAt: string
+  }> = []
+  const videosToUpdate: Array<typeof videos[number]> = []
 
   for (const video of videos) {
     if (existingYoutubeIds.has(video.youtubeId)) {
@@ -127,7 +133,7 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
 
   // Get existing videos from DB
   const existingVideosResult = await db.from('Video').select('youtubeId').eq('userId', userId).eq('playlistId', playlistId)
-  const existingVideoIds = new Set<string>((existingVideosResult.data || []).map((v: any) => v.youtubeId))
+  const existingVideoIds = new Set<string>((existingVideosResult.data || []).map((v: { youtubeId: string }) => v.youtubeId))
 
   // Get stored totalVideos count
   const playlistMeta = await db.from('Playlist').select('totalVideos').eq('id', playlistId).maybeSingle()
@@ -168,7 +174,7 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
 
       // Update total duration
       const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
-      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: { duration: number }) => sum + (video.duration || 0), 0)
       await db.from('Playlist').update({ totalDuration, totalVideos: Math.max(storedTotalVideos, existingVideoIds.size + finalNewVideos.length) }).eq('id', playlistId)
 
       return {
@@ -212,7 +218,7 @@ async function syncPlaylist(playlist: { id: string; youtubeId: string; userId: s
       await insertOrUpdateVideos(newApiVideos, userId, playlistId)
 
       const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
-      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: { duration: number }) => sum + (video.duration || 0), 0)
       await db.from('Playlist').update({ totalDuration, totalVideos: Math.max(storedTotalVideos, apiVideos.length) }).eq('id', playlistId)
 
       return {
@@ -274,7 +280,7 @@ async function fetchFullPlaylistAndFillGap(
 
       // Update playlist metadata
       const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
-      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: { duration: number }) => sum + (video.duration || 0), 0)
       const newTotalVideos = Math.max(invidiousResult.info.videoCount, existingVideoIds.size + finalNewVideos.length)
       await db.from('Playlist').update({ totalDuration, totalVideos: newTotalVideos }).eq('id', playlistId)
 
@@ -315,7 +321,7 @@ async function fetchFullPlaylistAndFillGap(
       await insertOrUpdateVideos(finalNewVideos, userId, playlistId)
 
       const allVideosResult = await db.from('Video').select('duration').eq('userId', userId).eq('playlistId', playlistId)
-      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: any) => sum + (video.duration || 0), 0)
+      const totalDuration = (allVideosResult.data || []).reduce((sum: number, video: { duration: number }) => sum + (video.duration || 0), 0)
       const newTotalVideos = Math.max(pipedResult.info.videoCount, existingVideoIds.size + finalNewVideos.length)
       await db.from('Playlist').update({ totalDuration, totalVideos: newTotalVideos }).eq('id', playlistId)
 

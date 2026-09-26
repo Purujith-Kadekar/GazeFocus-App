@@ -42,7 +42,6 @@ const _db =
 // (from @/types/supabase) may not perfectly match every table/column at runtime,
 // especially after schema migrations. A full type-safe refactor would require
 // regenerating types after every schema change, which is a separate task.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const db = _db as any
 
 if (process.env.NODE_ENV !== 'production') globalForSupabase.supabase = _db

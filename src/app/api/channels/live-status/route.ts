@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       .eq('userId', user.id)
 
     const channelsList = channels || []
-    const liveStatuses: any[] = []
+    const liveStatuses: Array<{ channelId: string; isLive: boolean; liveVideoId: string | null; liveTitle: string | null }> = []
     let liveCount = 0
 
     for (const channel of channelsList) {
@@ -88,8 +88,8 @@ export async function GET(request: NextRequest) {
       totalChannels: channelsList.length,
       quotaExhausted: isQuotaExhausted()
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error checking live statuses:', error)
-    return NextResponse.json({ error: 'Failed to check live statuses', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to check live statuses', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

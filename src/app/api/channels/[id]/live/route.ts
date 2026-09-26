@@ -98,12 +98,12 @@ export async function GET(
         .in('youtubeId', videoIds)
       
       if (progressData && progressData.length > 0) {
-        const progressMap = new Map<string, any>(progressData.map((p: any) => [p.youtubeId, p]))
+        const progressMap = new Map<string, { youtubeId: string; secondsWatched: number; durationSeconds: number; completed: boolean; completedAt: string | null }>(progressData.map((p: { youtubeId: string; secondsWatched: number; durationSeconds: number; completed: boolean; completedAt: string | null }) => [p.youtubeId, p]))
         
         liveVideos.forEach(video => {
           const progress = progressMap.get(video.youtubeId)
           if (progress) {
-            (video as any).progress = {
+            (video as typeof video & { progress?: { secondsWatched: number; durationSeconds: number; completed: boolean; completedAt: string | null } }).progress = {
               secondsWatched: progress.secondsWatched,
               durationSeconds: progress.durationSeconds,
               completed: progress.completed,

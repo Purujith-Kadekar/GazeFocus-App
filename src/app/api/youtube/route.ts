@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helper'
 import { parseDuration } from '@/lib/youtube/shared'
 import { searchFromInvidious } from '@/lib/youtube/alt-sources'
+import type { YouTubeSearchResult } from '@/types'
+
+/** Minimal shape of a YouTube Data API search result item. */
+interface YTSearchItem {
+  id: { videoId?: string; playlistId?: string; channelId?: string }
+  snippet: {
+    title: string
+    description: string
+    channelTitle?: string
+    channelId?: string
+    publishedAt?: string
+    thumbnails?: { maxres?: { url: string }; high?: { url: string }; medium?: { url: string } }
+  }
+}
+
+interface YTSearchResponse {
+  items?: YTSearchItem[]
+  error?: { message?: string }
+}
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
@@ -207,15 +226,15 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: data.error.message }, { status: 400 })
         }
 
-        const results = data.items?.map((item: any) => ({
-          id: item.id.videoId || item.id.playlistId || item.id.channelId,
-          type: searchType,
+        const results: YouTubeSearchResult[] = (data as YTSearchResponse).items?.map((item: YTSearchItem) => ({
+          id: item.id.videoId || item.id.playlistId || item.id.channelId || '',
+          type: searchType as YouTubeSearchResult['type'],
           title: item.snippet.title,
           description: item.snippet.description,
           thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id.videoId || item.id.playlistId || item.id.channelId}/maxresdefault.jpg`,
           channelTitle: item.snippet.channelTitle || item.snippet.title,
-          channelId: item.snippet.channelId || item.id.channelId,
-          publishedAt: item.snippet.publishedAt,
+          channelId: item.snippet.channelId || item.id.channelId || '',
+          publishedAt: item.snippet.publishedAt || '',
         })) || []
 
         return NextResponse.json(results)
@@ -234,21 +253,21 @@ export async function GET(request: NextRequest) {
           ),
         ])
 
-        const results: any[] = []
+        const results: YouTubeSearchResult[] = []
 
         // Process video results
         if (videoRes.status === 'fulfilled' && videoRes.value.ok) {
           const data = await videoRes.value.json()
           if (!data.error && data.items) {
-            results.push(...data.items.map((item: any) => ({
-              id: item.id.videoId,
-              type: 'video',
+            results.push(...(data as YTSearchResponse).items!.map((item: YTSearchItem) => ({
+              id: item.id.videoId || '',
+              type: 'video' as const,
               title: item.snippet.title,
               description: item.snippet.description,
               thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id.videoId}/maxresdefault.jpg`,
-              channelTitle: item.snippet.channelTitle,
-              channelId: item.snippet.channelId,
-              publishedAt: item.snippet.publishedAt,
+              channelTitle: item.snippet.channelTitle || '',
+              channelId: item.snippet.channelId || '',
+              publishedAt: item.snippet.publishedAt || '',
             })))
           }
         }
@@ -257,15 +276,15 @@ export async function GET(request: NextRequest) {
         if (playlistRes.status === 'fulfilled' && playlistRes.value.ok) {
           const data = await playlistRes.value.json()
           if (!data.error && data.items) {
-            results.push(...data.items.map((item: any) => ({
-              id: item.id.playlistId,
-              type: 'playlist',
+            results.push(...(data as YTSearchResponse).items!.map((item: YTSearchItem) => ({
+              id: item.id.playlistId || '',
+              type: 'playlist' as const,
               title: item.snippet.title,
               description: item.snippet.description,
               thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
-              channelTitle: item.snippet.channelTitle,
-              channelId: item.snippet.channelId,
-              publishedAt: item.snippet.publishedAt,
+              channelTitle: item.snippet.channelTitle || '',
+              channelId: item.snippet.channelId || '',
+              publishedAt: item.snippet.publishedAt || '',
             })))
           }
         }
@@ -274,15 +293,15 @@ export async function GET(request: NextRequest) {
         if (channelRes.status === 'fulfilled' && channelRes.value.ok) {
           const data = await channelRes.value.json()
           if (!data.error && data.items) {
-            results.push(...data.items.map((item: any) => ({
-              id: item.id.channelId,
-              type: 'channel',
+            results.push(...(data as YTSearchResponse).items!.map((item: YTSearchItem) => ({
+              id: item.id.channelId || '',
+              type: 'channel' as const,
               title: item.snippet.title,
               description: item.snippet.description,
               thumbnail: item.snippet.thumbnails?.maxres?.url || item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
-              channelTitle: item.snippet.channelTitle,
-              channelId: item.id.channelId,
-              publishedAt: item.snippet.publishedAt,
+              channelTitle: item.snippet.channelTitle || '',
+              channelId: item.id.channelId || '',
+              publishedAt: item.snippet.publishedAt || '',
             })))
           }
         }

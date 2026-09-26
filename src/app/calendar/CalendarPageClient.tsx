@@ -203,7 +203,7 @@ export default function CalendarPageClient() {
       id: t.id,
       title: t.text,
       date: eventDate,
-      type: (t.type?.toLowerCase() || 'todo') as any,
+      type: (t.type?.toLowerCase() || 'todo') as CalendarEvent['type'],
       completed: t.completed,
       originalItem: t,
     })

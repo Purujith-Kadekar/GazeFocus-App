@@ -21,7 +21,19 @@ import {
   sendSignInLinkToEmail
 } from 'firebase/auth'
 import { auth as firebaseAuth } from '@/lib/firebase'
+import type { User } from 'firebase/auth'
 import { db } from '@/lib/db'
+
+/** Extract a displayable message from an unknown thrown value. */
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback
+}
+
+/** Firebase's User type does not expose reloadUserInfo (internal field). */
+function reloadUserInfoOf(user: User): { displayName?: string | null; photoURL?: string | null } | undefined {
+  return (user as unknown as { reloadUserInfo?: { displayName?: string | null; photoURL?: string | null } })
+    .reloadUserInfo
+}
 
 
 
@@ -118,9 +130,9 @@ export default function SignupPage() {
       
       await sendSignInLinkToEmail(firebaseAuth, email, actionCodeSettings)
       setLinkSent(true)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Email link error:', err)
-      setError(err.message || 'Failed to send link')
+      setError(errorMessage(err, 'Failed to send link'))
     } finally {
       setIsLoading(false)
     }
@@ -138,7 +150,7 @@ export default function SignupPage() {
       
       if (email) {
         try {
-          let existingUser: any = null
+          let existingUser: { id: string } | null = null
           try {
             const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
             if (userRes.ok) {
@@ -149,7 +161,7 @@ export default function SignupPage() {
 
           if (!existingUser) {
             const now = new Date().toISOString()
-            const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
+            const rawName = user.displayName || reloadUserInfoOf(user)?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try { 
               await fetch('/api/user/create', { 
@@ -158,7 +170,7 @@ export default function SignupPage() {
                 body: JSON.stringify({ 
                   email, 
                   name, 
-                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '', 
+                  image: user.photoURL || reloadUserInfoOf(user)?.photoURL || user.providerData?.[0]?.photoURL || '', 
                   emailVerified: now 
                 }) 
               }) 
@@ -177,9 +189,9 @@ export default function SignupPage() {
       } else {
         window.location.href = '/dashboard'
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Firebase signup error:', err)
-      setError(err.message || 'Sign up failed')
+      setError(errorMessage(err, 'Sign up failed'))
     } finally {
       setIsLoading(false)
     }
@@ -197,7 +209,7 @@ export default function SignupPage() {
       
       if (email) {
         try {
-          let existingUser: any = null
+          let existingUser: { id: string } | null = null
           try {
             const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
             if (userRes.ok) {
@@ -208,7 +220,7 @@ export default function SignupPage() {
 
           if (!existingUser) {
             const now = new Date().toISOString()
-            const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
+            const rawName = user.displayName || reloadUserInfoOf(user)?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try { 
               await fetch('/api/user/create', { 
@@ -217,7 +229,7 @@ export default function SignupPage() {
                 body: JSON.stringify({ 
                   email, 
                   name, 
-                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '', 
+                  image: user.photoURL || reloadUserInfoOf(user)?.photoURL || user.providerData?.[0]?.photoURL || '', 
                   emailVerified: now 
                 }) 
               }) 
@@ -236,9 +248,9 @@ export default function SignupPage() {
       } else {
         window.location.href = '/dashboard'
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('GitHub signup error:', err)
-      setError(err.message || 'Sign up failed')
+      setError(errorMessage(err, 'Sign up failed'))
     } finally {
       setIsLoading(false)
     }
@@ -256,7 +268,7 @@ export default function SignupPage() {
       
       if (email) {
         try {
-          let existingUser: any = null
+          let existingUser: { id: string } | null = null
           try {
             const userRes = await fetch(`/api/user/check?email=${encodeURIComponent(email)}`)
             if (userRes.ok) {
@@ -267,7 +279,7 @@ export default function SignupPage() {
 
           if (!existingUser) {
             const now = new Date().toISOString()
-            const rawName = user.displayName || (user as any).reloadUserInfo?.displayName || email.split('@')[0]
+            const rawName = user.displayName || reloadUserInfoOf(user)?.displayName || email.split('@')[0]
             const name = rawName?.trim() || email.split('@')[0]
             try { 
               await fetch('/api/user/create', { 
@@ -276,7 +288,7 @@ export default function SignupPage() {
                 body: JSON.stringify({ 
                   email, 
                   name, 
-                  image: user.photoURL || (user as any).reloadUserInfo?.photoURL || user.providerData?.[0]?.photoURL || '', 
+                  image: user.photoURL || reloadUserInfoOf(user)?.photoURL || user.providerData?.[0]?.photoURL || '', 
                   emailVerified: now 
                 }) 
               }) 
@@ -295,9 +307,9 @@ export default function SignupPage() {
       } else {
         window.location.href = '/dashboard'
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Twitter signup error:', err)
-      setError(err.message || 'Sign up failed')
+      setError(errorMessage(err, 'Sign up failed'))
     } finally {
       setIsLoading(false)
     }

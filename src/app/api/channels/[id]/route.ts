@@ -23,7 +23,7 @@ export async function GET(
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch channel', details: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
     }
 
     if (!channel) {
@@ -31,9 +31,9 @@ export async function GET(
     }
 
     return NextResponse.json(channel)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching channel:', error)
-    return NextResponse.json({ error: 'Failed to fetch channel', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }
 
@@ -68,7 +68,7 @@ export async function DELETE(
       .eq('channelId', id)
       .eq('userId', user.id)
 
-    const videoYoutubeIds = (videosResult.data || []).map((v: any) => v.youtubeId)
+    const videoYoutubeIds = (videosResult.data || []).map((v: { youtubeId: string }) => v.youtubeId)
 
     // Delete notes for those videos using youtubeIds
     if (videoYoutubeIds.length > 0) {
@@ -96,12 +96,12 @@ export async function DELETE(
     const { error } = await deleteChannel(id)
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to delete channel', details: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to delete channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error deleting channel:', error)
-    return NextResponse.json({ error: 'Failed to delete channel', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete channel', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

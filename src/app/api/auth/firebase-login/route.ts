@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       .from('User')
       .select('id,name,email,image,emailVerified')
       .eq('email', normalizedEmail)
-      .single() as any
+      .single()
 
     let userId: string
 
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       .from('User')
       .select('id,name,email,image')
       .eq('id', userId)
-      .single() as any
+      .single()
 
     return NextResponse.json({
       success: true,

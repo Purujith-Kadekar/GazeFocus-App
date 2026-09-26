@@ -52,9 +52,9 @@ export default function VerifyLinkPage() {
         } else {
           window.location.href = '/dashboard'
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('Email link verify error:', err)
-        setError(err.message || 'Failed to verify link')
+        setError(err instanceof Error && err.message ? err.message : 'Failed to verify link')
       } finally {
         setIsLoading(false)
       }

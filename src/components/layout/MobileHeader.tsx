@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, Plus, Bell, Eye, EyeOff, Settings, LogOut } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -214,9 +215,11 @@ export function MobileHeader() {
                   aria-label="User menu"
                 >
                   {session?.user?.image ? (
-                    <img 
-                      src={session.user.image} 
-                      alt={session.user.name || 'User'} 
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name || 'User'}
+                      width={28}
+                      height={28}
                       className="h-7 w-7 rounded-full object-cover"
                     />
                   ) : (

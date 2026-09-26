@@ -1,4 +1,4 @@
-import type { Channel, Folder, Note, Playlist, Video } from '@/types'
+import type { Channel, Folder, Note, Playlist, Todo, Video } from '@/types'
 
 export type PlaylistWithFolder = Playlist & { folderId: string | null }
 
@@ -26,7 +26,7 @@ export interface DashboardBootstrapResponse {
   completedVideos: string[]
   playlists: PlaylistWithFolder[]
   completedPlaylists: string[]
-  todos: any[]
+  todos: Todo[]
   settings: { weeklyGoal?: number } | null
   channels: Channel[]
 }

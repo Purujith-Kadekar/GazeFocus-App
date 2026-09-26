@@ -41,7 +41,7 @@ async function fetchYouTubeVideoDetails(videoId: string): Promise<YouTubeVideoDe
           duration: string;
         };
       }[];
-      error?: any;
+      error?: { message?: string; code?: number };
     }
 
     if (data.error) {
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
           .from('Playlist')
           .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
           .in('id', playlistIds)
-        const playlistMap = new Map<string, any>((playlists || []).map((p: any) => [p.id, p]))
+        const playlistMap = new Map<string, { id: string; youtubeId: string; title: string; description: string | null; thumbnail: string | null; channelId: string | null; channelName: string | null; totalDuration: number; scheduledAt: string | null; createdAt: string; updatedAt: string; userId: string }>((playlists || []).map((p: { id: string }) => [p.id, p as never]))
         const enrichedVideos = videos.map(v => ({
           ...v,
           playlist: v.playlistId ? playlistMap.get(v.playlistId) : null

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     // Only return existence check, NOT the userId (prevent IDOR)
     return NextResponse.json({ exists: !!existingUser })
-  } catch (error: any) {
+  } catch (error) {
     console.error('User check error:', error)
     return NextResponse.json({ exists: false })
   }

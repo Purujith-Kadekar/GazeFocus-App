@@ -49,7 +49,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
     []
   const initialCachedFolders =
     cached?.payload?.folders ||
-    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as Folder[]) : undefined) ||
+    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as unknown as Folder[]) : undefined) ||
     initialFolders ||
     []
 
@@ -157,7 +157,7 @@ export default function ChannelsPageClient({ initialChannels, initialFolders }: 
         const data = await response.json()
         setChannels(prev => {
           const next = prev.map(channel => {
-          const liveStatus = data.channels.find((c: any) => c.channelId === channel.id)
+          const liveStatus = data.channels.find((c: { channelId: string; isLive: boolean }) => c.channelId === channel.id)
           if (liveStatus) {
             return {
               ...channel,

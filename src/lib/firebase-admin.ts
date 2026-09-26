@@ -20,7 +20,7 @@ try {
   
   if (!existingApps.length && serviceAccount.project_id) {
     app = initializeApp({
-      credential: cert(serviceAccount as any),
+      credential: cert(serviceAccount as { projectId: string; clientEmail: string; privateKey: string }),
     })
   } else if (existingApps.length > 0) {
     app = existingApps[0]

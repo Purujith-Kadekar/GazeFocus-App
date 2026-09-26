@@ -106,7 +106,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isAuthenticated) {
-      const tokenId = ((token as any)?.id as string | undefined) || bearerUser?.id
+      const tokenId = ((token as typeof token & { id?: string })?.id as string | undefined) || bearerUser?.id
       if (tokenId) {
         const blockedResult = await db
           .from('User')

@@ -30,7 +30,7 @@ export async function PUT(
     if (isImportant !== undefined) updateData.isImportant = isImportant
     if (timestamp !== undefined) updateData.timestampSeconds = timestamp
 
-    const noteResult = await db.from('Note').update({ ...updateData, updatedAt: new Date().toISOString() }).eq('id', id).select().single()
+    const noteResult = await db.from('Note').update({ ...updateData, updatedAt: new Date().toISOString() }).eq('id', id).select('id,content,timestampSeconds,isImportant,youtubeId,createdAt,updatedAt,userId').single()
 
     if (noteResult.error || !noteResult.data) {
       console.error('Error updating note:', noteResult.error)

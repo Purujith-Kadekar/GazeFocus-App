@@ -49,7 +49,7 @@ export async function PUT(
     if (description !== undefined) updateData.description = description
     if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt).toISOString() : null
 
-    const playlistResult = await db.from('Playlist').update({ ...updateData, updatedAt: new Date().toISOString() }).eq('id', id).eq('userId', user.id).select().single()
+    const playlistResult = await db.from('Playlist').update({ ...updateData, updatedAt: new Date().toISOString() }).eq('id', id).eq('userId', user.id).select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,totalVideos,scheduledAt,createdAt,updatedAt,userId').single()
 
     if (playlistResult.error || !playlistResult.data) {
       console.error('Error updating playlist:', playlistResult.error)
@@ -90,8 +90,8 @@ export async function DELETE(
 
     // Get all video IDs for this playlist to clean up notes
     const videosResult = await db.from('Video').select('id, youtubeId').eq('playlistId', id)
-    const videoIds = (videosResult.data || []).map((v: any) => v.id)
-    const videoYoutubeIds = (videosResult.data || []).map((v: any) => v.youtubeId)
+    const videoIds = (videosResult.data || []).map((v: { id: string }) => v.id)
+    const videoYoutubeIds = (videosResult.data || []).map((v: { youtubeId: string }) => v.youtubeId)
 
     // Delete notes for videos in this playlist
     if (videoYoutubeIds.length > 0) {

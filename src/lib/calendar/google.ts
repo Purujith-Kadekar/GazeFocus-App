@@ -26,11 +26,22 @@ export interface GoogleOAuthConfig {
   clientSecret: string
 }
 
-/** Resolve OAuth client credentials (dedicated vars first, shared vars fallback). */
+/**
+ * Resolve OAuth client credentials. Fallback order (least user
+ * setup first): dedicated calendar vars → shared GOOGLE_* vars →
+ * the NextAuth login client (AUTH_GOOGLE_ID, which just needs the
+ * calendar scope + calendar callback redirect URI added in the
+ * Google Cloud Console to serve both purposes).
+ */
 export function getGoogleOAuthConfig(): GoogleOAuthConfig | null {
-  const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CLIENT_ID
+  const clientId =
+    process.env.GOOGLE_CALENDAR_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.AUTH_GOOGLE_ID
   const clientSecret =
-    process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET ||
+    process.env.GOOGLE_CLIENT_SECRET ||
+    process.env.AUTH_GOOGLE_SECRET
   if (!clientId || !clientSecret) return null
   return { clientId, clientSecret }
 }
@@ -282,6 +293,31 @@ export async function markGoogleEventDone(userId: string, todo: Todo): Promise<b
     return res.ok
   } catch (err) {
     console.error('Google Calendar completion update failed:', err)
+    return false
+  }
+}
+
+/**
+ * Remove the synced Google Calendar event — called when the task
+ * is deleted or its reminder/due time is cleared. 404/410 (event
+ * already gone) count as success so we never retry forever.
+ */
+export async function deleteGoogleEvent(userId: string, todo: Todo): Promise<boolean> {
+  try {
+    if (!todo.gEventId) return false
+    const token = await ensureAccessToken(userId)
+    if (!token) return false
+
+    const res = await fetch(
+      `${GOOGLE_EVENTS_URL}/${encodeURIComponent(todo.gEventId)}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
+    return res.ok || res.status === 404 || res.status === 410
+  } catch (err) {
+    console.error('Google Calendar event delete failed:', err)
     return false
   }
 }

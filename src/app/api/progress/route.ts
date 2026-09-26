@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
     const importantNotes = importantNotesResult.count || 0
 
     const watchTimeResult = await db.from('VideoProgress').select('secondsWatched').eq('userId', userId)
-    const totalWatchTime = (watchTimeResult.data || []).reduce((sum: number, p: any) => sum + (p.secondsWatched || 0), 0)
+    const totalWatchTime = (watchTimeResult.data || []).reduce((sum: number, p: { secondsWatched: number }) => sum + (p.secondsWatched || 0), 0)
 
     return NextResponse.json({
       totalVideos,

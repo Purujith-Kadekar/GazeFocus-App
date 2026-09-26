@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Image from 'next/image'
 import { ArrowLeft, Play, Loader2, MoreVertical, Trash2, FolderInput, CheckCircle, Circle, Plus } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -47,12 +48,12 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
   const dashboardCached = useMemo(() => getDashboardBootstrapCache()?.payload, [])
   const initialCachedVideos =
     cached?.payload.videos ||
-    (Array.isArray(dashboardCached?.videos) ? (dashboardCached.videos as VideoWithPlaylist[]) : undefined) ||
+    (Array.isArray(dashboardCached?.videos) ? (dashboardCached.videos as unknown as VideoWithPlaylist[]) : undefined) ||
     initialVideos ||
     []
   const initialCachedFolders =
     cached?.payload.folders ||
-    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as Folder[]) : undefined) ||
+    (Array.isArray(dashboardCached?.folders) ? (dashboardCached.folders as unknown as Folder[]) : undefined) ||
     initialFolders ||
     []
 
@@ -379,11 +380,11 @@ export default function VideosPageClient({ initialVideos, initialFolders }: Vide
                   <CardContent className="p-0">
                     <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
                       {video.thumbnail ? (
-                        <img
+                        <Image
                           src={video.thumbnail}
                           alt={video.title}
-                          loading="lazy"
-                          decoding="async"
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           className="w-full h-full object-cover"
                         />
                       ) : (

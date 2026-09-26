@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTodoStore, useVideoStore, usePlaylistStore } from '@/store/useStore'
+import { requestReminderNotificationPermission } from '@/lib/notifications'
 import type { Todo, Video, Playlist } from '@/types'
 
 type UnifiedItem = {
@@ -42,6 +43,12 @@ export function TodoList() {
   const handleAddTodo = async () => {
     if (!newTodoText.trim()) return
     if (newReminderAt && !parsedReminderDate) return
+
+    // The user is creating a task with a reminder — the right
+    // moment to ask for browser notification permission.
+    if (parsedReminderDate) {
+      requestReminderNotificationPermission()
+    }
 
     try {
       const res = await fetch('/api/todos', {
@@ -96,6 +103,11 @@ export function TodoList() {
     todo: Todo,
     updates: { text: string; reminderAt: string | null }
   ) => {
+    // Setting/rescheduling a reminder is also a good moment to
+    // ask for browser notification permission.
+    if (updates.reminderAt) {
+      requestReminderNotificationPermission()
+    }
     try {
       const res = await fetch(`/api/todos/${todo.id}`, {
         method: 'PUT',
@@ -143,7 +155,7 @@ export function TodoList() {
       text: t.text,
       completed: t.completed,
       reminderAt: t.reminderAt ? new Date(t.reminderAt) : null,
-      type: (t as any).type as any || 'TASK',
+      type: t.type || 'TASK',
       originalItem: t
     })),
     ...videos.filter(v => v.scheduledAt).map(v => ({

@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useTodoStore } from '@/store/useStore'
+import { requestReminderNotificationPermission } from '@/lib/notifications'
 import type { Todo } from '@/types'
 
 interface ParsedPreview {
@@ -122,6 +123,9 @@ export function QuickAddBar() {
   const handleCreate = useCallback(async () => {
     if (!draft) return
     setIsCreating(true)
+    // The user is creating a task with a due time — the right
+    // moment to ask for browser notification permission.
+    requestReminderNotificationPermission()
     try {
       const res = await fetch('/api/agent/reminders', {
         method: 'POST',

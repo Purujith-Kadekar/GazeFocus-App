@@ -217,7 +217,7 @@ ${message.trim()}
 
     return NextResponse.json({ success: true }, { status: 200 })
 
-  } catch (err: any) {
+  } catch (err) {
     console.error('[contact] Failed to send email:', err)
     return NextResponse.json(
       { error: 'Failed to send email. Please try again later.' },

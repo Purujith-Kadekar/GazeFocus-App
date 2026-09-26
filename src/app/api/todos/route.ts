@@ -50,14 +50,15 @@ export async function POST(request: NextRequest) {
     const todoType = type || 'TASK'
     const reminderIso = parsedReminderAt ? parsedReminderAt.toISOString() : null
 
-    const { data: todo, error } = await db.from('Todo').insert({
-      id: crypto.randomUUID(),
-      text: text.trim(),
-      userId: user.id,
-      type: todoType,
-      completed: false,
-      reminderAt: reminderIso,
-    }).select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,gEventId,createdAt,updatedAt,userId').single()
+const { data: todo, error } = await db.from('Todo').insert({
+  id: crypto.randomUUID(),
+  text: text.trim(),
+  userId: user.id,
+  type: todoType,
+  completed: false,
+  reminderAt: reminderIso,
+  updatedAt: new Date().toISOString(),
+}).select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,gEventId,createdAt,updatedAt,userId').single()
 
     if (error) throw error
 

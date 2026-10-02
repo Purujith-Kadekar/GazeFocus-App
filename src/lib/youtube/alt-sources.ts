@@ -9,6 +9,8 @@
  *   3. Fall back to YouTube Data API v3 (quota-burn, but reliable)
  */
 
+import { normalizeVideoThumbnail, repairThumbnailUrl } from '@/lib/youtube/thumbnails'
+
 // --- Invidious ---
 // Community-run instances. Health varies; try multiple with failover.
 const INVIDIOUS_INSTANCES = [
@@ -174,10 +176,13 @@ export async function fetchPlaylistFromInvidious(
             youtubeId: v.videoId || '',
             title: v.title || 'Unknown',
             description: v.description || '',
-            thumbnail:
+            // Instances send relative / instance-hosted thumbnail URLs that the
+            // image optimizer rejects (400) — derive a loadable one from the id.
+            thumbnail: normalizeVideoThumbnail(
               v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
-              v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
-              `https://img.youtube.com/vi/${v.videoId}/maxresdefault.jpg`,
+                v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
+              v.videoId
+            ),
             duration: v.lengthSeconds || 0,
             position: (page - 1) * 100 + allVideos.length,
             author: v.author || '',
@@ -195,7 +200,7 @@ export async function fetchPlaylistFromInvidious(
         info: {
           title: playlistTitle,
           description: playlistDescription,
-          thumbnail: playlistThumbnail,
+          thumbnail: normalizeVideoThumbnail(playlistThumbnail, allVideos[0]?.youtubeId),
           videoCount: playlistVideoCount,
           author: playlistAuthor,
         },
@@ -234,9 +239,10 @@ export async function fetchPlaylistFromPiped(
           youtubeId: (v.url || '').replace('/watch?v=', ''),
           title: v.title || 'Unknown',
           description: '',
-          thumbnail:
-            v.thumbnail ||
-            `https://img.youtube.com/vi/${(v.url || '').replace('/watch?v=', '')}/maxresdefault.jpg`,
+          thumbnail: normalizeVideoThumbnail(
+            v.thumbnail,
+            (v.url || '').replace('/watch?v=', '')
+          ),
           duration: v.duration || 0,
           position: index,
           author: v.uploaderName || '',
@@ -252,7 +258,7 @@ export async function fetchPlaylistFromPiped(
         info: {
           title: data.name || '',
           description: '',
-          thumbnail: data.thumbnail || '',
+          thumbnail: normalizeVideoThumbnail(data.thumbnail, validVideos[0]?.youtubeId),
           videoCount: data.videoCount || validVideos.length,
           author: data.uploader || '',
         },
@@ -287,10 +293,11 @@ export async function fetchVideoFromInvidious(
         youtubeId: data.videoId || videoId,
         title: data.title || 'Unknown',
         description: data.description || '',
-        thumbnail:
+        thumbnail: normalizeVideoThumbnail(
           data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
-          data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
-          `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+            data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
+          videoId
+        ),
         duration: data.lengthSeconds || 0,
         position: 0,
         author: data.author || '',
@@ -323,9 +330,7 @@ export async function fetchVideoFromPiped(
         youtubeId: videoId,
         title: data.title || 'Unknown',
         description: data.description || '',
-        thumbnail:
-          data.thumbnail ||
-          `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        thumbnail: normalizeVideoThumbnail(data.thumbnail, videoId),
         duration: data.duration || 0,
         position: 0,
         author: data.uploader || '',
@@ -416,10 +421,11 @@ export async function searchFromInvidious(
             type: 'video',
             title: item.title || '',
             description: item.description || '',
-            thumbnail:
+            thumbnail: normalizeVideoThumbnail(
               item.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
-              item.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
-              `https://img.youtube.com/vi/${item.videoId}/maxresdefault.jpg`,
+                item.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
+              item.videoId
+            ),
             channelTitle: item.author || '',
             channelId: item.authorId || '',
             publishedAt: item.published ? new Date(item.published * 1000).toISOString() : '',
@@ -431,9 +437,7 @@ export async function searchFromInvidious(
             type: 'playlist',
             title: item.title || '',
             description: item.description || '',
-            thumbnail:
-              item.playlistThumbnail ||
-              `https://img.youtube.com/vi/${item.playlistId}/maxresdefault.jpg`,
+            thumbnail: repairThumbnailUrl(item.playlistThumbnail),
             channelTitle: item.author || '',
             channelId: item.authorId || '',
             publishedAt: item.published ? new Date(item.published * 1000).toISOString() : '',
@@ -445,11 +449,11 @@ export async function searchFromInvidious(
             type: 'channel',
             title: item.author || '',
             description: item.description || '',
-            thumbnail:
+            thumbnail: repairThumbnailUrl(
               item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
-              item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'high')?.url ||
-              item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url ||
-              '',
+                item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'high')?.url ||
+                item.authorThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url
+            ),
             channelTitle: item.author || '',
             channelId: item.authorId || '',
             publishedAt: '',

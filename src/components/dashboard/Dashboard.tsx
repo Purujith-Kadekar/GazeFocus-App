@@ -58,7 +58,7 @@ export function Dashboard() {
   const { notes, setNotes } = useNoteStore()
   const { stats, setStats, setRecentVideos, setRecentFolders, setImportantNotes } = useDashboardStore()
   const { setCurrentView, setAddModalOpen, setDashboardBootLoading } = useUIStore()
-  const { todos, setTodos } = useTodoStore()
+  const { setTodos } = useTodoStore()
   // Keep first SSR and first client render identical to avoid hydration mismatch.
   const [isLoading, setIsLoading] = useState(true)
   const [viewportMode, setViewportMode] = useState<'mobile' | 'tablet' | 'desktop' | null>(null)
@@ -71,8 +71,6 @@ export function Dashboard() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [isRefreshingLive, setIsRefreshingLive] = useState(false)
   const hasPrefetchedRoutes = useRef(false)
-  const scheduledTasks = todos.filter((todo) => Boolean(todo.reminderAt) && !todo.completed).length
-  const pendingTasks = todos.filter((todo) => !todo.completed).length
 
   const applyBootstrapData = useCallback((data: DashboardBootstrapResponse) => {
     setFolders(data.folders || [])
@@ -364,43 +362,79 @@ export function Dashboard() {
 
   if (viewportMode === 'mobile') {
     return (
-      <DashboardMobile
-        stats={stats}
-        weeklyGoal={weeklyGoal}
-        videos={videos}
-        notes={notes}
-        folders={folders}
-        playlists={playlists}
-        channels={channels}
-        scheduledTasks={scheduledTasks}
-        pendingTasks={pendingTasks}
-        isRefreshingLive={isRefreshingLive}
-        onVideoClick={handleVideoClick}
-        onNoteClick={handleNoteClick}
-        onAddContent={() => setAddModalOpen(true)}
-        onRefreshLiveStatus={handleRefreshLiveStatus}
-      />
+      <>
+        <DashboardMobile
+          stats={stats}
+          weeklyGoal={weeklyGoal}
+          videos={videos}
+          notes={notes}
+          folders={folders}
+          playlists={playlists}
+          channels={channels}
+          completedVideos={completedVideos}
+          completedPlaylists={completedPlaylists}
+          isRefreshingLive={isRefreshingLive}
+          onVideoClick={handleVideoClick}
+          onNoteClick={handleNoteClick}
+          onToggleNoteImportant={handleToggleNoteImportant}
+          onDeleteNote={handleDeleteNote}
+          onAddContent={() => setAddModalOpen(true)}
+          onVideoCompletionChanged={fetchDashboardData}
+          onVideoRemoved={(removedId) => setVideos(videos.filter(v => v.id !== removedId))}
+          onPlaylistRemoved={() => {
+            fetch('/api/folders').then(res => {
+              if (res.ok) res.json().then(setFolders).catch(() => {})
+            }).catch(() => {})
+          }}
+          onRefreshLiveStatus={handleRefreshLiveStatus}
+        />
+        <ReminderDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          dueTodos={dueTodos}
+          onDismiss={dismissReminder}
+          onDismissAll={dismissAll}
+        />
+      </>
     )
   }
 
   if (viewportMode === 'tablet') {
     return (
-      <DashboardTablet
-        stats={stats}
-        weeklyGoal={weeklyGoal}
-        videos={videos}
-        notes={notes}
-        folders={folders}
-        playlists={playlists}
-        channels={channels}
-        scheduledTasks={scheduledTasks}
-        pendingTasks={pendingTasks}
-        isRefreshingLive={isRefreshingLive}
-        onVideoClick={handleVideoClick}
-        onNoteClick={handleNoteClick}
-        onAddContent={() => setAddModalOpen(true)}
-        onRefreshLiveStatus={handleRefreshLiveStatus}
-      />
+      <>
+        <DashboardTablet
+          stats={stats}
+          weeklyGoal={weeklyGoal}
+          videos={videos}
+          notes={notes}
+          folders={folders}
+          playlists={playlists}
+          channels={channels}
+          completedVideos={completedVideos}
+          completedPlaylists={completedPlaylists}
+          isRefreshingLive={isRefreshingLive}
+          onVideoClick={handleVideoClick}
+          onNoteClick={handleNoteClick}
+          onToggleNoteImportant={handleToggleNoteImportant}
+          onDeleteNote={handleDeleteNote}
+          onAddContent={() => setAddModalOpen(true)}
+          onVideoCompletionChanged={fetchDashboardData}
+          onVideoRemoved={(removedId) => setVideos(videos.filter(v => v.id !== removedId))}
+          onPlaylistRemoved={() => {
+            fetch('/api/folders').then(res => {
+              if (res.ok) res.json().then(setFolders).catch(() => {})
+            }).catch(() => {})
+          }}
+          onRefreshLiveStatus={handleRefreshLiveStatus}
+        />
+        <ReminderDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          dueTodos={dueTodos}
+          onDismiss={dismissReminder}
+          onDismissAll={dismissAll}
+        />
+      </>
     )
   }
 

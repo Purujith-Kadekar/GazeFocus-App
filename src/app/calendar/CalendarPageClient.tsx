@@ -437,6 +437,12 @@ export default function CalendarPageClient() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Agent NLP quick-add — the same bar the desktop header gets,
+            so "Physics exam on november 19th" also works on phones. */}
+        <div className="px-4 py-3 bg-card border rounded-xl shadow-sm">
+          <QuickAddBar />
+        </div>
       </div>
     )
   }

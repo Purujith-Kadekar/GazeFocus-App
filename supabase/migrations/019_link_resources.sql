@@ -45,3 +45,6 @@ END $$;
 --    rows are covered automatically. Index for the resources list query.
 CREATE INDEX IF NOT EXISTS "LibraryItem_userId_type_idx"
   ON "LibraryItem"("userId", "type");
+
+-- 4) Make PostgREST pick up the new enum value immediately.
+NOTIFY pgrst, 'reload schema';

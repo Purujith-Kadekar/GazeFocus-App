@@ -59,20 +59,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Some callers (the Chrome extension's service worker, older clients)
-    // send playlist payloads WITHOUT a `type` field. A PL/UU/OL/FL id is
-    // unambiguous — treat it as a playlist so those calls work instead of
-    // dying on the 11-char video check below.
-    const REAL_PLAYLIST_ID = /^(PL|UU|OL|FL)[A-Za-z0-9_-]{10,}$/
-    const effectiveType =
-      type === 'playlist' || (type !== 'video' && REAL_PLAYLIST_ID.test(String(youtubeId)))
+    // Infer the kind when the caller omits `type`: the legacy extension
+    // posts bare { youtubeId } for playlists, which previously fell into
+    // the video branch and failed the 11-char check ("Invalid YouTube
+    // video ID"). Playlist-prefixed IDs are playlists; the rest are videos.
+    const effectiveType: 'playlist' | 'video' =
+      type === 'playlist'
         ? 'playlist'
-        : (type || 'video')
+        : type == null && /^(PL|UU|OL|FL)[A-Za-z0-9_-]{10,}$/.test(String(youtubeId))
+          ? 'playlist'
+          : 'video'
 
     // Reject non-fetchable "playlists": RD* = auto-generated mixes,
     // WL/LL = private Watch Later / Liked lists. No API can read
     // these, and adding them previously produced garbage entries.
-    if (effectiveType === 'playlist' && !REAL_PLAYLIST_ID.test(String(youtubeId))) {
+    if (effectiveType === 'playlist' && !/^(PL|UU|OL|FL)[A-Za-z0-9_-]{10,}$/.test(String(youtubeId))) {
       return NextResponse.json(
         { error: 'This is a YouTube Mix or private list (Watch Later / Liked) and cannot be added. Open the real playlist page and add it from there.' },
         { status: 400 }

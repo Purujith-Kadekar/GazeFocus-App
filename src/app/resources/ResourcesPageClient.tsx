@@ -1,14 +1,25 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Link2, ExternalLink, Loader2, Trash2, MoreVertical, Plus, FolderOpen, Search } from 'lucide-react'
+import {
+  ArrowLeft,
+  ExternalLink,
+  FolderOpen,
+  Globe,
+  Link2,
+  Loader2,
+  MoreVertical,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -22,16 +33,27 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { readRouteCache, writeRouteCache } from '@/lib/route-data-cache'
+import { useToast } from '@/hooks/use-toast'
 import type { Folder, Resource } from '@/types'
 
 const RESOURCES_CACHE_KEY = 'gazefocus:resources-page-cache'
 
-type ResourcesCache = { resources: Resource[]; folders: Folder[] }
+type FolderLite = Pick<Folder, 'id' | 'title'>
+type ResourcesCache = { resources: Resource[]; folders: FolderLite[] }
 
 function hostOf(url: string): string {
   try {
@@ -41,338 +63,38 @@ function hostOf(url: string): string {
   }
 }
 
-/** First letter avatar tile — no external favicon service needed. */
-function LinkTile({ host }: { host: string }) {
-  const letter = (host[0] || '?').toUpperCase()
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-950/40 dark:to-blue-900/20">
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white shadow-sm">
-        {letter}
-      </div>
-    </div>
-  )
-}
-
-export default function ResourcesPageClient() {
-  const { status } = useSession()
-  const router = useRouter()
-
-  const cached = useMemo(() => readRouteCache<ResourcesCache>(RESOURCES_CACHE_KEY), [])
-  const [resources, setResources] = useState<Resource[]>(cached?.payload.resources || [])
-  const [folders, setFolders] = useState<Folder[]>(cached?.payload.folders || [])
-  const [isLoading, setIsLoading] = useState(!cached?.payload)
-  const [isAddOpen, setIsAddOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const persistCache = useCallback((next: { resources?: Resource[]; folders?: Folder[] }) => {
-    writeRouteCache(RESOURCES_CACHE_KEY, {
-      resources: next.resources ?? resources,
-      folders: next.folders ?? folders,
-    })
-  }, [resources, folders])
-
-  const loadAll = useCallback(async () => {
-    try {
-      const [resourcesRes, foldersRes] = await Promise.all([
-        fetch('/api/resources'),
-        fetch('/api/folders'),
-      ])
-      if (resourcesRes.ok) {
-        const data = await resourcesRes.json()
-        const next = Array.isArray(data) ? data : []
-        setResources(next)
-        persistCache({ resources: next })
-      }
-      if (foldersRes.ok) {
-        const data = await foldersRes.json()
-        const next = Array.isArray(data) ? data : []
-        setFolders(next)
-        persistCache({ folders: next })
-      }
-    } catch {
-      // keep cached data
-    } finally {
-      setIsLoading(false)
-    }
-  }, [persistCache])
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login')
-      return
-    }
-    if (status === 'authenticated') void loadAll()
-  }, [status, router, loadAll])
-
-  // Another surface added/changed a link — refresh.
-  useEffect(() => {
-    const handleRefresh = () => {
-      fetch('/api/resources')
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data) => {
-          const next = Array.isArray(data) ? data : []
-          setResources(next)
-          persistCache({ resources: next })
-        })
-        .catch(() => {})
-    }
-    window.addEventListener('refresh-resources', handleRefresh)
-    return () => window.removeEventListener('refresh-resources', handleRefresh)
-  }, [persistCache])
-
-  const handleDelete = async (resource: Resource, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    try {
-      const res = await fetch(`/api/resources/${resource.id}`, { method: 'DELETE' })
-      if (res.ok) {
-        const next = resources.filter((r) => r.id !== resource.id)
-        setResources(next)
-        persistCache({ resources: next })
-      }
-    } catch (error) {
-      console.error('Failed to delete resource:', error)
-    }
-  }
-
-  const handleMoveToFolder = async (resource: Resource, folderId: string | null, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    try {
-      const res = await fetch(`/api/resources/${resource.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderId }),
-      })
-      if (res.ok) {
-        const next = resources.map((r) =>
-          r.id === resource.id
-            ? { ...r, folderId, folder: folderId ? (folders.find((f) => f.id === folderId) ? { id: folderId, title: folders.find((f) => f.id === folderId)!.title } : r.folder) : null }
-            : r
-        )
-        setResources(next)
-        persistCache({ resources: next })
-        window.dispatchEvent(new CustomEvent('refresh-folders'))
-      }
-    } catch (error) {
-      console.error('Failed to move resource:', error)
-    }
-  }
-
-  const q = searchQuery.trim().toLowerCase()
-  const visible = q
-    ? resources.filter(
-        (r) =>
-          r.title?.toLowerCase().includes(q) ||
-          r.externalId.toLowerCase().includes(q) ||
-          (r.folder?.title || '').toLowerCase().includes(q)
-      )
-    : resources
-
-  const unfiledCount = resources.filter((r) => !r.folderId).length
-  const filedCount = resources.length - unfiledCount
-
-  const handleOpen = (resource: Resource) => {
-    const url = resource.metadata?.url || resource.externalId
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
-  if (status === 'loading') {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        </div>
-      </MainLayout>
-    )
-  }
-
-  return (
-    <MainLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push('/dashboard')} className="px-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Back to Dashboard</span>
-            <span className="sm:hidden">Back</span>
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-bold">Resources</h1>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              {resources.length} link{resources.length !== 1 ? 's' : ''} saved
-              {resources.length > 0 && (
-                <> · {filedCount} in folders · {unfiledCount} unfiled</>
-              )}
-            </p>
-          </div>
-          <Button onClick={() => setIsAddOpen(true)} id="onboarding-add-resource">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Link
-          </Button>
-        </div>
-
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search links by title, URL, or folder..."
-            className="pl-10"
-          />
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground/50" />
-          </div>
-        ) : resources.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Link2 className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground mb-4">
-                No links yet — save websites, docs, articles, and courses here
-              </p>
-              <Button onClick={() => setIsAddOpen(true)}>Add your first link</Button>
-            </CardContent>
-          </Card>
-        ) : visible.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Search className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">No links match &quot;{searchQuery.trim()}&quot;</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {visible.map((resource) => {
-              const host = hostOf(resource.externalId)
-              return (
-                <div key={resource.id} className="relative group">
-                  <Card
-                    className="cursor-pointer hover:shadow-md transition-all h-full"
-                    onClick={() => handleOpen(resource)}
-                  >
-                    <CardContent className="p-0">
-                      <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
-                        <LinkTile host={host} />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                          <ExternalLink className="h-10 w-10 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </div>
-                      <div className="p-3">
-                        <h3 className="font-medium line-clamp-2">{resource.title || host}</h3>
-                        <p className="text-sm text-muted-foreground mt-1 truncate">{host}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                            Link
-                          </Badge>
-                          {resource.folder?.title && (
-                            <span className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                              <FolderOpen className="h-3 w-3" />
-                              {resource.folder.title}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-1 right-1 h-8 w-8 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical className="h-4 w-4 text-white" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenuLabel>Move to folder</DropdownMenuLabel>
-                      {folders.length === 0 ? (
-                        <DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
-                      ) : (
-                        folders.map((folder) => (
-                          <DropdownMenuItem
-                            key={folder.id}
-                            onClick={(e) => handleMoveToFolder(resource, folder.id, e as unknown as React.MouseEvent)}
-                          >
-                            <FolderOpen className="mr-2 h-4 w-4" />
-                            {folder.title}
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                      {resource.folderId && (
-                        <DropdownMenuItem onClick={(e) => handleMoveToFolder(resource, null, e as unknown as React.MouseEvent)}>
-                          <FolderOpen className="mr-2 h-4 w-4" />
-                          Remove from folder
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="bg-destructive text-white focus:bg-destructive/80 focus:text-white"
-                        onClick={(e) => handleDelete(resource, e as unknown as React.MouseEvent)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete Link
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      <AddLinkModal
-        open={isAddOpen}
-        onOpenChange={setIsAddOpen}
-        folders={folders}
-        onAdded={() => {
-          void loadAll()
-          window.dispatchEvent(new CustomEvent('refresh-folders'))
-        }}
-      />
-    </MainLayout>
-  )
-}
-
-// ─── Add Link Modal ───────────────────────────────────────────────
-
-interface AddLinkModalProps {
+function AddLinkDialog({
+  open,
+  onOpenChange,
+  folders,
+  onAdded,
+}: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  folders: Folder[]
-  onAdded: () => void
-}
-
-export function AddLinkModal({ open, onOpenChange, folders, onAdded }: AddLinkModalProps) {
+  folders: FolderLite[]
+  onAdded: () => Promise<void>
+}) {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [folderId, setFolderId] = useState<string>('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [folderId, setFolderId] = useState<string>('none')
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
       setUrl('')
       setTitle('')
       setDescription('')
-      setFolderId('')
+      setFolderId('none')
       setError(null)
     }
   }, [open])
 
-  const submit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-
+    setIsSubmitting(true)
     try {
       const res = await fetch('/api/resources', {
         method: 'POST',
@@ -381,18 +103,18 @@ export function AddLinkModal({ open, onOpenChange, folders, onAdded }: AddLinkMo
           url,
           title: title.trim() || undefined,
           description: description.trim() || undefined,
-          folderId: folderId || null,
+          folderId: folderId === 'none' ? null : folderId,
         }),
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Failed to add link' }))
-        setError(typeof data?.error === 'string' ? data.error : 'Failed to add link')
+        const data = await res.json().catch(() => ({} as Record<string, unknown>))
+        const detail = typeof data?.detail === 'string' ? ` — ${data.detail}` : ''
+        setError(typeof data?.error === 'string' ? `${data.error}${detail}` : 'Failed to add link')
         return
       }
 
-      onOpenChange(false)
-      onAdded()
+      await onAdded()
     } catch {
       setError('Network error — please try again')
     } finally {
@@ -406,16 +128,16 @@ export function AddLinkModal({ open, onOpenChange, folders, onAdded }: AddLinkMo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Resource Link</DialogTitle>
+          <DialogTitle>Add a link</DialogTitle>
           <DialogDescription>
-            Save any website — docs, articles, GitHub repos, courses — to your library.
+            Paste any URL — docs, an article, a GitHub repo, a course page.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="link-url">URL</Label>
+            <Label htmlFor="resource-url">URL</Label>
             <Input
-              id="link-url"
+              id="resource-url"
               placeholder="https://docs.python.org/3/tutorial"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -423,51 +145,372 @@ export function AddLinkModal({ open, onOpenChange, folders, onAdded }: AddLinkMo
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="link-title">Title (optional)</Label>
+            <Label htmlFor="resource-title">Title (optional)</Label>
             <Input
-              id="link-title"
-              placeholder="Python 3 tutorial"
+              id="resource-title"
+              placeholder="Python Tutorial"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="link-desc">Note (optional)</Label>
-            <Input
-              id="link-desc"
+            <Label htmlFor="resource-desc">Description (optional)</Label>
+            <Textarea
+              id="resource-desc"
               placeholder="What is this link for?"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              rows={3}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="link-folder">Folder (optional)</Label>
-            <select
-              id="link-folder"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              value={folderId}
-              onChange={(e) => setFolderId(e.target.value)}
-            >
-              <option value="">No folder (keep on Resources page)</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.title}
-                </option>
-              ))}
-            </select>
-          </div>
+          {folders.length > 0 && (
+            <div className="space-y-2">
+              <Label>Folder</Label>
+              <Select value={folderId} onValueChange={setFolderId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No folder</SelectItem>
+                  {folders.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save Link
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Link'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export default function ResourcesPageClient() {
+  const { status } = useSession()
+  const router = useRouter()
+  const { toast } = useToast()
+
+  const [resources, setResources] = useState<Resource[]>([])
+  const [folders, setFolders] = useState<FolderLite[]>([])
+  // True once real data is on screen (from cache or server). The flash
+  // fix: counts and empty states render only when isReady, never while
+  // the first fetch is in flight.
+  const [isReady, setIsReady] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Resource | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const resourcesRef = useRef<Resource[]>([])
+  const foldersRef = useRef<FolderLite[]>([])
+
+  useEffect(() => {
+    resourcesRef.current = resources
+  }, [resources])
+  useEffect(() => {
+    foldersRef.current = folders
+  }, [folders])
+
+  const persistCache = useCallback(
+    (next: { resources?: Resource[]; folders?: FolderLite[] }) => {
+      writeRouteCache(RESOURCES_CACHE_KEY, {
+        resources: next.resources ?? resourcesRef.current,
+        folders: next.folders ?? foldersRef.current,
+      })
+    },
+    []
+  )
+
+  const applyFetched = useCallback(
+    (nextResources: Resource[], nextFolders: FolderLite[]) => {
+      setResources(nextResources)
+      setFolders(nextFolders)
+      persistCache({ resources: nextResources, folders: nextFolders })
+      setIsReady(true)
+    },
+    [persistCache]
+  )
+
+  const load = useCallback(async () => {
+    const [resRes, folRes] = await Promise.all([
+      fetch('/api/resources'),
+      fetch('/api/folders'),
+    ]).catch(() => [null, null] as const)
+
+    if (resRes?.ok) {
+      const data = await resRes.json().catch(() => null)
+      if (Array.isArray(data)) {
+        const folderList = folRes?.ok
+          ? await folRes.json().catch(() => [] as FolderLite[])
+          : foldersRef.current
+        applyFetched(data as Resource[], Array.isArray(folderList) ? folderList : [])
+        return
+      }
+    }
+    // Fetch failed or returned an unexpected body: stop the loading
+    // state so the page stays usable (retry by navigating). Matches how
+    // the playlists page degrades when the API is unreachable.
+    setIsReady(true)
+  }, [applyFetched])
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login')
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    if (status !== 'authenticated') return
+
+    const entry = readRouteCache<ResourcesCache>(RESOURCES_CACHE_KEY)
+    if (entry?.payload && Array.isArray(entry.payload.resources)) {
+      // Render from cache instantly — the count shown is the real
+      // last-known count, not a false zero — then converge to server
+      // truth in the background.
+      setResources(entry.payload.resources)
+      setFolders(entry.payload.folders || [])
+      setIsReady(true)
+      void load()
+    } else {
+      // First visit ever: skeleton until the fetch lands.
+      void load()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
+
+  // Re-fetch when a link is added from elsewhere (e.g. search page).
+  useEffect(() => {
+    const handler = () => {
+      void load().then(() => {
+        toast({ title: 'Resource saved', description: 'The link is now in your resources.' })
+      })
+    }
+    window.addEventListener('gazefocus:resources-changed', handler)
+    return () => window.removeEventListener('gazefocus:resources-changed', handler)
+  }, [load, toast])
+
+  const refresh = useCallback(async () => {
+    await load()
+    setDialogOpen(false)
+    toast({ title: 'Link saved', description: 'Added to your resources.' })
+  }, [load, toast])
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/resources/${deleteTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('delete failed')
+      const next = resourcesRef.current.filter((r) => r.id !== deleteTarget.id)
+      setResources(next)
+      persistCache({ resources: next })
+      toast({ title: 'Link removed' })
+    } catch {
+      toast({ title: 'Failed to delete link', variant: 'destructive' })
+    } finally {
+      setIsDeleting(false)
+      setDeleteTarget(null)
+    }
+  }, [deleteTarget, persistCache, toast])
+
+  const moveResource = useCallback(
+    async (resource: Resource, folderId: string | null) => {
+      const prev = resourcesRef.current
+      const target = folderId ? foldersRef.current.find((f) => f.id === folderId) : undefined
+      const next = prev.map((r) =>
+        r.id === resource.id
+          ? { ...r, folderId, folder: folderId && target ? { id: folderId, title: target.title } : null }
+          : r
+      )
+      setResources(next)
+      persistCache({ resources: next })
+      try {
+        const res = await fetch(`/api/resources/${resource.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folderId }),
+        })
+        if (!res.ok) throw new Error('move failed')
+        toast({ title: folderId ? 'Moved to folder' : 'Removed from folder' })
+      } catch {
+        setResources(prev)
+        persistCache({ resources: prev })
+        toast({ title: 'Failed to move link', variant: 'destructive' })
+      }
+    },
+    [persistCache, toast]
+  )
+
+  const isLoading = status === 'loading' || (status === 'authenticated' && !isReady)
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    )
+  }
+
+  return (
+    <MainLayout>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')} aria-label="Back to dashboard">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Resources</h1>
+              <p className="text-sm text-muted-foreground">
+                {resources.length} link{resources.length !== 1 ? 's' : ''} saved
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Link
+          </Button>
+        </div>
+
+        {isReady && resources.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-10 text-center">
+            <Globe className="mx-auto h-10 w-10 text-muted-foreground/50" />
+            <p className="mt-3 font-medium">No links yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Use “Add Link” above to save your first website.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {resources.map((resource) => (
+              <Card key={resource.id} className="group transition-shadow hover:shadow-md">
+                <CardContent className="flex gap-3 p-4">
+                  <a
+                    href={resource.externalId}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-muted/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                    aria-label={`Open ${resource.title}`}
+                  >
+                    <Link2 className="h-5 w-5" />
+                  </a>
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={resource.externalId}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block truncate font-medium hover:underline"
+                      title={resource.title}
+                    >
+                      {resource.title || hostOf(resource.externalId)}
+                    </a>
+                    <p className="truncate text-xs text-muted-foreground">{hostOf(resource.externalId)}</p>
+                    {resource.folder && (
+                      <Badge variant="secondary" className="mt-1.5">
+                        {resource.folder.title}
+                      </Badge>
+                    )}
+                    {resource.metadata?.description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">
+                        {resource.metadata.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <a
+                      href={resource.externalId}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label="Open link"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Link actions">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {folders.length > 0 && (
+                          <>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="gap-2">
+                                <FolderOpen className="h-4 w-4" /> Move to folder
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                {folders.map((f) => (
+                                  <DropdownMenuItem key={f.id} onClick={() => moveResource(resource, f.id)}>
+                                    {f.title}
+                                    {resource.folder?.id === f.id && <span className="ml-auto text-primary">✓</span>}
+                                  </DropdownMenuItem>
+                                ))}
+                                {resource.folderId && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => moveResource(resource, null)}>
+                                      Remove from folder
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(resource)}
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AddLinkDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        folders={folders}
+        onAdded={refresh}
+      />
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete this link?</DialogTitle>
+            <DialogDescription>
+              “{deleteTarget?.title}” will be removed from your resources. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </MainLayout>
   )
 }

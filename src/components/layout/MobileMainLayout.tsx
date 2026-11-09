@@ -11,15 +11,15 @@ interface MobileMainLayoutProps {
 }
 
 // Mirrors the desktop sidebar's destinations (dashboard, search (header),
-// calendar, videos, playlists, channels, notes, settings, folders). The
-// header carries search; the nav carries the rest. 8 items in two rows
-// of four keeps every touch target comfortable on small screens.
+// calendar, videos, playlists, resources, channels, notes, settings,
+// folders). The header carries search; the nav carries the rest. 9 items
+// in rows of four keeps every touch target comfortable on small screens.
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/videos', label: 'Videos', icon: Play },
   { href: '/playlists', label: 'Lists', icon: ListVideo },
-  { href: '/folders', label: 'Folders', icon: FolderOpen },
   { href: '/resources', label: 'Links', icon: Link2 },
+  { href: '/folders', label: 'Folders', icon: FolderOpen },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/notes', label: 'Notes', icon: FileText },
   { href: '/channels', label: 'Channels', icon: Users },
@@ -54,10 +54,10 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
                     ? 'videos'
                     : item.href === '/playlists'
                     ? 'playlists'
-                    : item.href === '/folders'
-                    ? 'folders'
                     : item.href === '/resources'
                     ? 'resources'
+                    : item.href === '/folders'
+                    ? 'folders'
                     : item.href === '/calendar'
                     ? 'calendar'
                     : item.href === '/notes'

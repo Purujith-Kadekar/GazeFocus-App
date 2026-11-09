@@ -31,7 +31,7 @@ function normalizeUrl(raw: string): { url: URL | null; normalized: string | null
     url.hash = ''
     // Trim a trailing slash on the root path only — keeps /3/tutorial
     // intact but stores example.com/ and example.com identically.
-    if (url.pathname === '/' ) url.pathname = ''
+    if (url.pathname === '/') url.pathname = ''
     return { url, normalized: url.toString() }
   } catch {
     return { url: null, normalized: null }
@@ -117,6 +117,13 @@ export async function POST(request: NextRequest) {
       .eq('type', 'LINK')
       .eq('externalId', normalized)
       .maybeSingle()
+    if (existing.error) {
+      console.error('Error checking existing resource:', existing.error)
+      return NextResponse.json(
+        { error: 'Failed to save link', detail: dbErrorMessage(existing.error) },
+        { status: 500 }
+      )
+    }
     if (existing.data) {
       return NextResponse.json({ error: 'This link is already in your resources' }, { status: 400 })
     }
@@ -141,12 +148,38 @@ export async function POST(request: NextRequest) {
 
     if (insertError || !item) {
       console.error('Error creating resource:', insertError)
-      return NextResponse.json({ error: 'Failed to save link' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'Failed to save link',
+          detail: insertError ? dbErrorMessage(insertError) : 'Database returned no row',
+        },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ ...item, title: (item as ResourceRow).title || finalTitle }, { status: 201 })
+    return NextResponse.json(
+      { ...item, title: (item as ResourceRow).title || finalTitle },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Error creating resource:', error)
-    return NextResponse.json({ error: 'Failed to save link' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to save link', detail: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
   }
+}
+
+/**
+ * Extract a human-readable message from a Supabase/PostgREST error object.
+ * Surfaced to the client as `detail` next to the generic error string so
+ * schema problems (e.g. a missing enum value or a stale PostgREST schema
+ * cache) are diagnosable from the UI instead of only the server logs.
+ */
+function dbErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const msg = String((err as { message: unknown }).message)
+    if (msg) return msg.slice(0, 300)
+  }
+  return String(err).slice(0, 300)
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Image from '@/components/ui/StableImage'
-import { ArrowLeft, FolderOpen, Play, ListVideo, Trash2, MoreVertical, CheckCircle, Circle, Link2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, FolderOpen, Play, ListVideo, Trash2, MoreVertical, CheckCircle, Circle, Link2 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,15 @@ interface LibraryItemWithDetails extends LibraryItem {
 
 interface FolderDetailClientProps {
   folderId: string
+}
+
+// Hostname for LINK items shown under the title (e.g. docs.python.org).
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }
 
 type FolderDetailCache = {
@@ -158,8 +167,8 @@ export default function FolderDetailClient({
 
   const handleItemClick = (item: LibraryItemWithDetails) => {
     if (item.type === 'LINK') {
-      // externalId of a LINK is the URL — open in a new tab.
-      if (item.externalId) window.open(item.externalId, '_blank', 'noopener,noreferrer')
+      // Saved websites open externally — there is no in-app viewer.
+      window.open(item.externalId, '_blank', 'noopener,noreferrer')
       return
     }
     if (item.type === 'PLAYLIST') {
@@ -171,17 +180,7 @@ export default function FolderDetailClient({
 
   const handleRemoveFromFolder = async (item: LibraryItemWithDetails) => {
     try {
-      if (item.type === 'LINK') {
-        // A LINK's LibraryItem row IS the resource — deleting it would
-        // destroy the saved link. Unfile it instead.
-        await fetch(`/api/resources/${item.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folderId: null }),
-        })
-      } else {
-        await fetch(`/api/library-items/${item.id}`, { method: 'DELETE' })
-      }
+      await fetch(`/api/library-items/${item.id}`, { method: 'DELETE' })
       const nextItems = folderItems.filter(i => i.id !== item.id)
       setFolderItems(nextItems)
       writeRouteCache(cacheKey, {
@@ -190,7 +189,6 @@ export default function FolderDetailClient({
         items: nextItems,
         completedPlaylists: Array.from(completedPlaylists),
       })
-      window.dispatchEvent(new CustomEvent('refresh-resources'))
     } catch (error) {
       console.error('Failed to remove item from folder:', error)
     }
@@ -280,7 +278,7 @@ export default function FolderDetailClient({
                 <FolderOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground">This folder is empty</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Add videos, playlists, or resource links to this folder
+                  Add videos or playlists to this folder from the dashboard
                 </p>
               </CardContent>
             </Card>
@@ -294,12 +292,7 @@ export default function FolderDetailClient({
                   >
                     <CardContent className="p-0">
                       <div className="relative aspect-video rounded-t-lg overflow-hidden bg-muted">
-                        {item.type === 'LINK' ? (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20">
-                            <Link2 className="h-10 w-10 text-blue-500" />
-                            <ExternalLink className="h-4 w-4 text-blue-400 mt-2" />
-                          </div>
-                        ) : item.thumbnail ? (
+                        {item.thumbnail ? (
                           <Image
                             src={item.thumbnail}
                             alt={item.title}
@@ -311,20 +304,22 @@ export default function FolderDetailClient({
                           <div className="w-full h-full flex items-center justify-center">
                             {item.type === 'PLAYLIST' ? (
                               <ListVideo className="h-12 w-12 text-muted-foreground/50" />
+                            ) : item.type === 'LINK' ? (
+                              <Link2 className="h-12 w-12 text-muted-foreground/50" />
                             ) : (
                               <Play className="h-12 w-12 text-muted-foreground/50" />
                             )}
                           </div>
                         )}
-                        {item.type !== 'LINK' && (
-                          <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center">
-                            {item.type === 'PLAYLIST' ? (
-                              <ListVideo className="h-12 w-12 text-white opacity-0 hover:opacity-100 transition-opacity" />
-                            ) : (
-                              <Play className="h-12 w-12 text-white opacity-0 hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                        )}
+                        <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center">
+                          {item.type === 'PLAYLIST' ? (
+                            <ListVideo className="h-12 w-12 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                          ) : item.type === 'LINK' ? (
+                            <Link2 className="h-12 w-12 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                          ) : (
+                            <Play className="h-12 w-12 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                          )}
+                        </div>
                         {item.type === 'PLAYLIST' && completedPlaylists.has(item.externalId) && (
                           <div className="absolute top-2 left-2">
                             <CheckCircle className="h-5 w-5 text-green-500" />
@@ -333,8 +328,8 @@ export default function FolderDetailClient({
                       </div>
                       <div className="p-3">
                         <h3 className="font-medium line-clamp-2">{item.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {item.type === 'PLAYLIST' ? 'Playlist' : item.type === 'LINK' ? 'Resource link' : 'Video'}
+                        <p className="text-sm text-muted-foreground mt-1 truncate">
+                          {item.type === 'PLAYLIST' ? 'Playlist' : item.type === 'LINK' ? hostOf(item.externalId) : 'Video'}
                         </p>
                       </div>
                     </CardContent>

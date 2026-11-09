@@ -26,6 +26,7 @@ import {
   EyeOff,
   Calendar,
   Users,
+  Link2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getDashboardBootstrapCache, isDashboardBootstrapCacheFresh } from '@/lib/dashboard-bootstrap-cache'
@@ -447,6 +448,14 @@ export function Sidebar({ className }: SidebarProps) {
                 collapsed={!isSidebarOpen}
                 href="/channels"
                 active={pathname === '/channels' || pathname.startsWith('/channel/')}
+              />
+              <NavItem
+                id="onboarding-resources"
+                icon={Link2}
+                label="Resources"
+                collapsed={!isSidebarOpen}
+                href="/resources"
+                active={pathname === '/resources' || pathname.startsWith('/resources/')}
               />
               <NavItem
                 id="onboarding-notes"

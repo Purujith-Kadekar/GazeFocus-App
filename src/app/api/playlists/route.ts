@@ -59,10 +59,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Some callers (the Chrome extension's service worker, older clients)
+    // send playlist payloads WITHOUT a `type` field. A PL/UU/OL/FL id is
+    // unambiguous — treat it as a playlist so those calls work instead of
+    // dying on the 11-char video check below.
+    const REAL_PLAYLIST_ID = /^(PL|UU|OL|FL)[A-Za-z0-9_-]{10,}$/
+    const effectiveType =
+      type === 'playlist' || (type !== 'video' && REAL_PLAYLIST_ID.test(String(youtubeId)))
+        ? 'playlist'
+        : (type || 'video')
+
     // Reject non-fetchable "playlists": RD* = auto-generated mixes,
     // WL/LL = private Watch Later / Liked lists. No API can read
     // these, and adding them previously produced garbage entries.
-    if (type === 'playlist' && !/^(PL|UU|OL|FL)[A-Za-z0-9_-]{10,}$/.test(String(youtubeId))) {
+    if (effectiveType === 'playlist' && !REAL_PLAYLIST_ID.test(String(youtubeId))) {
       return NextResponse.json(
         { error: 'This is a YouTube Mix or private list (Watch Later / Liked) and cannot be added. Open the real playlist page and add it from there.' },
         { status: 400 }
@@ -71,14 +81,14 @@ export async function POST(request: NextRequest) {
 
     // Video IDs are exactly 11 chars — mix IDs pasted as videos are
     // the "weird hex garbage" entries.
-    if (type !== 'playlist' && !/^[a-zA-Z0-9_-]{11}$/.test(String(youtubeId))) {
+    if (effectiveType !== 'playlist' && !/^[a-zA-Z0-9_-]{11}$/.test(String(youtubeId))) {
       return NextResponse.json(
         { error: 'Invalid YouTube video ID' },
         { status: 400 }
       )
     }
 
-    if (type === 'playlist') {
+    if (effectiveType === 'playlist') {
       const existingResult = await db.from('Playlist').select('id').eq('youtubeId', youtubeId).eq('userId', userId).maybeSingle()
       if (existingResult.data) {
         return NextResponse.json(
@@ -108,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     // --- PLAYLIST IMPORT ---
-    if (type === 'playlist') {
+    if (effectiveType === 'playlist') {
       let playlistTitle = title || ''
       let playlistDescription = description || ''
       let playlistThumbnail = thumbnail || ''

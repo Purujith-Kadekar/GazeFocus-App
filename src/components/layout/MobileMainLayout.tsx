@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Play, ListVideo, FolderOpen, CalendarDays, Users, Settings, FileText } from 'lucide-react'
+import { LayoutDashboard, Play, ListVideo, FolderOpen, CalendarDays, Users, Settings, FileText, Link2 } from 'lucide-react'
 import { MobileHeader } from './MobileHeader'
 import { MobileFooter } from './MobileFooter'
 
@@ -19,6 +19,7 @@ const navItems = [
   { href: '/videos', label: 'Videos', icon: Play },
   { href: '/playlists', label: 'Lists', icon: ListVideo },
   { href: '/folders', label: 'Folders', icon: FolderOpen },
+  { href: '/resources', label: 'Links', icon: Link2 },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/notes', label: 'Notes', icon: FileText },
   { href: '/channels', label: 'Channels', icon: Users },
@@ -55,6 +56,8 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
                     ? 'playlists'
                     : item.href === '/folders'
                     ? 'folders'
+                    : item.href === '/resources'
+                    ? 'resources'
                     : item.href === '/calendar'
                     ? 'calendar'
                     : item.href === '/notes'

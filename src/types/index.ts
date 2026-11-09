@@ -57,9 +57,29 @@ export interface Channel {
   updatedAt: string
 }
 
-export type LibraryItemType = 'PLAYLIST' | 'VIDEO'
+export type LibraryItemType = 'PLAYLIST' | 'VIDEO' | 'CHANNEL' | 'FOLDER' | 'LINK'
 export type TodoType = 'TASK' | 'PLAN' | 'EVENT'
-export type LibraryItemTypeNew = 'PLAYLIST' | 'VIDEO' | 'CHANNEL'
+export type LibraryItemTypeNew = 'PLAYLIST' | 'VIDEO' | 'CHANNEL' | 'FOLDER' | 'LINK'
+
+/**
+ * A saved website / resource link. Stored as a LibraryItem row with
+ * type='LINK': externalId is the URL (unique per user), metadata carries
+ * { url, description }, and folderId is the folder it is filed under
+ * (null = unfiled, lives only on the Resources page).
+ */
+export interface Resource {
+  id: string
+  userId: string
+  type: 'LINK'
+  externalId: string
+  title: string
+  folderId: string | null
+  metadata: { url?: string; description?: string | null } | null
+  position: number
+  createdAt: string
+  updatedAt: string
+  folder?: { id: string; title: string } | null
+}
 
 export interface AuthUser {
   id: string

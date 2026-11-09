@@ -1065,7 +1065,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      LibraryItemType: "PLAYLIST" | "VIDEO"
+      LibraryItemType: "PLAYLIST" | "VIDEO" | "CHANNEL" | "FOLDER" | "LINK"
       TodoType: "TASK" | "PLAN" | "EVENT"
     }
     CompositeTypes: {
@@ -1194,7 +1194,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      LibraryItemType: ["PLAYLIST", "VIDEO"],
+      LibraryItemType: ["PLAYLIST", "VIDEO", "CHANNEL", "FOLDER", "LINK"],
       TodoType: ["TASK", "PLAN", "EVENT"],
     },
   },

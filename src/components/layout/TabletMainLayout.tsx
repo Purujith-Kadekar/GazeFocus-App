@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Play, ListVideo, CalendarDays, Settings, Tv } from 'lucide-react'
+import { LayoutDashboard, Play, ListVideo, CalendarDays, Settings, Tv, Link2, FolderOpen } from 'lucide-react'
 import { TabletHeader } from './TabletHeader'
 import { TabletFooter } from './TabletFooter'
 
@@ -14,6 +14,8 @@ const navItems = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/videos', label: 'Videos', icon: Play },
   { href: '/playlists', label: 'Lists', icon: ListVideo },
+  { href: '/folders', label: 'Folders', icon: FolderOpen },
+  { href: '/resources', label: 'Links', icon: Link2 },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/channels', label: 'Channels', icon: Tv },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -28,7 +30,7 @@ export function TabletMainLayout({ children }: TabletMainLayoutProps) {
       <TabletHeader />
       <div className="mx-auto w-full max-w-6xl px-5 py-5 pt-16">
         <div className="mb-5 rounded-3xl border border-border bg-card/80 p-2 shadow-sm backdrop-blur">
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {navItems.map((item) => {
               const Icon = item.icon
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`)

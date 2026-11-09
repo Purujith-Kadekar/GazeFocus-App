@@ -77,6 +77,8 @@ export async function GET(
       .filter((item: FolderItemProjection) => {
         if (item.type === 'PLAYLIST') return playlistMap.has(item.externalId)
         if (item.type === 'VIDEO') return videoMap.has(item.externalId)
+        // LINK items have no thumbnail table; keep them as-is.
+        if (item.type === 'LINK') return true
         return false
       })
       .map((item: FolderItemProjection) => {

@@ -143,6 +143,9 @@ export default function SearchPage() {
         apiUrl = '/api/playlists'
         body = {
           youtubeId: itemId,
+          // The API validates playlists by `type`; without it a playlist
+          // ID fails the 11-char video check and the add silently 400s.
+          type: 'playlist',
           title: item.title,
           description: item.description,
           thumbnail: item.thumbnail,
@@ -172,6 +175,7 @@ export default function SearchPage() {
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Failed to add' }))
         console.error('Failed to add:', errorData.error)
+        setSearchError(String(errorData.error || 'Failed to add'))
       }
     } catch (error) {
       console.error('Failed to add:', error)

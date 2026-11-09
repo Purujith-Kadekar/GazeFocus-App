@@ -26,6 +26,7 @@ import { StatsCard } from './StatsCard'
 import { ContinueWatching } from './ContinueWatching'
 import { RecentFolders } from './RecentFolders'
 import { PlaylistsSection } from './PlaylistsSection'
+import { RecentResources } from './RecentResources'
 import { TodoList } from './TodoList'
 import { ReminderDialog } from './ReminderDialog'
 import { QuickAddBar } from '@/components/agent/QuickAddBar'
@@ -234,41 +235,45 @@ export function Dashboard() {
     }
   }, [isLoading, router, folders, playlists, channels, videos])
 
-  useEffect(() => {
-    if (channels.length === 0) return
-    
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch('/api/channels/live-status')
-        if (response.ok) {
-          const data = await response.json()
-          setChannels(prev => prev.map(channel => {
-            const liveStatus = data.channels.find((c: { channelId: string; isLive: boolean }) => c.channelId === channel.id)
-            if (liveStatus) {
-              return {
-                ...channel,
-                isLive: liveStatus.isLive,
-                liveVideoId: liveStatus.liveVideoId,
-                liveTitle: liveStatus.liveTitle,
-              }
-            }
-            return channel
-          }))
-          const currentStats = useDashboardStore.getState().stats
-          if (currentStats) {
-            setStats({
-              ...currentStats,
-              liveChannels: data.liveCount,
-            })
-          }
-        }
-      } catch (error) {
-        console.error('Failed to refresh live status:', error)
-      }
-    }, 60000)
-
-    return () => clearInterval(interval)
-  }, [channels.length])
+  // Live-status refresh: disabled while Channels has no UI on the dashboard
+  // (no card renders, so nothing consumes the result and the 60s poll only
+  // burns requests). The handler below stays wired through props for when
+  // Channels returns — re-enable this effect together with the card JSX.
+  // useEffect(() => {
+  //   if (channels.length === 0) return
+  //
+  //   const interval = setInterval(async () => {
+  //     try {
+  //       const response = await fetch('/api/channels/live-status')
+  //       if (response.ok) {
+  //         const data = await response.json()
+  //         setChannels(prev => prev.map(channel => {
+  //           const liveStatus = data.channels.find((c: { channelId: string; isLive: boolean }) => c.channelId === channel.id)
+  //           if (liveStatus) {
+  //             return {
+  //               ...channel,
+  //               isLive: liveStatus.isLive,
+  //               liveVideoId: liveStatus.liveVideoId,
+  //               liveTitle: liveStatus.liveTitle,
+  //             }
+  //           }
+  //           return channel
+  //         }))
+  //         const currentStats = useDashboardStore.getState().stats
+  //         if (currentStats) {
+  //           setStats({
+  //             ...currentStats,
+  //             liveChannels: data.liveCount,
+  //           })
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to refresh live status:', error)
+  //     }
+  //   }, 60000)
+  //
+  //   return () => clearInterval(interval)
+  // }, [channels.length])
 
   const handleRefreshLiveStatus = async () => {
     setIsRefreshingLive(true)
@@ -737,83 +742,16 @@ export function Dashboard() {
       </div>
 
       <div className="reveal-stagger-item">
+        <RecentResources />
+      </div>
+
+      <div className="reveal-stagger-item">
         <RecentFolders folders={folders} />
       </div>
 
-      {channels.length > 0 && (
-        <Card className="reveal-stagger-item">
-          <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              Your Channels
-              {(stats?.liveChannels ?? 0) > 0 && (
-                <Badge className="bg-red-500 text-white ml-2 animate-pulse">
-                  <Radio className="h-3 w-3 mr-1" />
-                  {stats?.liveChannels} Live
-                </Badge>
-              )}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleRefreshLiveStatus} disabled={isRefreshingLive}>
-                <RefreshCw className={cn('h-4 w-4 mr-1', isRefreshingLive && 'animate-spin')} />
-                {isRefreshingLive ? 'Refreshing...' : 'Check Live'}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => router.push('/channels')}>
-                View All
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {channels.slice(0, 6).map((channel) => (
-                <div
-                  key={channel.id}
-                  className="flex flex-col items-center gap-2 cursor-pointer group"
-                  onClick={() => router.push(`/channel/${channel.id}`)}
-                >
-                  <div className={cn(
-                    'relative w-20 h-20 rounded-full overflow-hidden bg-muted',
-                    channel.isLive && 'ring-4 ring-red-500'
-                  )}>
-                    {channel.thumbnail ? (
-                      <Image
-                        src={channel.thumbnail}
-                        alt={channel.title}
-                        fill
-                        sizes="80px"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Users className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                    )}
-                    {channel.isLive && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <Badge className="bg-red-600 text-white text-[10px] animate-pulse">
-                          <span className="relative flex h-2 w-2 mr-1">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                          </span>
-                          LIVE
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-center line-clamp-2 w-full group-hover:text-primary transition-colors">
-                    {channel.title}
-                  </p>
-                  {channel.isLive && channel.liveTitle && (
-                    <p className="text-xs text-red-500 text-center line-clamp-1 w-full">
-                      {channel.liveTitle}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Channels card intentionally removed — the component code, live
+          refresh handler and props are kept above; restore this block
+          when Channels returns to the dashboard. */}
 
       <Card className="reveal-stagger-item">
         <CardHeader>

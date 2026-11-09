@@ -11,9 +11,11 @@ interface MobileMainLayoutProps {
 }
 
 // Mirrors the desktop sidebar's destinations (dashboard, search (header),
-// calendar, videos, playlists, resources, channels, notes, settings,
-// folders). The header carries search; the nav carries the rest. 9 items
-// in rows of four keeps every touch target comfortable on small screens.
+// calendar, videos, playlists, resources, notes, settings, folders). The
+// header carries search; the nav carries the rest. 8 items in a single
+// row keeps the bottom bar to one line on small screens.
+// Channels is intentionally not listed (the page still exists at
+// /channels); re-add an entry here to restore the shortcut.
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/videos', label: 'Videos', icon: Play },
@@ -22,7 +24,6 @@ const navItems = [
   { href: '/folders', label: 'Folders', icon: FolderOpen },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/notes', label: 'Notes', icon: FileText },
-  { href: '/channels', label: 'Channels', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -38,7 +39,7 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto grid max-w-lg grid-cols-4 gap-1 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto grid max-w-lg grid-cols-8 gap-0.5 px-1 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -62,18 +63,16 @@ export function MobileMainLayout({ children }: MobileMainLayoutProps) {
                     ? 'calendar'
                     : item.href === '/notes'
                     ? 'notes'
-                    : item.href === '/channels'
-                    ? 'channels'
                     : 'settings'
                 }`}
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-medium transition-colors ${
+                className={`flex flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[10px] font-medium leading-tight transition-colors ${
                   active
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
-                <span>{item.label}</span>
+                <span className="w-full truncate text-center">{item.label}</span>
               </Link>
             )
           })}

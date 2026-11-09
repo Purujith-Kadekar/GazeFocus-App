@@ -449,14 +449,9 @@ export function Sidebar({ className }: SidebarProps) {
                 href="/resources"
                 active={pathname === '/resources' || pathname.startsWith('/resources/')}
               />
-              <NavItem
-                id="onboarding-channels"
-                icon={Users}
-                label="Channels"
-                collapsed={!isSidebarOpen}
-                href="/channels"
-                active={pathname === '/channels' || pathname.startsWith('/channel/')}
-              />
+              {/* Channels intentionally has no nav entry (the page still
+                  exists at /channels); re-add a NavItem here to restore
+                  the shortcut. */}
               <NavItem
                 id="onboarding-notes"
                 icon={FileText}

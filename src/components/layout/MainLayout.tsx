@@ -106,7 +106,6 @@ export function MainLayout({ children }: MainLayoutProps) {
       '/videos',
       '/playlists',
       '/resources',
-      '/channels',
       '/notes',
       '/folders',
       '/search',

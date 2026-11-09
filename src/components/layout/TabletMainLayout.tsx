@@ -10,13 +10,14 @@ interface TabletMainLayoutProps {
   children: React.ReactNode
 }
 
+// Channels is intentionally not listed (the page still exists at
+// /channels); re-add an entry here to restore the shortcut.
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/videos', label: 'Videos', icon: Play },
   { href: '/playlists', label: 'Lists', icon: ListVideo },
   { href: '/resources', label: 'Links', icon: Link2 },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/channels', label: 'Channels', icon: Tv },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 

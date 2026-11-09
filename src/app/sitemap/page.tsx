@@ -3,7 +3,7 @@ import Link from 'next/link'
 import {
   Home, Info, CircleHelp, Lock, FileText,
   LogIn, UserPlus, LayoutDashboard, Play, ListVideo,
-  Calendar, StickyNote, Search, Settings, Tv, FolderOpen,
+  Calendar, StickyNote, Search, Settings, Link2, FolderOpen,
 } from 'lucide-react'
 import { Logo } from '@/components/layout/Logo'
 import { SiteFooter } from '@/components/layout/SiteFooter'
@@ -73,11 +73,11 @@ const categories = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, desc: 'Overview & todos'    },
       { label: 'Videos',    href: '/videos',    icon: Play,             desc: 'Your video library'  },
       { label: 'Playlists', href: '/playlists', icon: ListVideo,        desc: 'Collections'         },
+      { label: 'Resources', href: '/resources', icon: Link2,            desc: 'Saved links'         },
       { label: 'Calendar',  href: '/calendar',  icon: Calendar,         desc: 'Study schedule'      },
       { label: 'Notes',     href: '/notes',     icon: StickyNote,       desc: 'Timestamped notes'   },
       { label: 'Search',    href: '/search',    icon: Search,           desc: 'Find anything'       },
       { label: 'Settings',  href: '/settings',  icon: Settings,         desc: 'Preferences'         },
-      { label: 'Channels',  href: '/channels',  icon: Tv,               desc: 'YouTube channels'    },
       { label: 'Folders',   href: '/folders',   icon: FolderOpen,       desc: 'Organise content'    },
     ],
   },

@@ -9,6 +9,7 @@ import DashboardSkeleton from './DashboardSkeleton'
 import { ContinueWatching } from './ContinueWatching'
 import { RecentFolders } from './RecentFolders'
 import { PlaylistsSection } from './PlaylistsSection'
+import { RecentResources } from './RecentResources'
 import { TodoList } from './TodoList'
 import { QuickAddBar } from '@/components/agent/QuickAddBar'
 import { AgentBriefingCard } from '@/components/agent/AgentBriefingCard'
@@ -237,78 +238,15 @@ export function DashboardTablet({
           onPlaylistRemoved={onPlaylistRemoved}
         />
 
+        {/* Resources — before folders, same order as desktop */}
+        <RecentResources />
+
         {/* Folders */}
         <RecentFolders folders={folders} />
 
-        {/* Channels with live status */}
-        {channels.length > 0 && (
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" />
-                Your Channels
-                {(stats?.liveChannels ?? 0) > 0 && (
-                  <Badge className="bg-red-500 text-white ml-2 animate-pulse">
-                    <Radio className="h-3 w-3 mr-1" />
-                    {stats?.liveChannels} Live
-                  </Badge>
-                )}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={onRefreshLiveStatus} disabled={isRefreshingLive}>
-                  <RefreshCw className={cn('h-4 w-4 mr-1', isRefreshingLive && 'animate-spin')} />
-                  {isRefreshingLive ? 'Checking...' : 'Live'}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => router.push('/channels')}>
-                  View All
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                {channels.slice(0, 8).map((channel) => (
-                  <div
-                    key={channel.id}
-                    className="flex flex-col items-center gap-2 cursor-pointer group"
-                    onClick={() => router.push(`/channel/${channel.id}`)}
-                  >
-                    <div className={cn(
-                      'relative w-20 h-20 rounded-full overflow-hidden bg-muted',
-                      channel.isLive && 'ring-4 ring-red-500'
-                    )}>
-                      {channel.thumbnail ? (
-                        <Image
-                          src={channel.thumbnail}
-                          alt={channel.title}
-                          fill
-                          sizes="80px"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Users className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                      )}
-                      {channel.isLive && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <Badge className="bg-red-600 text-white text-[10px] animate-pulse">LIVE</Badge>
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-center line-clamp-2 w-full group-hover:text-primary transition-colors">
-                      {channel.title}
-                    </p>
-                    {channel.isLive && channel.liveTitle && (
-                      <p className="text-xs text-red-500 text-center line-clamp-1 w-full">
-                        {channel.liveTitle}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Channels card intentionally removed — the props are still
+            passed down from Dashboard.tsx; restore this block when
+            Channels returns to the dashboard. */}
 
         {/* Quick actions */}
         <section className="space-y-3">

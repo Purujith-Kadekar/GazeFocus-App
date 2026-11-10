@@ -91,29 +91,48 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Verify ownership before deleting
+    // Verify ownership before deleting. Distinguish "database unreachable"
+    // (503) from "no such video" (404); the old check collapsed both into 404.
     const videoResult = await db.from('Video').select('id, youtubeId').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (videoResult.error) {
+      console.error('Error looking up video for delete:', videoResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     if (!videoResult.data) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 })
     }
 
     const youtubeId = videoResult.data.youtubeId
 
-    // Cascade delete: clean up all related data before deleting the video
-    // Delete notes for this video
-    await db.from('Note').delete().eq('youtubeId', youtubeId).eq('userId', user.id)
+    // Cascade delete: clean up all related data, then the video itself.
+    // All five target tables are independent of each other, so run them in
+    // parallel instead of sequentially — one round-trip instead of five.
+    const [notesResult, progressResult, libByYoutube, libById, videoResult2] = await Promise.all([
+      db.from('Note').delete().eq('youtubeId', youtubeId).eq('userId', user.id),
+      db.from('VideoProgress').delete().eq('youtubeId', youtubeId).eq('userId', user.id),
+      db.from('LibraryItem').delete().eq('externalId', youtubeId).eq('userId', user.id).eq('type', 'VIDEO'),
+      db.from('LibraryItem').delete().eq('externalId', id).eq('userId', user.id),
+      db.from('Video').delete().eq('id', id).eq('userId', user.id).select('id'),
+    ])
 
-    // Delete video progress for this video
-    await db.from('VideoProgress').delete().eq('youtubeId', youtubeId).eq('userId', user.id)
-
-    // Delete library items referencing this video
-    await db.from('LibraryItem').delete().eq('externalId', youtubeId).eq('userId', user.id).eq('type', 'VIDEO')
-
-    // Also delete library items referencing this video by its internal ID (some routes use the DB id)
-    await db.from('LibraryItem').delete().eq('externalId', id).eq('userId', user.id)
-
-    // Finally delete the video
-    await db.from('Video').delete().eq('id', id).eq('userId', user.id)
+    const cascade = [
+      ['notes', notesResult],
+      ['progress', progressResult],
+      ['library items', libByYoutube],
+      ['library items (by id)', libById],
+      ['video', videoResult2],
+    ] as const
+    const failed = cascade.filter(([, r]) => r.error)
+    if (failed.length > 0) {
+      for (const [label, r] of failed) console.error(`Error deleting ${label}:`, r.error)
+      return NextResponse.json({ error: 'Failed to delete video' }, { status: 500 })
+    }
+    // .select('id') above returns the deleted rows; empty means the row was
+    // already gone (deleted concurrently) — report not found, not success.
+    const deletedRows = Array.isArray(videoResult2.data) ? videoResult2.data : (videoResult2.data ? [videoResult2.data] : [])
+    if (deletedRows.length === 0) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

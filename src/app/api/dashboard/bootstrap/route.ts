@@ -83,9 +83,11 @@ export async function GET() {
 
     const userId = user.id
 
-    const streakData = await getCurrentStreak(userId)
-
+    // The streak read used to run sequentially before the main batch,
+    // adding a full round-trip to every request; it is now part of the
+    // parallel fan-out below.
     const [
+      streakData,
       foldersResult,
       videosResult,
       notesResult,
@@ -98,6 +100,7 @@ export async function GET() {
       settingsResult,
       channelsResult,
     ] = await Promise.all([
+      getCurrentStreak(userId),
       db
         .from('Folder')
         .select('id,title,description,position,userId,createdAt,updatedAt,items:LibraryItem(id)')
@@ -133,6 +136,34 @@ export async function GET() {
       db.from('UserSettings').select('id,userId,theme,onboardingCompleted,weeklyGoal,autoPlayNext,defaultPlaybackSpeed,eyeTrackingEnabled,eyeTrackingThreshold,inactivityTimeout,sensitivityMode,soundAlerts,watchBreakEnabled,watchBreakMinutes,watchBreakDurationMinutes,createdAt,updatedAt').eq('userId', userId).maybeSingle(),
       db.from('Channel').select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt').eq('userId', userId).order('createdAt', { ascending: false }),
     ])
+
+    // Honest failure: if any primary query failed, do not fabricate an
+    // all-zero payload — the dashboard would cache it as real data.
+    const primaryErrors: Array<[string, { error: { message: string } | null } | undefined]> = [
+      ['folders', foldersResult],
+      ['videos', videosResult],
+      ['notes', notesResult],
+      ['watch time', watchTimeResult],
+      ['completed videos', completedVideosResult],
+      ['playlists', playlistsResult],
+      ['playlist marks', playlistMarksResult],
+      ['todos', todosResult],
+      ['channels', channelsResult],
+    ]
+    const failed = primaryErrors.filter(([, r]) => (r as { error?: { message: string } | null })?.error)
+    if (failed.length > 0) {
+      for (const [label, r] of failed) {
+        console.error(`Bootstrap: error fetching ${label}:`, (r as { error: { message: string } }).error)
+      }
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503, headers: PRIVATE_NO_STORE_HEADERS })
+    }
+
+    // progressCounts is a nested Promise.all; surface its failures too.
+    const failedCounts = progressCounts.filter((r: unknown) => (r as { error?: { message: string } | null })?.error)
+    if (failedCounts.length > 0) {
+      console.error('Bootstrap: error fetching progress counts:', failedCounts.map((r: unknown) => (r as { error: { message: string } }).error))
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503, headers: PRIVATE_NO_STORE_HEADERS })
+    }
 
     const settings = settingsResult.data || null
 
@@ -178,6 +209,10 @@ export async function GET() {
         .eq('type', 'PLAYLIST')
         .in('externalId', playlists.map((p: { id: string }) => p.id))
 
+      if (libraryItemsResult.error) {
+        console.error('Bootstrap: error fetching playlist folder info:', libraryItemsResult.error)
+        return NextResponse.json({ error: 'Database unavailable' }, { status: 503, headers: PRIVATE_NO_STORE_HEADERS })
+      }
       const folderMap = new Map<string, string | null>(
         (libraryItemsResult.data || []).map((item: { externalId: string; folderId: string | null }) => [item.externalId, item.folderId])
       )

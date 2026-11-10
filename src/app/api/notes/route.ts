@@ -28,6 +28,10 @@ export async function GET(request: NextRequest) {
     }
     
     const notesResult = await query.order('createdAt', { ascending: false })
+    if (notesResult.error) {
+      console.error('Error fetching notes:', notesResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const notes = notesResult.data || []
 
     return NextResponse.json(notes)

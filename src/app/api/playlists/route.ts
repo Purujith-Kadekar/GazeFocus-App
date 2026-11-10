@@ -19,9 +19,17 @@ export async function GET(request: NextRequest) {
       .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,totalVideos,scheduledAt,createdAt,updatedAt,userId')
       .eq('userId', userId)
       .order('createdAt', { ascending: false })
+    if (playlistsResult.error) {
+      console.error('Error fetching playlists:', playlistsResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const playlists = playlistsResult.data || []
 
     const libraryItemsResult = await db.from('LibraryItem').select('externalId, folderId').eq('userId', userId).eq('type', 'PLAYLIST').in('externalId', playlists.map(p => p.id))
+    if (libraryItemsResult.error) {
+      console.error('Error fetching playlist folder info:', libraryItemsResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const libraryItems = libraryItemsResult.data || []
 
     const folderMap = new Map<string, string | null>(libraryItems.map((item: { externalId: string; folderId: string | null }) => [item.externalId, item.folderId]))

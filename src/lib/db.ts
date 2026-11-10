@@ -18,6 +18,16 @@ if (!supabaseKey) {
   )
 }
 
+// Every query used to ride the default undici fetch, which has no timeout:
+// a stalled database (network partition, cold start, rate limit) hung each
+// request until the OS-level TCP timeout fired (~15s+). Route handlers now
+// fail fast instead — DB_TIMEOUT_MS bounds every query.
+const DB_TIMEOUT_MS = Number(process.env.DB_TIMEOUT_MS || 8000)
+
+const timeoutFetch: typeof fetch = (input, init) => {
+  return fetch(input, { ...init, signal: AbortSignal.timeout(DB_TIMEOUT_MS) })
+}
+
 const globalForSupabase = globalThis as unknown as {
   supabase: ReturnType<typeof createClient<Database>> | undefined
 }
@@ -34,6 +44,9 @@ const _db =
       },
       db: {
         schema: 'public',
+      },
+      global: {
+        fetch: timeoutFetch,
       },
     }
   )

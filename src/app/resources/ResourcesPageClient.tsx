@@ -284,7 +284,6 @@ export default function ResourcesPageClient() {
       // First visit ever: skeleton until the fetch lands.
       void load()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
   // Re-fetch when a link is added from elsewhere (e.g. search page).

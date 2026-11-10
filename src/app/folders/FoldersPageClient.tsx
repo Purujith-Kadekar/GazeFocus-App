@@ -130,14 +130,19 @@ export default function FoldersPageClient({ initialFolders }: FoldersPageClientP
   }, [status, router])
 
   const handleDeleteFolder = async (folderId: string) => {
+    const prev = folders
+    // Optimistic update; rolled back if the server rejects the delete.
+    const next = folders.filter(f => f.id !== folderId)
+    setFolders(next)
+    writeRouteCache(FOLDERS_CACHE_KEY, next)
     try {
-      await fetch(`/api/folders/${folderId}`, { method: 'DELETE' })
-      const next = folders.filter(f => f.id !== folderId)
-      setFolders(next)
-      writeRouteCache(FOLDERS_CACHE_KEY, next)
+      const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`delete failed with ${res.status}`)
       window.dispatchEvent(new CustomEvent('refresh-dashboard'))
     } catch (error) {
       console.error('Failed to delete folder:', error)
+      setFolders(prev)
+      writeRouteCache(FOLDERS_CACHE_KEY, prev)
     }
   }
 

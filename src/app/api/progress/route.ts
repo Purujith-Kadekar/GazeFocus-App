@@ -150,11 +150,19 @@ export async function GET(request: NextRequest) {
         .eq('userId', userId)
         .eq('youtubeId', youtubeId)
         .maybeSingle()
+      if (progressResult.error) {
+        console.error('Error fetching progress:', progressResult.error)
+        return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+      }
       return NextResponse.json({ progress: progressResult.data })
     }
 
     // Check if weekly reset is needed
     const userDataResult = await db.from('User').select('currentStreak, longestStreak, weeklyVideosWatched, lastWeeklyReset').eq('id', userId).single()
+    if (userDataResult.error) {
+      console.error('Error fetching user stats:', userDataResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const userData = userDataResult.data
 
     let weeklyVideosWatched = userData?.weeklyVideosWatched || 0

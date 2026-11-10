@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
-import { db } from './db'
+import { isUserBlocked } from './user-block-cache'
 import { jwtVerify } from 'jose'
 import { headers } from 'next/headers'
 
@@ -46,18 +46,10 @@ export async function getCurrentUser() {
       const token = authHeader.substring(7)
       const decoded = await verifyBearerToken(token)
       if (decoded) {
-        try {
-          const blockedResult = await db
-            .from('User')
-            .select('isBlocked')
-            .eq('id', decoded.id)
-            .maybeSingle()
-
-          if (blockedResult.data?.isBlocked) {
-            return null
-          }
-        } catch {
-          // If block check fails, allow the request
+        // Shared TTL cache — the middleware already did this lookup for
+        // page requests; repeating it here added a round-trip per API call.
+        if (await isUserBlocked(decoded.id)) {
+          return null
         }
 
         return {
@@ -79,18 +71,8 @@ export async function getCurrentUser() {
     return null
   }
 
-  try {
-    const blockedResult = await db
-      .from('User')
-      .select('isBlocked')
-      .eq('id', session.user.id)
-      .maybeSingle()
-
-    if (blockedResult.data?.isBlocked) {
-      return null
-    }
-  } catch {
-    // If the block check fails, keep existing behavior instead of hard-failing all requests.
+  if (await isUserBlocked(session.user.id)) {
+    return null
   }
 
   return {

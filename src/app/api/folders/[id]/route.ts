@@ -141,10 +141,41 @@ export async function DELETE(
     }
 
     const { id } = await params
-    
-    await db.from('LibraryItem').delete().eq('folderId', id).eq('userId', user.id)
 
-    await db.from('Folder').delete().eq('id', id).eq('userId', user.id)
+    // Verify ownership before touching data so a foreign id cannot trigger deletes.
+    // Distinguish "database unreachable" (503) from "no such folder" (404):
+    // the old check collapsed both into 404.
+    const { data: folder, error: folderLookupError } = await db
+      .from('Folder')
+      .select('id')
+      .eq('id', id)
+      .eq('userId', user.id)
+      .maybeSingle()
+    if (folderLookupError) {
+      console.error('Error looking up folder for delete:', folderLookupError)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
+    if (!folder) {
+      return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
+    }
+
+    // The two deletes are independent (items reference the folder, not the
+    // other way around), so run them in parallel and check both results —
+    // previously neither was inspected, so a failed delete still returned
+    // success and the folder reappeared on the next reload.
+    const [itemsResult, folderResult] = await Promise.all([
+      db.from('LibraryItem').delete().eq('folderId', id).eq('userId', user.id),
+      db.from('Folder').delete().eq('id', id).eq('userId', user.id),
+    ])
+
+    if (itemsResult.error) {
+      console.error('Error deleting folder items:', itemsResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
+    if (folderResult.error) {
+      console.error('Error deleting folder:', folderResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -50,7 +50,7 @@ export async function GET() {
 
     if (error) {
       console.error('Error fetching activity:', error)
-      return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 })
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
     }
 
     return NextResponse.json({

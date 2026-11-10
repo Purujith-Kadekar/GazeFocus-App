@@ -23,12 +23,16 @@ export async function PATCH(
 
     // Validate the target folder belongs to this user when set.
     if (body.folderId) {
-      const { data: folder } = await db
+      const { data: folder, error: folderLookupError } = await db
         .from('Folder')
         .select('id')
         .eq('id', body.folderId)
         .eq('userId', user.id)
         .maybeSingle()
+      if (folderLookupError) {
+        console.error('Error looking up folder for link move:', folderLookupError)
+        return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+      }
       if (!folder) {
         return NextResponse.json({ error: 'Folder not found' }, { status: 400 })
       }
@@ -88,7 +92,7 @@ export async function DELETE(
 
     if (error) {
       console.error('Error deleting resource:', error)
-      return NextResponse.json({ error: 'Failed to delete link' }, { status: 500 })
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
     }
     if (!data) {
       return NextResponse.json({ error: 'Link not found' }, { status: 404 })

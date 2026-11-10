@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
       .select('id,userId,type,externalId,title,folderId,metadata,position,createdAt,updatedAt')
       .eq('userId', user.id)
       .order('createdAt', { ascending: false })
+    if (itemsResult.error) {
+      console.error('Error fetching library items:', itemsResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const items = itemsResult.data || []
 
     return NextResponse.json(items)

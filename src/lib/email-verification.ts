@@ -29,27 +29,47 @@ export function isValidEmailFormat(email: string): boolean {
   return EMAIL_FORMAT_REGEX.test(email)
 }
 
+// DNS in sandboxes/corporate networks can hang for seconds; bound it so
+// signup never stalls on the MX probe. On timeout or resolver error the
+// check fails OPEN (signup proceeds) — the OTP e-mail itself is still the
+// real verification gate, so a blocked resolver must not lock people out.
+const DNS_LOOKUP_TIMEOUT_MS = 2000
+
 export async function hasDeliverableDomain(email: string): Promise<boolean> {
   const domain = email.split('@')[1]
   if (!domain) {
     return false
   }
 
-  try {
-    const mxRecords = await dns.resolveMx(domain)
-    if (mxRecords.length > 0) {
-      return true
+  const lookup = (async () => {
+    try {
+      const mxRecords = await dns.resolveMx(domain)
+      if (mxRecords.length > 0) {
+        return true
+      }
+    } catch {
+      // Try A record lookup as fallback.
     }
-  } catch {
-    // Try A record lookup as fallback.
-  }
 
-  try {
-    const aRecords = await dns.resolve4(domain)
-    return aRecords.length > 0
-  } catch {
-    return false
+    try {
+      const aRecords = await dns.resolve4(domain)
+      return aRecords.length > 0
+    } catch {
+      return false
+    }
+  })()
+
+  const TIMED_OUT = Symbol('dns-timeout')
+  const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
+    setTimeout(() => resolve(TIMED_OUT), DNS_LOOKUP_TIMEOUT_MS)
+  })
+
+  const result = await Promise.race([lookup, timeout])
+  if (result === TIMED_OUT) {
+    console.warn(`[Signup] DNS deliverability check timed out for ${domain}; allowing signup`)
+    return true
   }
+  return result
 }
 
 export function generateOtpCode(): string {

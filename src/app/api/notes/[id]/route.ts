@@ -21,6 +21,10 @@ export async function PUT(
     }
 
     const existingResult = await db.from('Note').select('id').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (existingResult.error) {
+      console.error('Error looking up note for update:', existingResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     if (!existingResult.data) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
@@ -59,12 +63,21 @@ export async function DELETE(
 
     const { id } = await params
 
+    // Distinguish "database unreachable" (503) from "no such note" (404).
     const existingResult = await db.from('Note').select('id').eq('id', id).eq('userId', user.id).maybeSingle()
+    if (existingResult.error) {
+      console.error('Error looking up note for delete:', existingResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     if (!existingResult.data) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 })
     }
 
-    await db.from('Note').delete().eq('id', id)
+    const deleteResult = await db.from('Note').delete().eq('id', id).eq('userId', user.id)
+    if (deleteResult.error) {
+      console.error('Error deleting note:', deleteResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

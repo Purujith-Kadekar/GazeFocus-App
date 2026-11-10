@@ -9,10 +9,19 @@ import { QuotaEngine, isQuotaExhausted } from '@/lib/youtube/quota-engine'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+// Bound queries like the shared client in src/lib/db.ts.
+const DB_TIMEOUT_MS = Number(process.env.DB_TIMEOUT_MS || 8000)
+const timeoutFetch: typeof fetch = (input, init) => {
+  return fetch(input, { ...init, signal: AbortSignal.timeout(DB_TIMEOUT_MS) })
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
+  },
+  global: {
+    fetch: timeoutFetch,
   },
 })
 
@@ -58,29 +67,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: channels } = await supabase
+    const { data: channels, error: channelsError } = await supabase
       .from('Channel')
       .select('id,userId,youtubeId,title,description,thumbnail,subscriberCount,videoCount,isLive,liveVideoId,liveTitle,createdAt,updatedAt')
       .eq('userId', user.id)
 
+    if (channelsError) {
+      console.error('Error fetching channels for live status:', channelsError)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
+
     const channelsList = channels || []
     const liveStatuses: Array<{ channelId: string; isLive: boolean; liveVideoId: string | null; liveTitle: string | null }> = []
-    let liveCount = 0
 
-    for (const channel of channelsList) {
-      const status = await checkLiveStatus(channel.youtubeId)
-
-      await updateChannelLiveStatus(channel.id, status.isLive, status.liveVideoId, status.liveTitle)
-
-      liveStatuses.push({
-        channelId: channel.id,
-        ...status,
+    // Per-channel work is independent — process all channels in parallel
+    // instead of a sequential loop, so N channels cost one round-trip of
+    // wall-clock time instead of N.
+    const statuses = await Promise.all(
+      channelsList.map(async (channel) => {
+        const status = await checkLiveStatus(channel.youtubeId)
+        // Status write is best-effort: the cached read already decided the
+        // answer, a failed write must not fail the whole response.
+        try {
+          await updateChannelLiveStatus(channel.id, status.isLive, status.liveVideoId, status.liveTitle)
+        } catch (writeError) {
+          console.error(`Failed to persist live status for channel ${channel.id}:`, writeError)
+        }
+        return { channelId: channel.id, ...status }
       })
+    )
 
-      if (status.isLive) {
-        liveCount++
-      }
-    }
+    const liveCount = statuses.filter((s) => s.isLive).length
+    liveStatuses.push(...statuses)
 
     return NextResponse.json({
       channels: liveStatuses,

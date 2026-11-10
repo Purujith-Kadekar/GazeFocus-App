@@ -102,16 +102,20 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching videos:', error)
-      return NextResponse.json({ error: 'Failed to fetch videos', details: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
     }
 
     if (videos && videos.length > 0 && !standaloneOnly) {
       const playlistIds = videos.map(v => v.playlistId).filter((id): id is string => id !== null)
       if (playlistIds.length > 0) {
-        const { data: playlists } = await db
+        const { data: playlists, error: playlistError } = await db
           .from('Playlist')
           .select('id,youtubeId,title,description,thumbnail,channelId,channelName,totalDuration,scheduledAt,createdAt,updatedAt,userId')
           .in('id', playlistIds)
+        if (playlistError) {
+          console.error('Error fetching playlist info for videos:', playlistError)
+          return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+        }
         const playlistMap = new Map<string, { id: string; youtubeId: string; title: string; description: string | null; thumbnail: string | null; channelId: string | null; channelName: string | null; totalDuration: number; scheduledAt: string | null; createdAt: string; updatedAt: string; userId: string }>((playlists || []).map((p: { id: string }) => [p.id, p as never]))
         const enrichedVideos = videos.map(v => ({
           ...v,

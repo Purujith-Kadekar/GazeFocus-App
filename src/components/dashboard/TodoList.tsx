@@ -361,9 +361,9 @@ function UnifiedTodoItem({
 
   const handleAction = () => {
     if (item.type === 'VIDEO') {
-      router.push(`/watch?v=${(item.originalItem as Video).youtubeId}`)
+      router.push(`/video/${(item.originalItem as Video).youtubeId}`)
     } else if (item.type === 'PLAYLIST') {
-      router.push(`/playlist/${(item.originalItem as Playlist).youtubeId}`)
+      router.push(`/playlist/${(item.originalItem as Playlist).id}`)
     }
   }
 

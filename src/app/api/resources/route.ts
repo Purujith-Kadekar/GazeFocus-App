@@ -58,6 +58,17 @@ export async function GET() {
       db.from('Folder').select('id,title').eq('userId', user.id).order('position', { ascending: true }),
     ])
 
+    // A failed query must not masquerade as "no links" — the client would
+    // cache the empty list and show a false zero state while the DB is down.
+    if (itemsResult.error) {
+      console.error('Error fetching resources:', itemsResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
+    if (foldersResult.error) {
+      console.error('Error fetching folders for resources:', foldersResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
+
     const items = (itemsResult.data || []) as ResourceRow[]
     const folders = (foldersResult.data || []) as Folder[]
     const folderMap = new Map(folders.map((f) => [f.id, f.title]))

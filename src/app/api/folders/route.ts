@@ -12,6 +12,10 @@ export async function GET() {
     const userId = user.id
 
     const foldersResult = await db.from('Folder').select('id,title,description,position,userId,createdAt,updatedAt,items:LibraryItem(id)').eq('userId', userId).order('position', { ascending: true })
+    if (foldersResult.error) {
+      console.error('Error fetching folders:', foldersResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const folders = (foldersResult.data || [])
       // Defensive: never let a row without a usable id reach the client —
       // that's what was crashing every folders.map(f => f.id) on the frontend.

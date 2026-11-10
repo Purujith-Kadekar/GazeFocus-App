@@ -349,7 +349,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching channels:', error)
-      return NextResponse.json({ error: 'Failed to fetch channels', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
     }
 
     return NextResponse.json(channels || [])

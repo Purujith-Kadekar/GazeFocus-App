@@ -11,13 +11,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: todos } = await db
+    const todosResult = await db
       .from('Todo')
       .select('id,text,type,completed,reminderAt,deadlineAt,isInFocus,source,createdAt,updatedAt,userId')
       .eq('userId', user.id)
       .order('createdAt', { ascending: false })
 
-    return NextResponse.json(todos || [])
+    if (todosResult.error) {
+      console.error('Error fetching todos:', todosResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
+
+    return NextResponse.json(todosResult.data || [])
   } catch (error) {
     console.error('Error fetching todos:', error)
     return NextResponse.json({ error: 'Failed to fetch todos' }, { status: 500 })

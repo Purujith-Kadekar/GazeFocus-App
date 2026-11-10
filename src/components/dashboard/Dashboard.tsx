@@ -314,7 +314,8 @@ export function Dashboard() {
 
   const handleDeleteNote = async (noteId: string) => {
     try {
-      await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('delete failed')
       const newNotes = notes.filter(n => n.id !== noteId)
       setNotes(newNotes)
       setImportantNotes(newNotes.filter((n: Note) => n.isImportant).slice(0, 4))
@@ -343,7 +344,7 @@ export function Dashboard() {
 
   const handleNoteClick = (note: Note) => {
     if (note.youtubeId) {
-      router.push(`/watch?v=${note.youtubeId}&t=${note.timestampSeconds || 0}`)
+      router.push(`/video/${note.youtubeId}`)
     }
   }
 

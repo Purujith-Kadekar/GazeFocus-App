@@ -137,80 +137,84 @@ const REQUEST_TIMEOUT_MS = 8000
 export async function fetchPlaylistFromInvidious(
   playlistId: string
 ): Promise<{ info: AltPlaylistInfo; videos: AltPlaylistVideo[] } | null> {
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      const allVideos: AltPlaylistVideo[] = []
-      let page = 1
-      let playlistTitle = ''
-      let playlistDescription = ''
-      let playlistThumbnail = ''
-      let playlistVideoCount = 0
-      let playlistAuthor = ''
+  // Instances were tried one-by-one: with 6 mirrors and an 8s timeout each,
+  // a sync could stall ~48s before reaching the fallback. All mirrors race
+  // in parallel now; the first healthy one wins, the rest are ignored.
+  const attempts = INVIDIOUS_INSTANCES.map(async (instance) => {
+    const allVideos: AltPlaylistVideo[] = []
+    let page = 1
+    let playlistTitle = ''
+    let playlistDescription = ''
+    let playlistThumbnail = ''
+    let playlistVideoCount = 0
+    let playlistAuthor = ''
 
-      while (true) {
-        const res = await fetch(
-          `${instance}/api/v1/playlists/${playlistId}?page=${page}`,
-          { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
-        )
+    while (true) {
+      const res = await fetch(
+        `${instance}/api/v1/playlists/${playlistId}?page=${page}`,
+        { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
+      )
 
-        if (!res.ok) {
-          // Instance might not have this playlist or is broken; try next instance
-          break
-        }
-
-        const data = (await res.json()) as InvidiousPlaylistPage
-
-        if (page === 1) {
-          playlistTitle = data.title || ''
-          playlistDescription = data.description || ''
-          playlistThumbnail = data.thumbnail || ''
-          playlistVideoCount = data.videoCount || 0
-          playlistAuthor = data.author || ''
-        }
-
-        const videos = data.videos || []
-        if (videos.length === 0) break
-
-        for (const v of videos) {
-          allVideos.push({
-            youtubeId: v.videoId || '',
-            title: v.title || 'Unknown',
-            description: v.description || '',
-            // Instances send relative / instance-hosted thumbnail URLs that the
-            // image optimizer rejects (400) — derive a loadable one from the id.
-            thumbnail: normalizeVideoThumbnail(
-              v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
-                v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
-              v.videoId
-            ),
-            duration: v.lengthSeconds || 0,
-            position: (page - 1) * 100 + allVideos.length,
-            author: v.author || '',
-          })
-        }
-
-        // Invidious returns 100 per page; if fewer, we're done
-        if (videos.length < 100) break
-        page++
+      if (!res.ok) {
+        throw new Error(`instance responded ${res.status}`)
       }
 
-      if (allVideos.length === 0) continue // try next instance
+      const data = (await res.json()) as InvidiousPlaylistPage
 
-      return {
-        info: {
-          title: playlistTitle,
-          description: playlistDescription,
-          thumbnail: normalizeVideoThumbnail(playlistThumbnail, allVideos[0]?.youtubeId),
-          videoCount: playlistVideoCount,
-          author: playlistAuthor,
-        },
-        videos: allVideos,
+      if (page === 1) {
+        playlistTitle = data.title || ''
+        playlistDescription = data.description || ''
+        playlistThumbnail = data.thumbnail || ''
+        playlistVideoCount = data.videoCount || 0
+        playlistAuthor = data.author || ''
       }
-    } catch {
-      continue // instance down, try next
+
+      const videos = data.videos || []
+      if (videos.length === 0) break
+
+      for (const v of videos) {
+        allVideos.push({
+          youtubeId: v.videoId || '',
+          title: v.title || 'Unknown',
+          description: v.description || '',
+          // Instances send relative / instance-hosted thumbnail URLs that the
+          // image optimizer rejects (400) — derive a loadable one from the id.
+          thumbnail: normalizeVideoThumbnail(
+            v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
+              v.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
+            v.videoId
+          ),
+          duration: v.lengthSeconds || 0,
+          position: (page - 1) * 100 + allVideos.length,
+          author: v.author || '',
+        })
+      }
+
+      // Invidious returns 100 per page; if fewer, we're done
+      if (videos.length < 100) break
+      page++
     }
-  }
-  return null // all instances failed
+
+    if (allVideos.length === 0) throw new Error('empty playlist from instance')
+
+    return {
+      info: {
+        title: playlistTitle,
+        description: playlistDescription,
+        thumbnail: normalizeVideoThumbnail(playlistThumbnail, allVideos[0]?.youtubeId),
+        videoCount: playlistVideoCount,
+        author: playlistAuthor,
+      },
+      videos: allVideos,
+    }
+  })
+
+  const winners = await Promise.allSettled(attempts)
+  const firstOk = winners.find(
+    (r): r is PromiseFulfilledResult<{ info: AltPlaylistInfo; videos: AltPlaylistVideo[] }> =>
+      r.status === 'fulfilled'
+  )
+  return firstOk ? firstOk.value : null
 }
 
 /**
@@ -220,55 +224,59 @@ export async function fetchPlaylistFromInvidious(
 export async function fetchPlaylistFromPiped(
   playlistId: string
 ): Promise<{ info: AltPlaylistInfo; videos: AltPlaylistVideo[] } | null> {
-  for (const instance of PIPED_INSTANCES) {
-    try {
-      const res = await fetch(
-        `${instance}/playlists/${playlistId}`,
-        { signal: AbortSignal.timeout(15000) }
-      )
+  // Same parallel race as the Invidious fetch above: first healthy
+  // instance wins instead of walking the list sequentially.
+  const attempts = PIPED_INSTANCES.map(async (instance) => {
+    const res = await fetch(
+      `${instance}/playlists/${playlistId}`,
+      { signal: AbortSignal.timeout(15000) }
+    )
 
-      if (!res.ok) continue
+    if (!res.ok) throw new Error(`instance responded ${res.status}`)
 
-      const data = (await res.json()) as PipedPlaylist
+    const data = (await res.json()) as PipedPlaylist
 
-      const relatedStreams = data.relatedStreams || []
-      if (relatedStreams.length === 0) continue
+    const relatedStreams = data.relatedStreams || []
+    if (relatedStreams.length === 0) throw new Error('empty playlist from instance')
 
-      const videos: AltPlaylistVideo[] = relatedStreams.map(
-        (v: NonNullable<PipedPlaylist['relatedStreams']>[number], index: number) => ({
-          youtubeId: (v.url || '').replace('/watch?v=', ''),
-          title: v.title || 'Unknown',
-          description: '',
-          thumbnail: normalizeVideoThumbnail(
-            v.thumbnail,
-            (v.url || '').replace('/watch?v=', '')
-          ),
-          duration: v.duration || 0,
-          position: index,
-          author: v.uploaderName || '',
-        })
-      )
+    const videos: AltPlaylistVideo[] = relatedStreams.map(
+      (v: NonNullable<PipedPlaylist['relatedStreams']>[number], index: number) => ({
+        youtubeId: (v.url || '').replace('/watch?v=', ''),
+        title: v.title || 'Unknown',
+        description: '',
+        thumbnail: normalizeVideoThumbnail(
+          v.thumbnail,
+          (v.url || '').replace('/watch?v=', '')
+        ),
+        duration: v.duration || 0,
+        position: index,
+        author: v.uploaderName || '',
+      })
+    )
 
-      // Filter out videos without valid IDs
-      const validVideos = videos.filter((v) => v.youtubeId && v.youtubeId.length > 0)
+    // Filter out videos without valid IDs
+    const validVideos = videos.filter((v) => v.youtubeId && v.youtubeId.length > 0)
 
-      if (validVideos.length === 0) continue
+    if (validVideos.length === 0) throw new Error('no valid videos from instance')
 
-      return {
-        info: {
-          title: data.name || '',
-          description: '',
-          thumbnail: normalizeVideoThumbnail(data.thumbnail, validVideos[0]?.youtubeId),
-          videoCount: data.videoCount || validVideos.length,
-          author: data.uploader || '',
-        },
-        videos: validVideos,
-      }
-    } catch {
-      continue
+    return {
+      info: {
+        title: data.name || '',
+        description: '',
+        thumbnail: normalizeVideoThumbnail(data.thumbnail, validVideos[0]?.youtubeId),
+        videoCount: data.videoCount || validVideos.length,
+        author: data.uploader || '',
+      },
+      videos: validVideos,
     }
-  }
-  return null
+  })
+
+  const winners = await Promise.allSettled(attempts)
+  const firstOk = winners.find(
+    (r): r is PromiseFulfilledResult<{ info: AltPlaylistInfo; videos: AltPlaylistVideo[] }> =>
+      r.status === 'fulfilled'
+  )
+  return firstOk ? firstOk.value : null
 }
 
 /**
@@ -278,35 +286,35 @@ export async function fetchPlaylistFromPiped(
 export async function fetchVideoFromInvidious(
   videoId: string
 ): Promise<AltPlaylistVideo | null> {
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      const res = await fetch(
-        `${instance}/api/v1/videos/${videoId}`,
-        { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
-      )
+  // Parallel race across mirrors; first healthy response wins.
+  const attempts = INVIDIOUS_INSTANCES.map(async (instance) => {
+    const res = await fetch(
+      `${instance}/api/v1/videos/${videoId}`,
+      { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
+    )
 
-      if (!res.ok) continue
+    if (!res.ok) throw new Error(`instance responded ${res.status}`)
 
-      const data = (await res.json()) as InvidiousVideoDetails
+    const data = (await res.json()) as InvidiousVideoDetails
 
-      return {
-        youtubeId: data.videoId || videoId,
-        title: data.title || 'Unknown',
-        description: data.description || '',
-        thumbnail: normalizeVideoThumbnail(
-          data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
-            data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
-          videoId
-        ),
-        duration: data.lengthSeconds || 0,
-        position: 0,
-        author: data.author || '',
-      }
-    } catch {
-      continue
+    return {
+      youtubeId: data.videoId || videoId,
+      title: data.title || 'Unknown',
+      description: data.description || '',
+      thumbnail: normalizeVideoThumbnail(
+        data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'maxres')?.url ||
+          data.videoThumbnails?.find((t: AltThumbnail) => t.quality === 'medium')?.url,
+        videoId
+      ),
+      duration: data.lengthSeconds || 0,
+      position: 0,
+      author: data.author || '',
     }
-  }
-  return null
+  })
+
+  const winners = await Promise.allSettled(attempts)
+  const firstOk = winners.find((r): r is PromiseFulfilledResult<AltPlaylistVideo> => r.status === 'fulfilled')
+  return firstOk ? firstOk.value : null
 }
 
 /**
@@ -315,31 +323,30 @@ export async function fetchVideoFromInvidious(
 export async function fetchVideoFromPiped(
   videoId: string
 ): Promise<AltPlaylistVideo | null> {
-  for (const instance of PIPED_INSTANCES) {
-    try {
-      const res = await fetch(
-        `${instance}/streams/${videoId}`,
-        { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
-      )
+  const attempts = PIPED_INSTANCES.map(async (instance) => {
+    const res = await fetch(
+      `${instance}/streams/${videoId}`,
+      { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
+    )
 
-      if (!res.ok) continue
+    if (!res.ok) throw new Error(`instance responded ${res.status}`)
 
-      const data = (await res.json()) as PipedVideoDetails
+    const data = (await res.json()) as PipedVideoDetails
 
-      return {
-        youtubeId: videoId,
-        title: data.title || 'Unknown',
-        description: data.description || '',
-        thumbnail: normalizeVideoThumbnail(data.thumbnail, videoId),
-        duration: data.duration || 0,
-        position: 0,
-        author: data.uploader || '',
-      }
-    } catch {
-      continue
+    return {
+      youtubeId: videoId,
+      title: data.title || 'Unknown',
+      description: data.description || '',
+      thumbnail: normalizeVideoThumbnail(data.thumbnail, videoId),
+      duration: data.duration || 0,
+      position: 0,
+      author: data.uploader || '',
     }
-  }
-  return null
+  })
+
+  const winners = await Promise.allSettled(attempts)
+  const firstOk = winners.find((r): r is PromiseFulfilledResult<AltPlaylistVideo> => r.status === 'fulfilled')
+  return firstOk ? firstOk.value : null
 }
 
 /**
@@ -467,43 +474,54 @@ export async function searchFromInvidious(
     }
   }
 
-  // Try each instance with PARALLEL type searches for better performance
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      // Run all type searches in parallel (instead of sequential)
-      const typeResults = await Promise.allSettled(
-        typesToSearch.map((searchType) => searchTypeOnInstance(instance, searchType))
-      )
+  // Race all instances in parallel; per instance the type searches run in
+  // parallel too (kept from before). First instance with any results wins.
+  const instanceAttempts = INVIDIOUS_INSTANCES.map(async (instance) => {
+    const typeResults = await Promise.allSettled(
+      typesToSearch.map((searchType) => searchTypeOnInstance(instance, searchType))
+    )
 
-      const allResults: Array<{
-        id: string
-        type: 'video' | 'playlist' | 'channel'
-        title: string
-        description: string
-        thumbnail: string
-        channelTitle: string
-        channelId: string
-        publishedAt: string
-        duration?: string
-        videoCount?: number
-        subscriberCount?: string
-      }> = []
+    const allResults: Array<{
+      id: string
+      type: 'video' | 'playlist' | 'channel'
+      title: string
+      description: string
+      thumbnail: string
+      channelTitle: string
+      channelId: string
+      publishedAt: string
+      duration?: string
+      videoCount?: number
+      subscriberCount?: string
+    }> = []
 
-      for (const result of typeResults) {
-        if (result.status === 'fulfilled' && result.value.length > 0) {
-          allResults.push(...result.value)
-        }
+    for (const result of typeResults) {
+      if (result.status === 'fulfilled' && result.value.length > 0) {
+        allResults.push(...result.value)
       }
-
-      // Only return if we got results for ALL requested types (or at least some)
-      if (allResults.length > 0) {
-        return allResults
-      }
-    } catch {
-      continue // instance down, try next
     }
-  }
-  return null // all instances failed
+
+    if (allResults.length === 0) throw new Error('no results from instance')
+    return allResults
+  })
+
+  const winners = await Promise.allSettled(instanceAttempts)
+  const firstOk = winners.find(
+    (r): r is PromiseFulfilledResult<Array<{
+      id: string
+      type: 'video' | 'playlist' | 'channel'
+      title: string
+      description: string
+      thumbnail: string
+      channelTitle: string
+      channelId: string
+      publishedAt: string
+      duration?: string
+      videoCount?: number
+      subscriberCount?: string
+    }>> => r.status === 'fulfilled'
+  )
+  return firstOk ? firstOk.value : null
 }
 
 /**

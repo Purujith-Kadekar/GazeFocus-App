@@ -320,8 +320,16 @@ export function Sidebar({ className }: SidebarProps) {
   const handleItemClick = (item: LibraryItem) => {
     if (item.type === 'PLAYLIST') {
       router.push(`/playlist/${item.externalId}`)
-    } else {
-      router.push(`/watch?v=${item.externalId}`)
+    } else if (item.type === 'VIDEO') {
+      router.push(`/video/${item.externalId}`)
+    } else if (item.type === 'CHANNEL') {
+      router.push(`/channel/${item.externalId}`)
+    } else if (item.type === 'FOLDER') {
+      router.push(`/folders/${item.externalId}`)
+    } else if (item.type === 'LINK') {
+      // Saved websites open externally; externalId is the normalized URL.
+      const url = item.externalId?.startsWith('http') ? item.externalId : `https://${item.externalId}`
+      window.open(url, '_blank', 'noopener,noreferrer')
     }
   }
 

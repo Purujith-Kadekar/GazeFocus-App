@@ -15,6 +15,10 @@ export async function GET() {
       .or(`userId.eq.${user.id},global.eq.true`)
       .order('createdAt', { ascending: false })
       .limit(20)
+    if (notificationsResult.error) {
+      console.error('Error fetching notifications:', notificationsResult.error)
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     const notifications = notificationsResult.data || []
 
     return NextResponse.json(notifications)
